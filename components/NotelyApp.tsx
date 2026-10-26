@@ -615,7 +615,15 @@ export default function NotelyApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, body })
       })
-      const data = await response.json()
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const message = response.status === 503
+          ? '✦ AI summaries are paused for now.'
+          : (typeof data.error === 'string' ? data.error : '✦ Could not generate summary. Try again.')
+        setAiStatus(message)
+        setTimeout(() => setAiStatus(''), 4000)
+        return
+      }
       const summary = data.summary || 'Could not generate summary.'
       const newBody = body + '\n\n─── AI Summary ───\n' + summary
       setBody(newBody)

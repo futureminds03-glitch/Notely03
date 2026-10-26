@@ -4,7 +4,11 @@ export async function POST(request: Request) {
   try {
     const { title, body } = await request.json()
 
-    if (!body?.trim()) {
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ error: 'AI summaries are not enabled yet.' }, { status: 503 })
+    }
+
+    if (typeof body !== 'string' || !body.trim()) {
       return NextResponse.json({ error: 'No content' }, { status: 400 })
     }
 
