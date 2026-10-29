@@ -154,6 +154,9 @@ test('private APIs reject anonymous access and link previews block local targets
     'http://[::1]/',
     'http://localhost/',
     'http://example.com:8080/',
+    'https://example.com:80/',
+    'http://example.com:443/',
+    'https://user:pass@example.com/',
     'file:///etc/passwd',
   ]) {
     const previewResponse = await request.post('/api/link-preview', { data: { url } })
