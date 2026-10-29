@@ -217,18 +217,25 @@ function Editor({
       {history.length > 0 && (
         <div className="time-travel-bar">
           <span className="tt-label">Time Travel</span>
-          <input
-            type="range"
-            className="tt-scrubber"
-            min={0}
-            max={Math.max(0, history.length - 1)}
-            value={travelIndex >= 0 ? travelIndex : Math.max(0, history.length - 1)}
-            style={{
-              background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%, var(--line) ${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%, var(--line) 100%)`
-            }}
-            onChange={e => onTravel(parseInt(e.target.value))}
-            aria-label="Time travel history"
-          />
+          <div className="tt-scrubber-wrap">
+            <input
+              type="range"
+              className="tt-scrubber"
+              min={0}
+              max={Math.max(0, history.length - 1)}
+              value={travelIndex >= 0 ? travelIndex : Math.max(0, history.length - 1)}
+              style={{
+                background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%, var(--line) ${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%, var(--line) 100%)`
+              }}
+              onChange={e => onTravel(parseInt(e.target.value))}
+              aria-label="Time travel history"
+            />
+            <span
+              className="tt-liquid-thumb"
+              aria-hidden="true"
+              style={{ left: `${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%` }}
+            />
+          </div>
           <span className="tt-time">
             {travelIndex >= 0 && history[travelIndex]
               ? fmtShortTime(history[travelIndex].timestamp)
