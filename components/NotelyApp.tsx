@@ -382,7 +382,18 @@ export default function NotelyApp() {
     if (saveTimer.current) {
       clearTimeout(saveTimer.current)
       saveTimer.current = null
-      if (previousId && !previousId.startsWith('temp-')) {
+      if (previousId?.startsWith('temp-') && !userRef.current) {
+        // Guest notes have no server to flush to; synchronously persist the latest draft
+        // before changing active IDs so a batched React update cannot replace it with stale state.
+        const draft = activeDraftRef.current
+        const flushed = notesRef.current.map(existing => existing.id === previousId
+          ? { ...existing, ...draft, updated_at: new Date().toISOString(), synced: false }
+          : existing
+        )
+        notesRef.current = flushed
+        setNotes(flushed)
+        saveGuest(flushed)
+      } else if (previousId && !previousId.startsWith('temp-')) {
         void doSave(previousId, activeDraftRef.current.title, activeDraftRef.current.body, startedAtRef.current)
       }
     }
