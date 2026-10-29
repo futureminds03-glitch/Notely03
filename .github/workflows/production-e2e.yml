@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 20
       - name: Install Playwright
-        run: npm install --no-save @playwright/test
+        run: npm install --no-save --package-lock=false @playwright/test
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Allow production deployment to settle
