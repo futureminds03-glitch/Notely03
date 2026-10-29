@@ -156,7 +156,7 @@ function requestPinned(target: ValidatedTarget): Promise<PinnedResponse> {
     }
 
     const request = target.url.protocol === 'https:'
-      ? httpsRequest(target.url, { ...options, servername: target.url.hostname }, onResponse)
+      ? httpsRequest(target.url, options, onResponse)
       : httpRequest(target.url, options, onResponse)
 
     const timeout = setTimeout(() => {
