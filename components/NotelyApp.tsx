@@ -123,6 +123,17 @@ function Editor({
   onSummarize, onExport, onTravel, onRestoreVersion,
   bodyRef, titleRef
 }: EditorProps) {
+  useEffect(() => {
+    const resizeTitle = () => {
+      const field = titleRef.current
+      if (!field) return
+      field.style.height = 'auto'
+      field.style.height = `${field.scrollHeight}px`
+    }
+    resizeTitle()
+    window.addEventListener('resize', resizeTitle)
+    return () => window.removeEventListener('resize', resizeTitle)
+  }, [title, activeId, titleRef])
   if (!activeId) {
     return (
       <div className="empty-editor">
@@ -258,6 +269,8 @@ export default function NotelyApp() {
 
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
+  const mobileBodyRef = useRef<HTMLTextAreaElement>(null)
+  const mobileTitleRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const historyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeIdRef = useRef<string | null>(null)
@@ -278,15 +291,6 @@ export default function NotelyApp() {
   useEffect(() => { startedAtRef.current = startedAt }, [startedAt])
   useEffect(() => { notesRef.current = notes }, [notes])
   useEffect(() => { activeDraftRef.current = { title, body } }, [title, body])
-
-  // Grow the title field vertically so long titles wrap naturally instead of
-  // creating a horizontal scrollbar. Runs for edits and when switching notes.
-  useEffect(() => {
-    const field = titleRef.current
-    if (!field) return
-    field.style.height = 'auto'
-    field.style.height = `${field.scrollHeight}px`
-  }, [title, activeId])
 
   useEffect(() => {
     const initialAuthGeneration = authGenerationRef.current
@@ -414,24 +418,25 @@ export default function NotelyApp() {
     }
   }
 
+  function flushGuestDraft(id: string) {
+    const draft = activeDraftRef.current
+    saveSequenceRef.current[id] = (saveSequenceRef.current[id] ?? 0) + 1
+    const flushed = notesRef.current.map(existing => existing.id === id
+      ? { ...existing, ...draft, updated_at: new Date().toISOString(), synced: false }
+      : existing
+    )
+    notesRef.current = flushed
+    setNotes(flushed)
+    saveGuest(flushed)
+  }
+
   function openNote(note: Note) {
     const previousId = activeIdRef.current
     if (saveTimer.current) {
       clearTimeout(saveTimer.current)
       saveTimer.current = null
       if (previousId?.startsWith('temp-') && !userRef.current) {
-        // Guest notes have no server to flush to; synchronously persist the latest draft
-        // before changing active IDs so a batched React update cannot replace it with stale state.
-        const draft = activeDraftRef.current
-        // Invalidate any older debounced save queued for this guest note before flushing synchronously.
-        saveSequenceRef.current[previousId] = (saveSequenceRef.current[previousId] ?? 0) + 1
-        const flushed = notesRef.current.map(existing => existing.id === previousId
-          ? { ...existing, ...draft, updated_at: new Date().toISOString(), synced: false }
-          : existing
-        )
-        notesRef.current = flushed
-        setNotes(flushed)
-        saveGuest(flushed)
+        flushGuestDraft(previousId)
       } else if (previousId && !previousId.startsWith('temp-')) {
         void doSave(previousId, activeDraftRef.current.title, activeDraftRef.current.body, startedAtRef.current)
       }
@@ -483,7 +488,12 @@ export default function NotelyApp() {
     setNotes(updated)
     if (!userRef.current) saveGuest(updated)
     openNote(tempNote)
-    setTimeout(() => titleRef.current?.focus(), 50)
+    setTimeout(() => {
+      const titleField = window.matchMedia('(max-width: 640px)').matches
+        ? mobileTitleRef.current
+        : titleRef.current
+      titleField?.focus()
+    }, 50)
 
     if (userRef.current) {
       try {
@@ -676,7 +686,14 @@ export default function NotelyApp() {
   }
 
   const onTitleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter') { e.preventDefault(); bodyRef.current?.focus() }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) {
+        mobileBodyRef.current?.focus()
+      } else {
+        bodyRef.current?.focus()
+      }
+    }
   }, [])
 
   const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
@@ -821,7 +838,6 @@ export default function NotelyApp() {
     onTitleChange, onBodyChange, onTitleKeyDown, onDelete: handleDelete,
     onSummarize: handleSummarize, onExport: handleExport,
     onTravel, onRestoreVersion,
-    bodyRef, titleRef
   }
 
   return (
@@ -848,11 +864,16 @@ export default function NotelyApp() {
         ) : (
           <>
             <button className="mobile-back-btn" onClick={() => {
+              const id = activeIdRef.current
+              const hadPendingSave = Boolean(saveTimer.current)
               if (saveTimer.current) {
                 clearTimeout(saveTimer.current)
                 saveTimer.current = null
-                const id = activeIdRef.current
-                if (id) void doSave(id, title, body, startedAt)
+              }
+              if (id?.startsWith('temp-') && !userRef.current) {
+                flushGuestDraft(id)
+              } else if (hadPendingSave && id) {
+                void doSave(id, activeDraftRef.current.title, activeDraftRef.current.body, startedAtRef.current)
               }
               setMobileView('list')
             }}>
@@ -932,11 +953,11 @@ export default function NotelyApp() {
           )}
           {mobileView === 'editor' && (
             <div className="mobile-editor">
-              <Editor {...editorProps} />
+              <Editor {...editorProps} bodyRef={mobileBodyRef} titleRef={mobileTitleRef} />
             </div>
           )}
           <div className="desktop-editor">
-            <Editor {...editorProps} />
+            <Editor {...editorProps} bodyRef={bodyRef} titleRef={titleRef} />
           </div>
         </main>
       </div>
