@@ -7,10 +7,10 @@ test.use({ baseURL, viewport: { width: 1440, height: 1000 } })
 const runtimeErrors = new WeakMap()
 
 async function expectGuestNoteSaved(page, title, body) {
-  await expect.poll(async () => page.evaluate(() => {
+  await expect.poll(async () => page.evaluate(({ expectedTitle, expectedBody }) => {
     const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
-    return notes.some(note => note.title === title && note.body === body)
-  }), { timeout: 8000 }).toBe(true)
+    return notes.some(note => note.title === expectedTitle && note.body === expectedBody)
+  }, { expectedTitle: title, expectedBody: body }), { timeout: 8000 }).toBe(true)
 }
 
 test.beforeEach(async ({ page }) => {
