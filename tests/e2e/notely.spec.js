@@ -81,7 +81,7 @@ test('export downloads a text file containing the current note', async ({ page }
   await page.locator('.desktop-editor .note-body').fill('Export should contain this exact sentence.')
   await expectGuestNoteSaved(page, 'Export verification', 'Export should contain this exact sentence.')
 
-  const downloadPromise = page.waitForEvent('download')
+  const downloadPromise = page.waitForEvent('download', { timeout: 10_000 })
   await page.getByRole('button', { name: 'Export' }).click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('export-verification.txt')
