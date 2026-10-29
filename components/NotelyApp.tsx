@@ -416,8 +416,7 @@ export default function NotelyApp() {
     const now = new Date().toISOString()
     const tempId = `temp-${Date.now()}`
     const captureTimestamp = Date.now()
-    activeIdRef.current = tempId
-    startedAtRef.current = now
+    // Let openNote flush the previous note's pending autosave before switching IDs.
     const tempNote: Note = {
       id: tempId,
       title: '',
