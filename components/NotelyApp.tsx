@@ -494,7 +494,7 @@ export default function NotelyApp() {
   }
 
   const doSave = useCallback(async (id: string, t: string, b: string, sa: string | null) => {
-    if (!id || id.startsWith('temp-')) return
+    if (!id || (id.startsWith('temp-') && userRef.current)) return
 
     const sequence = (saveSequenceRef.current[id] ?? 0) + 1
     saveSequenceRef.current[id] = sequence
