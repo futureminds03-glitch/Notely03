@@ -273,7 +273,10 @@ export default function NotelyApp() {
   useEffect(() => { activeDraftRef.current = { title, body } }, [title, body])
 
   useEffect(() => {
+    const initialAuthGeneration = authGenerationRef.current
     supabase.auth.getUser().then(({ data }) => {
+      // The auth event listener wins if auth changed while getUser was pending.
+      if (authGenerationRef.current !== initialAuthGeneration) return
       userRef.current = data.user
       setUser(data.user)
     })
