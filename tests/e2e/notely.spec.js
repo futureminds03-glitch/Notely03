@@ -193,3 +193,41 @@ test('sign-in and sign-up modal modes return cleanly to guest mode', async ({ pa
   await expect(page.locator('.modal')).toHaveCount(0)
   await expect(page.locator('.sidebar-footer')).toContainText('guest mode')
 })
+
+test('long titles wrap without horizontal overflow and mobile editor focus stays visible', async ({ page }) => {
+  await page.getByRole('button', { name: 'New note' }).click()
+  const desktopTitle = page.locator('.desktop-editor .note-title')
+  const longTitle = 'LongTitleWithoutSpaces'.repeat(10)
+  await desktopTitle.fill(longTitle)
+  await expect.poll(async () => desktopTitle.evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThan(70)
+
+  const desktopMetrics = await desktopTitle.evaluate(element => ({
+    height: element.getBoundingClientRect().height,
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+  }))
+  expect(desktopMetrics.scrollWidth).toBeLessThanOrEqual(desktopMetrics.clientWidth + 1)
+  expect(desktopMetrics.scrollHeight).toBeLessThanOrEqual(desktopMetrics.clientHeight + 2)
+  await expectGuestNoteSaved(page, longTitle, '')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  const mobileTitle = page.locator('.mobile-editor .note-title')
+  await expect(mobileTitle).toBeVisible()
+  await expect.poll(async () => mobileTitle.evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThan(70)
+  const mobileMetrics = await mobileTitle.evaluate(element => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+  }))
+  expect(mobileMetrics.scrollWidth).toBeLessThanOrEqual(mobileMetrics.clientWidth + 1)
+  expect(mobileMetrics.scrollHeight).toBeLessThanOrEqual(mobileMetrics.clientHeight + 2)
+
+  await page.locator('.mobile-back-btn').click()
+  await page.locator('.mobile-header .mobile-btn').last().click()
+  await expect.poll(async () => mobileTitle.evaluate(element => element === document.activeElement)).toBe(true)
+  await mobileTitle.press('Enter')
+  await expect.poll(async () => page.locator('.mobile-editor .note-body').evaluate(element => element === document.activeElement)).toBe(true)
+})
