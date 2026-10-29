@@ -60,9 +60,9 @@ jobs:
         run: nohup npm run start > /tmp/notely.log 2>&1 &
       - name: Wait for local server
         run: |
-          for attempt in $(seq 1 40); do
-            if curl --fail --silent --connect-timeout 1 --max-time 3 http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
-            sleep 2
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent --connect-timeout 1 --max-time 2 http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 1
           done
           cat /tmp/notely.log
           exit 1
