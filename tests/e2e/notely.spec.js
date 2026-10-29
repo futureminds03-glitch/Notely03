@@ -126,6 +126,7 @@ test('version history can restore an earlier body without losing it on reload', 
   await expectGuestNoteSaved(page, 'History restore', 'First durable version of the note.')
 
   await page.reload()
+  await page.locator('.note-item').filter({ hasText: 'History restore' }).first().click()
   await expect(page.locator('.desktop-editor .note-body')).toHaveValue('First durable version of the note.')
 })
 
