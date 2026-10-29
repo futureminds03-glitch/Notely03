@@ -179,6 +179,9 @@ function Editor({
 
       <textarea
         ref={titleRef}
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
         className="note-title"
         placeholder="Untitled"
         value={title}
@@ -188,6 +191,9 @@ function Editor({
       />
       <textarea
         ref={bodyRef}
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
         className="note-body"
         placeholder="Start writing…"
         value={displayBody}
@@ -598,14 +604,23 @@ export default function NotelyApp() {
   }
 
   function addToHistory(b: string) {
+    const noteId = activeIdRef.current
+    if (!noteId) return
     if (historyTimer.current) clearTimeout(historyTimer.current)
     historyTimer.current = setTimeout(() => {
       setHistory(prev => {
         const last = prev[prev.length - 1]
         if (last?.content === b) return prev
-        return [...prev, { content: b, timestamp: Date.now() }]
+        const next = [...prev, { content: b, timestamp: Date.now() }]
+        const updated = notesRef.current.map(note =>
+          note.id === noteId ? { ...note, history: next } : note
+        )
+        notesRef.current = updated
+        setNotes(updated)
+        if (!userRef.current) saveGuest(updated)
+        return next
       })
-    }, 2000)
+    }, 1000)
   }
 
   function onTitleChange(v: string) {
