@@ -117,11 +117,10 @@ test('version history can restore an earlier body without losing it on reload', 
 
   const slider = page.getByRole('slider', { name: 'Time travel history' })
   await expect(slider).toHaveAttribute('max', /[2-9]/)
-  await slider.evaluate(element => {
-    element.value = '1'
-    element.dispatchEvent(new Event('input', { bubbles: true }))
-    element.dispatchEvent(new Event('change', { bubbles: true }))
-  })
+  await slider.focus()
+  await slider.press('Home')
+  await slider.press('ArrowRight')
+  await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible()
   await page.getByRole('button', { name: 'Restore' }).click()
   await expect(body).toHaveValue('First durable version of the note.')
   await expectGuestNoteSaved(page, 'History restore', 'First durable version of the note.')
