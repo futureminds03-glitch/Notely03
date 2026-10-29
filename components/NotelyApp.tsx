@@ -387,6 +387,8 @@ export default function NotelyApp() {
         // Guest notes have no server to flush to; synchronously persist the latest draft
         // before changing active IDs so a batched React update cannot replace it with stale state.
         const draft = activeDraftRef.current
+        // Invalidate any older debounced save queued for this guest note before flushing synchronously.
+        saveSequenceRef.current[previousId] = (saveSequenceRef.current[previousId] ?? 0) + 1
         const flushed = notesRef.current.map(existing => existing.id === previousId
           ? { ...existing, ...draft, updated_at: new Date().toISOString(), synced: false }
           : existing
