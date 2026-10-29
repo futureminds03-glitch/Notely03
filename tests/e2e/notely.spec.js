@@ -4,6 +4,13 @@ const baseURL = process.env.E2E_BASE_URL || 'https://notely03.vercel.app'
 
 test.use({ baseURL, viewport: { width: 1440, height: 1000 } })
 
+async function expectGuestNoteSaved(page, title, body) {
+  await expect.poll(async () => page.evaluate(() => {
+    const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
+    return notes.some(note => note.title === title && note.body === body)
+  }), { timeout: 8000 }).toBe(true)
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
   await page.evaluate(() => localStorage.clear())
@@ -17,12 +24,12 @@ test('guest notes autosave, remain isolated, and survive reload', async ({ page 
   const body = page.locator('.desktop-editor .note-body')
   await title.fill('E2E first note')
   await body.fill('Text typed into the first note must not disappear.')
-  await expect(page.locator('.desktop-editor .save-status.saved')).toBeVisible()
+  await expectGuestNoteSaved(page, 'E2E first note', 'Text typed into the first note must not disappear.')
 
   await page.getByRole('button', { name: 'New note' }).click()
   await title.fill('E2E second note')
   await body.fill('Second note has independent content.')
-  await expect(page.locator('.desktop-editor .save-status.saved')).toBeVisible()
+  await expectGuestNoteSaved(page, 'E2E second note', 'Second note has independent content.')
 
   await page.locator('.note-item').filter({ hasText: 'E2E first note' }).first().click()
   await expect(title).toHaveValue('E2E first note')
@@ -38,12 +45,12 @@ test('search and delete act on the intended guest note', async ({ page }) => {
   await page.getByRole('button', { name: 'New note' }).click()
   await page.locator('.desktop-editor .note-title').fill('Keep searchable note')
   await page.locator('.desktop-editor .note-body').fill('keep this content')
-  await expect(page.locator('.desktop-editor .save-status.saved')).toBeVisible()
+  await expectGuestNoteSaved(page, 'Keep searchable note', 'keep this content')
 
   await page.getByRole('button', { name: 'New note' }).click()
   await page.locator('.desktop-editor .note-title').fill('Remove this note')
   await page.locator('.desktop-editor .note-body').fill('delete target')
-  await expect(page.locator('.desktop-editor .save-status.saved')).toBeVisible()
+  await expectGuestNoteSaved(page, 'Remove this note', 'delete target')
 
   await page.locator('.sidebar .search-input').fill('Keep searchable')
   await expect(page.locator('.sidebar .note-item')).toHaveCount(1)
@@ -61,7 +68,7 @@ test('export downloads a text file containing the current note', async ({ page }
   await page.getByRole('button', { name: 'New note' }).click()
   await page.locator('.desktop-editor .note-title').fill('Export verification')
   await page.locator('.desktop-editor .note-body').fill('Export should contain this exact sentence.')
-  await expect(page.locator('.desktop-editor .save-status.saved')).toBeVisible()
+  await expectGuestNoteSaved(page, 'Export verification', 'Export should contain this exact sentence.')
 
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Export' }).click()
@@ -72,13 +79,12 @@ test('export downloads a text file containing the current note', async ({ page }
 test('mobile guest editor keeps the draft when navigating back and reopening', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.reload()
-  await page.getByRole('button').filter({ has: page.locator('svg') }).count()
   await page.locator('.mobile-header .mobile-btn').last().click()
   const title = page.locator('.mobile-editor .note-title')
   const body = page.locator('.mobile-editor .note-body')
   await title.fill('Mobile persistence')
   await body.fill('Mobile editor content stays saved.')
-  await expect(page.locator('.mobile-editor .save-status.saved')).toBeVisible()
+  await expectGuestNoteSaved(page, 'Mobile persistence', 'Mobile editor content stays saved.')
   await page.getByRole('button', { name: 'Notes' }).click()
   await page.locator('.mobile-notes-panel .note-item').filter({ hasText: 'Mobile persistence' }).click()
   await expect(page.locator('.mobile-editor .note-title')).toHaveValue('Mobile persistence')
