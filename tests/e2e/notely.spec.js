@@ -90,3 +90,47 @@ test('mobile guest editor keeps the draft when navigating back and reopening', a
   await expect(page.locator('.mobile-editor .note-title')).toHaveValue('Mobile persistence')
   await expect(page.locator('.mobile-editor .note-body')).toHaveValue('Mobile editor content stays saved.')
 })
+
+test('version history can restore an earlier body without losing it on reload', async ({ page }) => {
+  await page.getByRole('button', { name: 'New note' }).click()
+  const title = page.locator('.desktop-editor .note-title')
+  const body = page.locator('.desktop-editor .note-body')
+  await title.fill('History restore')
+  await body.fill('First durable version of the note.')
+  await expectGuestNoteSaved(page, 'History restore', 'First durable version of the note.')
+  await page.waitForTimeout(2200)
+
+  await body.fill('Second version with different content.')
+  await expectGuestNoteSaved(page, 'History restore', 'Second version with different content.')
+  await page.waitForTimeout(2200)
+
+  const slider = page.getByRole('slider', { name: 'Time travel history' })
+  await expect(slider).toHaveAttribute('max', /[2-9]/)
+  await slider.fill('1')
+  await page.getByRole('button', { name: 'Restore' }).click()
+  await expect(body).toHaveValue('First durable version of the note.')
+  await expectGuestNoteSaved(page, 'History restore', 'First durable version of the note.')
+
+  await page.reload()
+  await expect(page.locator('.desktop-editor .note-body')).toHaveValue('First durable version of the note.')
+})
+
+test('private APIs reject anonymous access and link previews block local targets', async ({ request }) => {
+  const listResponse = await request.get('/api/notes')
+  expect(listResponse.status()).toBe(401)
+
+  const createResponse = await request.post('/api/notes', { data: { title: 'unauthorized', body: 'must not persist' } })
+  expect(createResponse.status()).toBe(401)
+
+  const previewResponse = await request.post('/api/link-preview', {
+    data: { url: 'http://127.0.0.1/' },
+  })
+  expect(previewResponse.status()).toBe(400)
+
+  const manifest = await request.get('/manifest.json')
+  expect(manifest.status()).toBe(200)
+  expect((await manifest.json()).name).toBe('Notely')
+
+  const serviceWorker = await request.get('/sw.js')
+  expect(serviceWorker.status()).toBe(200)
+})
