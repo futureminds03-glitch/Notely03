@@ -258,8 +258,8 @@ export default function NotelyApp() {
   const userRef = useRef<User | null>(null)
   const startedAtRef = useRef<string | null>(null)
   const notesRef = useRef<Note[]>([])
-  const localWriteRef = useRef<string | null>(null)
-  const saveSequenceRef = useRef(0)
+  const localWritesRef = useRef(new Map<string, number>())
+  const saveSequenceRef = useRef<Record<string, number>>({})
   const activeDraftRef = useRef({ title: '', body: '' })
   const draftByIdRef = useRef<Record<string, { title: string; body: string }>>({})
   const creationInFlightRef = useRef(false)
@@ -326,10 +326,7 @@ export default function NotelyApp() {
             started_at: row.started_at ?? undefined,
           }
 
-          if (localWriteRef.current === row.id) {
-            localWriteRef.current = null
-            return
-          }
+          if (localWritesRef.current.has(row.id)) return
 
           setNotes(prev => {
             const exists = prev.some(note => note.id === row.id)
@@ -390,7 +387,6 @@ export default function NotelyApp() {
       }
     }
     if (historyTimer.current) { clearTimeout(historyTimer.current); historyTimer.current = null }
-    saveSequenceRef.current++
     dirtyFieldsRef.current = { title: false, body: false }
     activeIdRef.current = note.id
     startedAtRef.current = note.started_at || null
@@ -471,14 +467,20 @@ export default function NotelyApp() {
           }
 
           if (draftTitle || draftBody) {
-            localWriteRef.current = cloud.id
-            const draftRes = await fetch('/api/notes/' + cloud.id, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ title: draftTitle, body: draftBody, started_at: draftStartedAt }),
-            })
-            localWriteRef.current = null
-            if (!draftRes.ok) setSaveStatus('error')
+            const pendingWrites = localWritesRef.current.get(cloud.id) ?? 0
+            localWritesRef.current.set(cloud.id, pendingWrites + 1)
+            try {
+              const draftRes = await fetch('/api/notes/' + cloud.id, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: draftTitle, body: draftBody, started_at: draftStartedAt }),
+              })
+              if (!draftRes.ok && activeIdRef.current === cloud.id) setSaveStatus('error')
+            } finally {
+              const remaining = (localWritesRef.current.get(cloud.id) ?? 1) - 1
+              if (remaining > 0) localWritesRef.current.set(cloud.id, remaining)
+              else localWritesRef.current.delete(cloud.id)
+            }
           }
         }
       } catch {
@@ -494,24 +496,37 @@ export default function NotelyApp() {
   const doSave = useCallback(async (id: string, t: string, b: string, sa: string | null) => {
     if (!id || id.startsWith('temp-')) return
 
-    const sequence = ++saveSequenceRef.current
+    const sequence = (saveSequenceRef.current[id] ?? 0) + 1
+    saveSequenceRef.current[id] = sequence
     const now = new Date().toISOString()
 
     if (userRef.current) {
-      localWriteRef.current = id
-      const response = await fetch('/api/notes/' + id, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: t, body: b, started_at: sa })
-      })
-      localWriteRef.current = null
-      if (sequence !== saveSequenceRef.current || activeIdRef.current !== id) return
+      const pendingWrites = localWritesRef.current.get(id) ?? 0
+      localWritesRef.current.set(id, pendingWrites + 1)
+      let response: Response
+      try {
+        response = await fetch('/api/notes/' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: t, body: b, started_at: sa })
+        })
+      } catch (error) {
+        if (sequence === saveSequenceRef.current[id] && activeIdRef.current === id) setSaveStatus('error')
+        console.error('Failed to save note:', error)
+        return
+      } finally {
+        const remaining = (localWritesRef.current.get(id) ?? 1) - 1
+        if (remaining > 0) localWritesRef.current.set(id, remaining)
+        else localWritesRef.current.delete(id)
+      }
+
       if (!response.ok) {
-        setSaveStatus('error')
+        if (sequence === saveSequenceRef.current[id] && activeIdRef.current === id) setSaveStatus('error')
         return
       }
     }
 
+    if (sequence !== saveSequenceRef.current[id]) return
     setNotes(prev => {
       const updated = prev.map(n =>
         n.id === id
@@ -521,9 +536,11 @@ export default function NotelyApp() {
       if (!userRef.current) saveGuest(updated)
       return updated
     })
-    setSaveStatus('saved')
-    if (activeDraftRef.current.title === t && activeDraftRef.current.body === b) {
-      dirtyFieldsRef.current = { title: false, body: false }
+    if (activeIdRef.current === id) {
+      setSaveStatus('saved')
+      if (activeDraftRef.current.title === t && activeDraftRef.current.body === b) {
+        dirtyFieldsRef.current = { title: false, body: false }
+      }
     }
   }, [])
 
@@ -589,6 +606,10 @@ export default function NotelyApp() {
     const restored = history[travelIndex].content
     setBody(restored)
     activeDraftRef.current.body = restored
+    dirtyFieldsRef.current.body = true
+    const draftId = activeIdRef.current
+    if (draftId) draftByIdRef.current[draftId] = { ...activeDraftRef.current }
+    setWordCount(restored.trim() ? restored.trim().split(/\s+/).length : 0)
     setTravelIndex(-1)
     scheduleSave(activeDraftRef.current.title, restored, startedAtRef.current)
     addToHistory(restored)
@@ -648,14 +669,20 @@ export default function NotelyApp() {
 
   async function handleSummarize() {
     if (!body.trim()) return
+    const noteId = activeIdRef.current
+    const sourceTitle = title
+    const sourceBody = body
+    const sourceStartedAt = startedAtRef.current
+    if (!noteId) return
     setAiStatus('✦ Summarizing…')
     try {
       const response = await fetch('/api/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, body })
+        body: JSON.stringify({ title: sourceTitle, body: sourceBody })
       })
       const data = await response.json().catch(() => ({}))
+      if (activeIdRef.current !== noteId) return
       if (!response.ok) {
         const message = response.status === 503
           ? '✦ AI summaries are paused for now.'
@@ -664,17 +691,27 @@ export default function NotelyApp() {
         setTimeout(() => setAiStatus(''), 4000)
         return
       }
+      if (activeDraftRef.current.title !== sourceTitle || activeDraftRef.current.body !== sourceBody) {
+        setAiStatus('✦ Note changed while summarizing. Try again.')
+        setTimeout(() => setAiStatus(''), 4000)
+        return
+      }
       const summary = data.summary || 'Could not generate summary.'
-      const newBody = body + '\n\n─── AI Summary ───\n' + summary
+      const newBody = sourceBody + '\n\n─── AI Summary ───\n' + summary
       setBody(newBody)
+      activeDraftRef.current = { title: sourceTitle, body: newBody }
+      dirtyFieldsRef.current.body = true
+      draftByIdRef.current[noteId] = { title: sourceTitle, body: newBody }
       setWordCount(newBody.trim().split(/\s+/).length)
-      scheduleSave(title, newBody, startedAt)
+      scheduleSave(sourceTitle, newBody, sourceStartedAt)
       addToHistory(newBody)
       setAiStatus('✦ Summary added below your note')
       setTimeout(() => setAiStatus(''), 3000)
     } catch {
-      setAiStatus('✦ Could not connect. Try again.')
-      setTimeout(() => setAiStatus(''), 3000)
+      if (activeIdRef.current === noteId) {
+        setAiStatus('✦ Could not connect. Try again.')
+        setTimeout(() => setAiStatus(''), 3000)
+      }
     }
   }
 
