@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test')
+const fs = require('node:fs/promises')
 
 const baseURL = process.env.E2E_BASE_URL || 'https://notely03.vercel.app'
 
@@ -7,10 +8,10 @@ test.use({ baseURL, viewport: { width: 1440, height: 1000 } })
 const runtimeErrors = new WeakMap()
 
 async function expectGuestNoteSaved(page, title, body) {
-  await expect.poll(async () => page.evaluate(() => {
+  await expect.poll(async () => page.evaluate(({ expectedTitle, expectedBody }) => {
     const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
-    return notes.some(note => note.title === title && note.body === body)
-  }), { timeout: 8000 }).toBe(true)
+    return notes.some(note => note.title === expectedTitle && note.body === expectedBody)
+  }, { expectedTitle: title, expectedBody: body }), { timeout: 8000 }).toBe(true)
 }
 
 test.beforeEach(async ({ page }) => {
@@ -32,10 +33,11 @@ test('guest notes autosave, remain isolated, and survive reload', async ({ page 
   const title = page.locator('.desktop-editor .note-title')
   const body = page.locator('.desktop-editor .note-body')
   await title.fill('E2E first note')
-  await body.fill('Text typed into the first note must not disappear.')
-  await expectGuestNoteSaved(page, 'E2E first note', 'Text typed into the first note must not disappear.')
+  await body.pressSequentially('Text typed into the first note must not disappear.', { delay: 2 })
 
+  // Switch before the debounce interval ends: the outgoing draft must flush first.
   await page.getByRole('button', { name: 'New note' }).click()
+  await expectGuestNoteSaved(page, 'E2E first note', 'Text typed into the first note must not disappear.')
   await title.fill('E2E second note')
   await body.fill('Second note has independent content.')
   await expectGuestNoteSaved(page, 'E2E second note', 'Second note has independent content.')
@@ -45,6 +47,7 @@ test('guest notes autosave, remain isolated, and survive reload', async ({ page 
   await expect(body).toHaveValue('Text typed into the first note must not disappear.')
 
   await page.reload()
+  await page.locator('.note-item').filter({ hasText: 'E2E first note' }).first().click()
   await expect(page.locator('.desktop-editor .note-title')).toHaveValue('E2E first note')
   await expect(page.locator('.desktop-editor .note-body')).toHaveValue('Text typed into the first note must not disappear.')
   await expect(page.locator('.note-item').filter({ hasText: 'E2E second note' }).first()).toBeVisible()
@@ -79,10 +82,14 @@ test('export downloads a text file containing the current note', async ({ page }
   await page.locator('.desktop-editor .note-body').fill('Export should contain this exact sentence.')
   await expectGuestNoteSaved(page, 'Export verification', 'Export should contain this exact sentence.')
 
-  const downloadPromise = page.waitForEvent('download')
+  const downloadPromise = page.waitForEvent('download', { timeout: 10_000 })
   await page.getByRole('button', { name: 'Export' }).click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('export-verification.txt')
+  const downloadedPath = await download.path()
+  const downloadedText = await fs.readFile(downloadedPath, 'utf8')
+  expect(downloadedText).toContain('Export verification')
+  expect(downloadedText).toContain('Export should contain this exact sentence.')
 })
 
 test('mobile guest editor keeps the draft when navigating back and reopening', async ({ page }) => {
@@ -92,7 +99,7 @@ test('mobile guest editor keeps the draft when navigating back and reopening', a
   const title = page.locator('.mobile-editor .note-title')
   const body = page.locator('.mobile-editor .note-body')
   await title.fill('Mobile persistence')
-  await body.fill('Mobile editor content stays saved.')
+  await body.pressSequentially('Mobile editor content stays saved.', { delay: 2 })
   await expectGuestNoteSaved(page, 'Mobile persistence', 'Mobile editor content stays saved.')
   await page.getByRole('button', { name: 'Notes' }).click()
   await page.locator('.mobile-notes-panel .note-item').filter({ hasText: 'Mobile persistence' }).click()
@@ -115,16 +122,16 @@ test('version history can restore an earlier body without losing it on reload', 
 
   const slider = page.getByRole('slider', { name: 'Time travel history' })
   await expect(slider).toHaveAttribute('max', /[2-9]/)
-  await slider.evaluate(element => {
-    element.value = '1'
-    element.dispatchEvent(new Event('input', { bubbles: true }))
-    element.dispatchEvent(new Event('change', { bubbles: true }))
-  })
+  await slider.focus()
+  await slider.press('Home')
+  await slider.press('ArrowRight')
+  await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible()
   await page.getByRole('button', { name: 'Restore' }).click()
   await expect(body).toHaveValue('First durable version of the note.')
   await expectGuestNoteSaved(page, 'History restore', 'First durable version of the note.')
 
   await page.reload()
+  await page.locator('.note-item').filter({ hasText: 'History restore' }).first().click()
   await expect(page.locator('.desktop-editor .note-body')).toHaveValue('First durable version of the note.')
 })
 
@@ -135,10 +142,33 @@ test('private APIs reject anonymous access and link previews block local targets
   const createResponse = await request.post('/api/notes', { data: { title: 'unauthorized', body: 'must not persist' } })
   expect(createResponse.status()).toBe(401)
 
-  const previewResponse = await request.post('/api/link-preview', {
-    data: { url: 'http://127.0.0.1/' },
+  const updateResponse = await request.patch('/api/notes/not-a-real-id', { data: { body: 'must not persist' } })
+  expect(updateResponse.status()).toBe(401)
+  const deleteResponse = await request.delete('/api/notes/not-a-real-id')
+  expect(deleteResponse.status()).toBe(401)
+
+  for (const url of [
+    'http://127.0.0.1/',
+    'http://10.0.0.1/',
+    'http://169.254.169.254/latest/meta-data/',
+    'http://[::1]/',
+    'http://localhost/',
+    'http://example.com:8080/',
+    'https://example.com:80/',
+    'http://example.com:443/',
+    'https://user:pass@example.com/',
+    'file:///etc/passwd',
+  ]) {
+    const previewResponse = await request.post('/api/link-preview', { data: { url } })
+    expect(previewResponse.status(), `should reject unsafe target: ${url}`).toBe(400)
+  }
+
+  const publicPreview = await request.post('/api/link-preview', {
+    data: { url: 'https://example.com/' },
+    timeout: 15_000,
   })
-  expect(previewResponse.status()).toBe(400)
+  expect(publicPreview.status()).toBe(200)
+  expect((await publicPreview.json()).domain).toBe('example.com')
 
   const manifest = await request.get('/manifest.json')
   expect(manifest.status()).toBe(200)
@@ -146,4 +176,20 @@ test('private APIs reject anonymous access and link previews block local targets
 
   const serviceWorker = await request.get('/sw.js')
   expect(serviceWorker.status()).toBe(200)
+})
+
+test('sign-in and sign-up modal modes return cleanly to guest mode', async ({ page }) => {
+  await page.locator('.sidebar-footer .auth-btn').click()
+  await expect(page.locator('.modal-title')).toHaveText('Welcome back.')
+  await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
+  await expect(page.getByPlaceholder('••••••••')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Sign up' }).click()
+  await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await page.locator('.modal-tabs .modal-tab').filter({ hasText: 'Sign in' }).click()
+  await expect(page.getByRole('button', { name: 'Sign in' }).last()).toBeVisible()
+
+  await page.getByRole('button', { name: /Continue as guest/ }).click()
+  await expect(page.locator('.modal')).toHaveCount(0)
+  await expect(page.locator('.sidebar-footer')).toContainText('guest mode')
 })
