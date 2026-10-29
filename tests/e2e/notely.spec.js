@@ -32,10 +32,11 @@ test('guest notes autosave, remain isolated, and survive reload', async ({ page 
   const title = page.locator('.desktop-editor .note-title')
   const body = page.locator('.desktop-editor .note-body')
   await title.fill('E2E first note')
-  await body.fill('Text typed into the first note must not disappear.')
-  await expectGuestNoteSaved(page, 'E2E first note', 'Text typed into the first note must not disappear.')
+  await body.pressSequentially('Text typed into the first note must not disappear.', { delay: 2 })
 
+  // Switch before the debounce interval ends: the outgoing draft must flush first.
   await page.getByRole('button', { name: 'New note' }).click()
+  await expectGuestNoteSaved(page, 'E2E first note', 'Text typed into the first note must not disappear.')
   await title.fill('E2E second note')
   await body.fill('Second note has independent content.')
   await expectGuestNoteSaved(page, 'E2E second note', 'Second note has independent content.')
@@ -93,7 +94,7 @@ test('mobile guest editor keeps the draft when navigating back and reopening', a
   const title = page.locator('.mobile-editor .note-title')
   const body = page.locator('.mobile-editor .note-body')
   await title.fill('Mobile persistence')
-  await body.fill('Mobile editor content stays saved.')
+  await body.pressSequentially('Mobile editor content stays saved.', { delay: 2 })
   await expectGuestNoteSaved(page, 'Mobile persistence', 'Mobile editor content stays saved.')
   await page.getByRole('button', { name: 'Notes' }).click()
   await page.locator('.mobile-notes-panel .note-item').filter({ hasText: 'Mobile persistence' }).click()
