@@ -1,0 +1,39 @@
+name: Production E2E regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'components/**'
+      - 'app/**'
+      - 'lib/**'
+      - 'tests/e2e/**'
+      - '.github/workflows/production-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notely-production-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: npm install --no-save --package-lock=false @playwright/test
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Allow production deployment to settle
+        run: sleep 45
+      - name: Run production end-to-end regression suite
+        env:
+          E2E_BASE_URL: https://notely03.vercel.app
+        run: npx playwright test tests/e2e --reporter=list
