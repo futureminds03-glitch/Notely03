@@ -35,7 +35,7 @@ permissions:
 
 concurrency:
   group: notely-e2e-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   local-e2e:
