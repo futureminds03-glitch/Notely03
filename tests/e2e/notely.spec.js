@@ -183,7 +183,7 @@ test('sign-in and sign-up modal modes return cleanly to guest mode', async ({ pa
 
   await page.getByRole('button', { name: 'Sign up' }).click()
   await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible()
-  await page.getByRole('button', { name: 'Sign in' }).last().click()
+  await page.locator('.modal-tabs .modal-tab').filter({ hasText: 'Sign in' }).click()
   await expect(page.getByRole('button', { name: 'Sign in' }).last()).toBeVisible()
 
   await page.getByRole('button', { name: /Continue as guest/ }).click()
