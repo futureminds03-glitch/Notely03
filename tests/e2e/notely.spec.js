@@ -137,10 +137,23 @@ test('private APIs reject anonymous access and link previews block local targets
   const createResponse = await request.post('/api/notes', { data: { title: 'unauthorized', body: 'must not persist' } })
   expect(createResponse.status()).toBe(401)
 
-  const previewResponse = await request.post('/api/link-preview', {
-    data: { url: 'http://127.0.0.1/' },
-  })
-  expect(previewResponse.status()).toBe(400)
+  const updateResponse = await request.patch('/api/notes/not-a-real-id', { data: { body: 'must not persist' } })
+  expect(updateResponse.status()).toBe(401)
+  const deleteResponse = await request.delete('/api/notes/not-a-real-id')
+  expect(deleteResponse.status()).toBe(401)
+
+  for (const url of [
+    'http://127.0.0.1/',
+    'http://10.0.0.1/',
+    'http://169.254.169.254/latest/meta-data/',
+    'http://[::1]/',
+    'http://localhost/',
+    'http://example.com:8080/',
+    'file:///etc/passwd',
+  ]) {
+    const previewResponse = await request.post('/api/link-preview', { data: { url } })
+    expect(previewResponse.status(), `should reject unsafe target: ${url}`).toBe(400)
+  }
 
   const manifest = await request.get('/manifest.json')
   expect(manifest.status()).toBe(200)
