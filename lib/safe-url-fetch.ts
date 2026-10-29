@@ -28,10 +28,11 @@ function isPublicIPv4(address: string): boolean {
 
 function isPublicIPv6(address: string): boolean {
   const ip = address.toLowerCase().split('%')[0]
-  if (ip.startsWith('::') || ip.startsWith('fc') || ip.startsWith('fd')) return false
-  if (/^fe[89ab]/.test(ip) || ip.startsWith('fec') || ip.startsWith('ff')) return false
-  if (ip.startsWith('2001:db8:') || ip.startsWith('2001:10:') || ip.startsWith('2001:2:') ||
-      ip.startsWith('2001:20:') || ip.startsWith('2002:') || ip.startsWith('64:ff9b:')) return false
+  // Only accept global-unicast space, then exclude known special-use/documentation ranges.
+  if (!/^[23]/.test(ip)) return false
+  if (ip.startsWith('2001:0:') || ip.startsWith('2001:db8:') || ip.startsWith('2001:10:') ||
+      ip.startsWith('2001:2:') || ip.startsWith('2001:20:') || ip.startsWith('2002:') ||
+      ip.startsWith('3fff:')) return false
   return true
 }
 
