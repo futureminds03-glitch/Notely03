@@ -45,6 +45,7 @@ test('guest notes autosave, remain isolated, and survive reload', async ({ page 
   await expect(body).toHaveValue('Text typed into the first note must not disappear.')
 
   await page.reload()
+  await page.locator('.note-item').filter({ hasText: 'E2E first note' }).first().click()
   await expect(page.locator('.desktop-editor .note-title')).toHaveValue('E2E first note')
   await expect(page.locator('.desktop-editor .note-body')).toHaveValue('Text typed into the first note must not disappear.')
   await expect(page.locator('.note-item').filter({ hasText: 'E2E second note' }).first()).toBeVisible()
