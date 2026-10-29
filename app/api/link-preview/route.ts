@@ -1,46 +1,66 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { safeFetchHtml } from '@/lib/safe-url-fetch'
+
+function getMeta(html: string, name: string): string | null {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']*)["'][^>]*>`, 'i'))
+    ?? html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`, 'i'))
+  return match ? (match[1] ?? null) : null
+}
 
 export async function POST(req: NextRequest) {
+  let payload: unknown
   try {
-    const { url } = await req.json();
-    if (!url) return NextResponse.json({ error: 'No URL' }, { status: 400 });
+    payload = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
-    const res = await fetch(url, {
-      headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Referer': 'https://www.google.com/',
-        'Upgrade-Insecure-Requests': '1'
-      }
-    });
+  const url = typeof payload === 'object' && payload !== null && 'url' in payload
+    ? (payload as { url?: unknown }).url
+    : null
+  if (typeof url !== 'string' || !url.trim()) {
+    return NextResponse.json({ error: 'A valid URL is required' }, { status: 400 })
+  }
 
-    const html = await res.text();
-
-    // Check if we actually got blocked
-    if (html.includes("Just a moment...") || html.includes("Enable JavaScript") || res.status === 403) {
-      return NextResponse.json({ error: 'Site access challenged by security. Try again in a minute.' }, { status: 403 });
-    }
-
-    const getMeta = (p: string) => {
-      const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${p}["'][^>]+content=["']([^"']+)["']`, 'i'));
-      return m ? m[1] : null;
-    };
-
-    const title = getMeta('og:title') || html.match(/<title>(.*?)<\/title>/i)?.[1] || 'Webpage';
-    const domain = new URL(url).hostname.replace('www.', '');
-    const image = getMeta('og:image') || '';
-
-    // Better Content Extraction: Focus on paragraphs
-    const bodyContent = html.match(/<p>(.*?)<\/p>/g) || [];
-    const cleanBody = bodyContent
-      .map(p => p.replace(/<[^>]+>/g, '').trim())
-      .filter(p => p.length > 30) // Only keep actual paragraphs
+  try {
+    const { url: finalUrl, html } = await safeFetchHtml(url.trim())
+    const parsedUrl = new URL(finalUrl)
+    const domain = parsedUrl.hostname.replace(/^www\./i, '')
+    const title = getMeta(html, 'og:title') ||
+      html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]*>/g, '').trim() ||
+      'Webpage'
+    const description = getMeta(html, 'og:description') || getMeta(html, 'description') || ''
+    const image = getMeta(html, 'og:image') || ''
+    const paragraphs = html.match(/<p\b[^>]*>[\s\S]*?<\/p>/gi) || []
+    const fullContent = paragraphs
+      .map(paragraph => paragraph.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+      .filter(paragraph => paragraph.length > 30)
       .join('\n\n')
-      .slice(0, 8000);
+      .slice(0, 8000)
 
-    return NextResponse.json({ title, domain, url, fullContent: cleanBody, image });
-  } catch (err) {
-    return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
+    return NextResponse.json({
+      title: title.slice(0, 300),
+      description: description.slice(0, 2000),
+      domain,
+      url: finalUrl,
+      fullContent,
+      image: image.slice(0, 2048),
+    })
+  } catch (error) {
+    const code = error instanceof Error ? error.message : 'UPSTREAM_FAILED'
+    if (code === 'BLOCKED_TARGET' || code === 'DNS_FAILED') {
+      return NextResponse.json({ error: 'URL is not allowed' }, { status: 400 })
+    }
+    if (code === 'UPSTREAM_TIMEOUT') {
+      return NextResponse.json({ error: 'The website took too long to respond' }, { status: 504 })
+    }
+    if (code === 'RESPONSE_TOO_LARGE') {
+      return NextResponse.json({ error: 'The website response is too large' }, { status: 413 })
+    }
+    if (code === 'UNSUPPORTED_CONTENT_TYPE') {
+      return NextResponse.json({ error: 'The URL does not point to an HTML page' }, { status: 415 })
+    }
+    return NextResponse.json({ error: 'Could not fetch a preview for this URL' }, { status: 502 })
   }
 }
