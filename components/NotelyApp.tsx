@@ -261,6 +261,7 @@ export default function NotelyApp() {
   const localWriteRef = useRef<string | null>(null)
   const saveSequenceRef = useRef(0)
   const activeDraftRef = useRef({ title: '', body: '' })
+  const draftByIdRef = useRef<Record<string, { title: string; body: string }>>({})
   const creationInFlightRef = useRef(false)
   const dirtyFieldsRef = useRef({ title: false, body: false })
 
@@ -380,7 +381,14 @@ export default function NotelyApp() {
   }
 
   function openNote(note: Note) {
-    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
+    const previousId = activeIdRef.current
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+      if (previousId && !previousId.startsWith('temp-')) {
+        void doSave(previousId, activeDraftRef.current.title, activeDraftRef.current.body, startedAtRef.current)
+      }
+    }
     if (historyTimer.current) { clearTimeout(historyTimer.current); historyTimer.current = null }
     saveSequenceRef.current++
     dirtyFieldsRef.current = { title: false, body: false }
@@ -390,6 +398,7 @@ export default function NotelyApp() {
     setTitle(note.title)
     setBody(note.body)
     activeDraftRef.current = { title: note.title, body: note.body }
+    draftByIdRef.current[note.id] = { title: note.title, body: note.body }
     setStartedAt(note.started_at || null)
     setWordCount(note.body.trim() ? note.body.trim().split(/\s+/).length : 0)
     const capturedAt = toTimestampMs(note.started_at)
@@ -423,6 +432,7 @@ export default function NotelyApp() {
       history: [{ content: '', timestamp: captureTimestamp }],
       synced: false,
     }
+    draftByIdRef.current[tempId] = { title: '', body: '' }
     const updated = [tempNote, ...notesRef.current]
     setNotes(updated)
     openNote(tempNote)
@@ -438,19 +448,27 @@ export default function NotelyApp() {
         })
         if (res.ok) {
           const cloud: Note = await res.json()
-          const draftTitle = activeDraftRef.current.title
-          const draftBody = activeDraftRef.current.body
-          const draftStartedAt = startedAtRef.current ?? cloud.started_at ?? now
+          const draft = draftByIdRef.current[tempId] ?? { title: '', body: '' }
+          const draftTitle = draft.title
+          const draftBody = draft.body
+          const draftStartedAt = tempNote.started_at ?? cloud.started_at ?? now
 
           setNotes(prev => prev.map(n =>
             n.id === tempId
               ? { ...cloud, title: draftTitle, body: draftBody, started_at: draftStartedAt, history: tempNote.history, synced: true }
               : n
           ))
-          activeIdRef.current = cloud.id
-          startedAtRef.current = draftStartedAt
-          setActiveId(cloud.id)
-          setStartedAt(draftStartedAt)
+          delete draftByIdRef.current[tempId]
+          draftByIdRef.current[cloud.id] = { title: draftTitle, body: draftBody }
+          if (activeIdRef.current === tempId) {
+            activeIdRef.current = cloud.id
+            startedAtRef.current = draftStartedAt
+            setActiveId(cloud.id)
+            setTitle(draftTitle)
+            setBody(draftBody)
+            activeDraftRef.current = { title: draftTitle, body: draftBody }
+            setStartedAt(draftStartedAt)
+          }
 
           if (draftTitle || draftBody) {
             localWriteRef.current = cloud.id
@@ -504,7 +522,9 @@ export default function NotelyApp() {
       return updated
     })
     setSaveStatus('saved')
-    dirtyFieldsRef.current = { title: false, body: false }
+    if (activeDraftRef.current.title === t && activeDraftRef.current.body === b) {
+      dirtyFieldsRef.current = { title: false, body: false }
+    }
   }, [])
 
   function scheduleSave(t: string, b: string, sa: string | null) {
@@ -536,6 +556,7 @@ export default function NotelyApp() {
     setTitle(v)
     dirtyFieldsRef.current.title = true
     activeDraftRef.current.title = v
+    draftByIdRef.current[activeIdRef.current] = { ...activeDraftRef.current }
     scheduleSave(v, activeDraftRef.current.body, sa)
   }
 
@@ -549,6 +570,7 @@ export default function NotelyApp() {
     setBody(v)
     dirtyFieldsRef.current.body = true
     activeDraftRef.current.body = v
+    draftByIdRef.current[activeIdRef.current] = { ...activeDraftRef.current }
     setWordCount(v.trim() ? v.trim().split(/\s+/).length : 0)
     scheduleSave(activeDraftRef.current.title, v, sa)
     addToHistory(v)
