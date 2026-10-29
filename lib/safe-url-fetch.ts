@@ -1,7 +1,7 @@
 import { lookup } from 'node:dns/promises'
-import type { LookupFunction, LookupAddress } from 'node:dns'
+import type { LookupAddress } from 'node:dns'
 import { isIP } from 'node:net'
-import { request as httpRequest, type IncomingHttpHeaders, type IncomingMessage } from 'node:http'
+import { request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type RequestOptions } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 
 const MAX_URL_LENGTH = 2048
@@ -102,7 +102,7 @@ function requestPinned(target: ValidatedTarget): Promise<PinnedResponse> {
       reject(timedOut ? new Error('UPSTREAM_TIMEOUT') : error)
     }
 
-    const pinnedLookup: LookupFunction = (_hostname, options, callback) => {
+    const pinnedLookup: NonNullable<RequestOptions['lookup']> = (_hostname, options, callback) => {
       if (typeof options === 'object' && options.all) {
         ;(callback as (error: NodeJS.ErrnoException | null, addresses: LookupAddress[]) => void)(
           null, target.addresses
