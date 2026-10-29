@@ -556,7 +556,8 @@ export default function NotelyApp() {
     setTitle(v)
     dirtyFieldsRef.current.title = true
     activeDraftRef.current.title = v
-    draftByIdRef.current[activeIdRef.current] = { ...activeDraftRef.current }
+    const draftId = activeIdRef.current
+    if (draftId) draftByIdRef.current[draftId] = { ...activeDraftRef.current }
     scheduleSave(v, activeDraftRef.current.body, sa)
   }
 
