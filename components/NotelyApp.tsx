@@ -273,6 +273,15 @@ export default function NotelyApp() {
   useEffect(() => { notesRef.current = notes }, [notes])
   useEffect(() => { activeDraftRef.current = { title, body } }, [title, body])
 
+  // Grow the title field vertically so long titles wrap naturally instead of
+  // creating a horizontal scrollbar. Runs for edits and when switching notes.
+  useEffect(() => {
+    const field = titleRef.current
+    if (!field) return
+    field.style.height = 'auto'
+    field.style.height = `${field.scrollHeight}px`
+  }, [title, activeId])
+
   useEffect(() => {
     const initialAuthGeneration = authGenerationRef.current
     supabase.auth.getUser().then(({ data }) => {
