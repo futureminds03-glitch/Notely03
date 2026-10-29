@@ -4,6 +4,8 @@ const baseURL = process.env.E2E_BASE_URL || 'https://notely03.vercel.app'
 
 test.use({ baseURL, viewport: { width: 1440, height: 1000 } })
 
+const runtimeErrors = new WeakMap()
+
 async function expectGuestNoteSaved(page, title, body) {
   await expect.poll(async () => page.evaluate(() => {
     const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
@@ -12,10 +14,17 @@ async function expectGuestNoteSaved(page, title, body) {
 }
 
 test.beforeEach(async ({ page }) => {
+  const errors = []
+  runtimeErrors.set(page, errors)
+  page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')
   await page.evaluate(() => localStorage.clear())
   await page.reload()
   await expect(page.locator('.brand')).toContainText('Notely')
+})
+
+test.afterEach(async ({ page }) => {
+  expect(runtimeErrors.get(page) || []).toEqual([])
 })
 
 test('guest notes autosave, remain isolated, and survive reload', async ({ page }) => {
@@ -106,7 +115,11 @@ test('version history can restore an earlier body without losing it on reload', 
 
   const slider = page.getByRole('slider', { name: 'Time travel history' })
   await expect(slider).toHaveAttribute('max', /[2-9]/)
-  await slider.fill('1')
+  await slider.evaluate(element => {
+    element.value = '1'
+    element.dispatchEvent(new Event('input', { bubbles: true }))
+    element.dispatchEvent(new Event('change', { bubbles: true }))
+  })
   await page.getByRole('button', { name: 'Restore' }).click()
   await expect(body).toHaveValue('First durable version of the note.')
   await expectGuestNoteSaved(page, 'History restore', 'First durable version of the note.')
