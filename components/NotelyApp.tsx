@@ -124,10 +124,15 @@ function Editor({
   bodyRef, titleRef
 }: EditorProps) {
   useEffect(() => {
-    const field = titleRef.current
-    if (!field) return
-    field.style.height = 'auto'
-    field.style.height = `${field.scrollHeight}px`
+    const resizeTitle = () => {
+      const field = titleRef.current
+      if (!field) return
+      field.style.height = 'auto'
+      field.style.height = `${field.scrollHeight}px`
+    }
+    resizeTitle()
+    window.addEventListener('resize', resizeTitle)
+    return () => window.removeEventListener('resize', resizeTitle)
   }, [title, activeId, titleRef])
   if (!activeId) {
     return (
@@ -407,24 +412,26 @@ export default function NotelyApp() {
     }
   }
 
+  function flushGuestDraft(id: string) {
+    const draft = activeDraftRef.current
+    // Invalidate any older queued save before synchronously persisting the latest guest draft.
+    saveSequenceRef.current[id] = (saveSequenceRef.current[id] ?? 0) + 1
+    const flushed = notesRef.current.map(existing => existing.id === id
+      ? { ...existing, ...draft, updated_at: new Date().toISOString(), synced: false }
+      : existing
+    )
+    notesRef.current = flushed
+    setNotes(flushed)
+    saveGuest(flushed)
+  }
+
   function openNote(note: Note) {
     const previousId = activeIdRef.current
     if (saveTimer.current) {
       clearTimeout(saveTimer.current)
       saveTimer.current = null
       if (previousId?.startsWith('temp-') && !userRef.current) {
-        // Guest notes have no server to flush to; synchronously persist the latest draft
-        // before changing active IDs so a batched React update cannot replace it with stale state.
-        const draft = activeDraftRef.current
-        // Invalidate any older debounced save queued for this guest note before flushing synchronously.
-        saveSequenceRef.current[previousId] = (saveSequenceRef.current[previousId] ?? 0) + 1
-        const flushed = notesRef.current.map(existing => existing.id === previousId
-          ? { ...existing, ...draft, updated_at: new Date().toISOString(), synced: false }
-          : existing
-        )
-        notesRef.current = flushed
-        setNotes(flushed)
-        saveGuest(flushed)
+        flushGuestDraft(previousId)
       } else if (previousId && !previousId.startsWith('temp-')) {
         void doSave(previousId, activeDraftRef.current.title, activeDraftRef.current.body, startedAtRef.current)
       }
@@ -843,11 +850,16 @@ export default function NotelyApp() {
         ) : (
           <>
             <button className="mobile-back-btn" onClick={() => {
+              const id = activeIdRef.current
+              const hadPendingSave = Boolean(saveTimer.current)
               if (saveTimer.current) {
                 clearTimeout(saveTimer.current)
                 saveTimer.current = null
-                const id = activeIdRef.current
-                if (id) void doSave(id, title, body, startedAt)
+              }
+              if (id?.startsWith('temp-') && !userRef.current) {
+                flushGuestDraft(id)
+              } else if (hadPendingSave && id) {
+                void doSave(id, activeDraftRef.current.title, activeDraftRef.current.body, startedAtRef.current)
               }
               setMobileView('list')
             }}>
