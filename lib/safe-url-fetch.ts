@@ -80,6 +80,8 @@ async function validateTarget(input: string): Promise<ValidatedTarget> {
     )) {
       throw new Error('BLOCKED_TARGET')
     }
+    // Prefer IPv4 where both families are available; every candidate is still validated and pinned.
+    addresses.sort((a, b) => a.family - b.family)
   }
 
   url.hash = ''
