@@ -117,6 +117,13 @@ interface EditorProps {
 }
 
 function Editor({
+  useEffect(() => {
+    const field = titleRef.current
+    if (!field) return
+    field.style.height = 'auto'
+    field.style.height = `${field.scrollHeight}px`
+  }, [title, activeId, titleRef])
+
   activeId, title, body, startedAt, saveStatus, wordCount, aiStatus,
   history, travelIndex,
   onTitleChange, onBodyChange, onTitleKeyDown, onDelete,
@@ -252,6 +259,8 @@ export default function NotelyApp() {
 
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
+  const mobileBodyRef = useRef<HTMLTextAreaElement>(null)
+  const mobileTitleRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const historyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeIdRef = useRef<string | null>(null)
@@ -272,15 +281,6 @@ export default function NotelyApp() {
   useEffect(() => { startedAtRef.current = startedAt }, [startedAt])
   useEffect(() => { notesRef.current = notes }, [notes])
   useEffect(() => { activeDraftRef.current = { title, body } }, [title, body])
-
-  // Grow the title field vertically so long titles wrap naturally instead of
-  // creating a horizontal scrollbar. Runs for edits and when switching notes.
-  useEffect(() => {
-    const field = titleRef.current
-    if (!field) return
-    field.style.height = 'auto'
-    field.style.height = `${field.scrollHeight}px`
-  }, [title, activeId])
 
   useEffect(() => {
     const initialAuthGeneration = authGenerationRef.current
@@ -477,7 +477,12 @@ export default function NotelyApp() {
     setNotes(updated)
     if (!userRef.current) saveGuest(updated)
     openNote(tempNote)
-    setTimeout(() => titleRef.current?.focus(), 50)
+    setTimeout(() => {
+      const titleField = window.matchMedia('(max-width: 640px)').matches
+        ? mobileTitleRef.current
+        : titleRef.current
+      titleField?.focus()
+    }, 50)
 
     if (userRef.current) {
       try {
@@ -661,7 +666,14 @@ export default function NotelyApp() {
   }
 
   const onTitleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter') { e.preventDefault(); bodyRef.current?.focus() }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) {
+        mobileBodyRef.current?.focus()
+      } else {
+        bodyRef.current?.focus()
+      }
+    }
   }, [])
 
   const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
@@ -806,7 +818,6 @@ export default function NotelyApp() {
     onTitleChange, onBodyChange, onTitleKeyDown, onDelete: handleDelete,
     onSummarize: handleSummarize, onExport: handleExport,
     onTravel, onRestoreVersion,
-    bodyRef, titleRef
   }
 
   return (
@@ -917,11 +928,11 @@ export default function NotelyApp() {
           )}
           {mobileView === 'editor' && (
             <div className="mobile-editor">
-              <Editor {...editorProps} />
+              <Editor {...editorProps} bodyRef={mobileBodyRef} titleRef={mobileTitleRef} />
             </div>
           )}
           <div className="desktop-editor">
-            <Editor {...editorProps} />
+            <Editor {...editorProps} bodyRef={bodyRef} titleRef={titleRef} />
           </div>
         </main>
       </div>
