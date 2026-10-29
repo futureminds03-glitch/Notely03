@@ -155,6 +155,13 @@ test('private APIs reject anonymous access and link previews block local targets
     expect(previewResponse.status(), `should reject unsafe target: ${url}`).toBe(400)
   }
 
+  const publicPreview = await request.post('/api/link-preview', {
+    data: { url: 'https://example.com/' },
+    timeout: 15_000,
+  })
+  expect(publicPreview.status()).toBe(200)
+  expect((await publicPreview.json()).domain).toBe('example.com')
+
   const manifest = await request.get('/manifest.json')
   expect(manifest.status()).toBe(200)
   expect((await manifest.json()).name).toBe('Notely')
