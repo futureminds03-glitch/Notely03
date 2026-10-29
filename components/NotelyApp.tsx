@@ -571,7 +571,8 @@ export default function NotelyApp() {
     setBody(v)
     dirtyFieldsRef.current.body = true
     activeDraftRef.current.body = v
-    draftByIdRef.current[activeIdRef.current] = { ...activeDraftRef.current }
+    const draftId = activeIdRef.current
+    if (draftId) draftByIdRef.current[draftId] = { ...activeDraftRef.current }
     setWordCount(v.trim() ? v.trim().split(/\s+/).length : 0)
     scheduleSave(activeDraftRef.current.title, v, sa)
     addToHistory(v)
