@@ -117,19 +117,18 @@ interface EditorProps {
 }
 
 function Editor({
-  useEffect(() => {
-    const field = titleRef.current
-    if (!field) return
-    field.style.height = 'auto'
-    field.style.height = `${field.scrollHeight}px`
-  }, [title, activeId, titleRef])
-
   activeId, title, body, startedAt, saveStatus, wordCount, aiStatus,
   history, travelIndex,
   onTitleChange, onBodyChange, onTitleKeyDown, onDelete,
   onSummarize, onExport, onTravel, onRestoreVersion,
   bodyRef, titleRef
 }: EditorProps) {
+  useEffect(() => {
+    const field = titleRef.current
+    if (!field) return
+    field.style.height = 'auto'
+    field.style.height = `${field.scrollHeight}px`
+  }, [title, activeId, titleRef])
   if (!activeId) {
     return (
       <div className="empty-editor">
