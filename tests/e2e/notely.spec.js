@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test')
+const fs = require('node:fs/promises')
 
 const baseURL = process.env.E2E_BASE_URL || 'https://notely03.vercel.app'
 
@@ -85,6 +86,10 @@ test('export downloads a text file containing the current note', async ({ page }
   await page.getByRole('button', { name: 'Export' }).click()
   const download = await downloadPromise
   expect(download.suggestedFilename()).toBe('export-verification.txt')
+  const downloadedPath = await download.path()
+  const downloadedText = await fs.readFile(downloadedPath, 'utf8')
+  expect(downloadedText).toContain('Export verification')
+  expect(downloadedText).toContain('Export should contain this exact sentence.')
 })
 
 test('mobile guest editor keeps the draft when navigating back and reopening', async ({ page }) => {
@@ -168,4 +173,20 @@ test('private APIs reject anonymous access and link previews block local targets
 
   const serviceWorker = await request.get('/sw.js')
   expect(serviceWorker.status()).toBe(200)
+})
+
+test('sign-in and sign-up modal modes return cleanly to guest mode', async ({ page }) => {
+  await page.locator('.sidebar-footer .auth-btn').click()
+  await expect(page.locator('.modal-title')).toHaveText('Welcome back.')
+  await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
+  await expect(page.getByPlaceholder('••••••••')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Sign up' }).click()
+  await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible()
+  await page.getByRole('button', { name: 'Sign in' }).last().click()
+  await expect(page.getByRole('button', { name: 'Sign in' }).last()).toBeVisible()
+
+  await page.getByRole('button', { name: /Continue as guest/ }).click()
+  await expect(page.locator('.modal')).toHaveCount(0)
+  await expect(page.locator('.sidebar-footer')).toContainText('guest mode')
 })
