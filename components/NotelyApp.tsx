@@ -223,6 +223,9 @@ function Editor({
             min={0}
             max={Math.max(0, history.length - 1)}
             value={travelIndex >= 0 ? travelIndex : Math.max(0, history.length - 1)}
+            style={{
+              background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%, var(--line) ${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%, var(--line) 100%)`
+            }}
             onChange={e => onTravel(parseInt(e.target.value))}
             aria-label="Time travel history"
           />
