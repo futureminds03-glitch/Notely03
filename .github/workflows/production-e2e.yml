@@ -10,6 +10,11 @@ on:
       - 'lib/**'
       - 'public/**'
       - 'proxy.ts'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'next.config.*'
+      - 'tsconfig.json'
+      - 'playwright.config.js'
       - 'tests/e2e/**'
       - '.github/workflows/production-e2e.yml'
   push:
