@@ -51,7 +51,7 @@ async function validateTarget(input: string): Promise<ValidatedTarget> {
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
     throw new Error('BLOCKED_TARGET')
   }
-  if (url.port && url.port !== '80' && url.port !== '443') {
+  if (url.port) {
     throw new Error('BLOCKED_TARGET')
   }
 
