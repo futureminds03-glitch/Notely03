@@ -430,6 +430,7 @@ export default function NotelyApp() {
     }
     draftByIdRef.current[tempId] = { title: '', body: '' }
     const updated = [tempNote, ...notesRef.current]
+    notesRef.current = updated
     setNotes(updated)
     openNote(tempNote)
     if (!userRef.current) saveGuest(updated)
@@ -533,6 +534,7 @@ export default function NotelyApp() {
           ? { ...n, title: t, body: b, started_at: sa ?? undefined, updated_at: now, synced: Boolean(userRef.current) }
           : n
       )
+      notesRef.current = updated
       if (!userRef.current) saveGuest(updated)
       return updated
     })
