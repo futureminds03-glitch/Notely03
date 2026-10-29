@@ -263,6 +263,7 @@ export default function NotelyApp() {
   const activeDraftRef = useRef({ title: '', body: '' })
   const draftByIdRef = useRef<Record<string, { title: string; body: string }>>({})
   const creationInFlightRef = useRef(false)
+  const authGenerationRef = useRef(0)
   const dirtyFieldsRef = useRef({ title: false, body: false })
 
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
@@ -272,8 +273,13 @@ export default function NotelyApp() {
   useEffect(() => { activeDraftRef.current = { title, body } }, [title, body])
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.getUser().then(({ data }) => {
+      userRef.current = data.user
+      setUser(data.user)
+    })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      authGenerationRef.current += 1
+      userRef.current = session?.user ?? null
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
@@ -281,7 +287,7 @@ export default function NotelyApp() {
 
   useEffect(() => {
     if (user) {
-      fetchCloud()
+      void fetchCloud(user.id)
     } else {
       const gn = loadGuest()
       setNotes(gn)
@@ -368,13 +374,25 @@ export default function NotelyApp() {
     setWordCount(0); setAiStatus(''); setHistory([]); setTravelIndex(-1)
   }
 
-  async function fetchCloud() {
-    const res = await fetch('/api/notes', { cache: 'no-store' })
-    if (!res.ok) return
-    const data: Note[] = await res.json()
-    setNotes(data.map(note => ({ ...note, synced: true })))
-    if (data.length > 0) openNote(data[0])
-    else clearEditor()
+  async function fetchCloud(requestedUserId: string) {
+    const generation = authGenerationRef.current
+    try {
+      const res = await fetch('/api/notes', { cache: 'no-store' })
+      if (!res.ok) return
+      const data: Note[] = await res.json()
+
+      // Ignore stale cloud responses after account changes or sign-out.
+      if (
+        generation !== authGenerationRef.current ||
+        userRef.current?.id !== requestedUserId
+      ) return
+
+      setNotes(data.map(note => ({ ...note, synced: true })))
+      if (data.length > 0) openNote(data[0])
+      else clearEditor()
+    } catch (error) {
+      console.error('Failed to load cloud notes:', error)
+    }
   }
 
   function openNote(note: Note) {
@@ -733,8 +751,21 @@ export default function NotelyApp() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
-    setNotes(loadGuest()); clearEditor(); setMobileView('list')
+    // Invalidate any in-flight cloud-note request before changing modes.
+    authGenerationRef.current += 1
+    userRef.current = null
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      const { data } = await supabase.auth.getUser()
+      userRef.current = data.user
+      setUser(data.user)
+      setAuthError(error.message)
+      return
+    }
+    setNotes(loadGuest())
+    notesRef.current = loadGuest()
+    clearEditor()
+    setMobileView('list')
   }
 
   const handleOpen = useCallback((n: Note) => openNote(n), [])
