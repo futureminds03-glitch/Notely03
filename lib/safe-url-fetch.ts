@@ -94,16 +94,16 @@ export async function safeFetchHtml(input: string): Promise<{ url: string; html:
           'Accept': 'text/html,application/xhtml+xml;q=0.9',
         },
       })
-    } catch (error) {
+    } catch {
+      clearTimeout(timeout)
       if (controller.signal.aborted) throw new Error('UPSTREAM_TIMEOUT')
       throw new Error('UPSTREAM_FAILED')
-    } finally {
-      clearTimeout(timeout)
     }
 
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get('location')
       await response.body?.cancel()
+      clearTimeout(timeout)
       if (!location || redirectCount === MAX_REDIRECTS) throw new Error('TOO_MANY_REDIRECTS')
       target = await validateTarget(new URL(location, target).toString())
       continue
@@ -111,16 +111,21 @@ export async function safeFetchHtml(input: string): Promise<{ url: string; html:
 
     if (!response.ok) {
       await response.body?.cancel()
+      clearTimeout(timeout)
       throw new Error('UPSTREAM_FAILED')
     }
 
     const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
     if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
       await response.body?.cancel()
+      clearTimeout(timeout)
       throw new Error('UNSUPPORTED_CONTENT_TYPE')
     }
 
-    if (!response.body) return { url: target.toString(), html: '', status: response.status }
+    if (!response.body) {
+      clearTimeout(timeout)
+      return { url: target.toString(), html: '', status: response.status }
+    }
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let size = 0
@@ -137,7 +142,11 @@ export async function safeFetchHtml(input: string): Promise<{ url: string; html:
         html += decoder.decode(value, { stream: true })
       }
       html += decoder.decode()
+    } catch (error) {
+      if (controller.signal.aborted) throw new Error('UPSTREAM_TIMEOUT')
+      throw error
     } finally {
+      clearTimeout(timeout)
       reader.releaseLock()
     }
     return { url: target.toString(), html, status: response.status }
