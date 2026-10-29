@@ -431,8 +431,8 @@ export default function NotelyApp() {
     const updated = [tempNote, ...notesRef.current]
     notesRef.current = updated
     setNotes(updated)
-    openNote(tempNote)
     if (!userRef.current) saveGuest(updated)
+    openNote(tempNote)
     setTimeout(() => titleRef.current?.focus(), 50)
 
     if (userRef.current) {
