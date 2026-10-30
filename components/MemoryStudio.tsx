@@ -60,7 +60,12 @@ export default function MemoryStudio(){
  const assignTag=async(id:string,tag:string)=>{const n=notes.find(x=>x.id===id);if(!n)return;const tags=n.tags||[];await updateTags(id,tags.includes(tag)?tags.filter(x=>x!==tag):[...tags,tag])}
  const currentResurfaced=resurfaced.length?resurfaced[resurfaceIndex%resurfaced.length]:null
  useEffect(()=>()=>{recognitionRef.current?.stop();recognitionRef.current=null},[])
- if(!ready)return <div style={styles.shell}>Opening your memory…</div>
+ if(!ready)return <div className="memory-loading" role="status" aria-live="polite" aria-busy="true">
+  <div className="memory-loading-mark"><span/><span/><span/></div>
+  <div className="memory-loading-title">Opening Memory Studio</div>
+  <p>Gathering your thoughts and connections</p>
+  <div className="memory-loading-track"><span/></div>
+ </div>
  return <div className="memory-studio-scroll" style={styles.shell}><div style={styles.wrap}>
   <button style={{...styles.button,marginBottom:24}} onClick={()=>router.push('/')}>← Back to notes</button>
   <div style={styles.eyebrow}>YOUR PERSONAL MEMORY</div><h1 style={styles.heading}>A little more room to think.</h1><p style={styles.muted}>Capture now. Make sense of it later. Find it when it matters.</p>
