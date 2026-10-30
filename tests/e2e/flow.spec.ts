@@ -65,7 +65,7 @@ test.describe('Notely Flow', () => {
     await page.route('**/api/organize', route => route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ organized: '## Key points\\n- Keep the original idea\\n- Choose one next step' }),
+      body: JSON.stringify({ organized: '## Key points\n- Keep the original idea\n- Choose one next step' }),
     }))
     await page.goto(new URL('/flow', baseURL).toString())
     const original = 'A messy thought with several ideas and no clear order'
