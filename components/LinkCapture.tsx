@@ -55,6 +55,7 @@ export default function LinkCapture() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [plainSaved, setPlainSaved] = useState(false)
   const [error, setError] = useState('')
 
   async function extract(event: React.FormEvent<HTMLFormElement>) {
@@ -64,6 +65,7 @@ export default function LinkCapture() {
     setError('')
     setResult(null)
     setSaved(false)
+    setPlainSaved(false)
     try {
       const response = await fetch('/api/link-capture', {
         method: 'POST',
@@ -121,6 +123,47 @@ export default function LinkCapture() {
     }
   }
 
+
+  async function saveUrlOnly() {
+    if (!url.trim() || saving || plainSaved) return
+    setSaving(true)
+    setError('')
+    const now = new Date().toISOString()
+    const sourceUrl = url.trim()
+    const body = 'Source URL: ' + sourceUrl + '\\n\\nThis link was saved without webpage extraction. You can retry extraction later.\\n\\nCaptured with Notely on ' + now
+    try {
+      const remote = await fetch('/api/notes', { cache: 'no-store' })
+      if (remote.ok) {
+        const response = await fetch('/api/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Saved link', body, tags: ['Links'], started_at: now }),
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error('Could not save this link to your account. ' + (typeof data.error === 'string' ? data.error : 'Your URL is still here.'))
+      } else if (remote.status === 401) {
+        let existing: unknown[] = []
+        try {
+          const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]')
+          if (Array.isArray(parsed)) existing = parsed
+        } catch { /* recover with a fresh guest collection */ }
+        const note = {
+          id: 'local-link-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+          title: 'Saved link', body, created_at: now, updated_at: now, started_at: now,
+          tags: ['Links'], synced: false,
+        }
+        localStorage.setItem('notely_notes', JSON.stringify([note, ...existing]))
+      } else {
+        throw new Error('Could not check your Notely account. Your URL is still here.')
+      }
+      setPlainSaved(true)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save this URL. Your link is still here.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <main className="link-capture-page">
       <div className="link-capture-shell">
@@ -137,7 +180,7 @@ export default function LinkCapture() {
           <small>Public webpages only. Private pages and sign-in protected content are not accessed.</small>
         </form>
         {loading && <div className="link-capture-loading" role="status" aria-live="polite"><span className="link-capture-spinner" /> Reading the page and finding the useful parts…</div>}
-        {error && <p className="link-capture-error" role="alert">{error}</p>}
+        {error && <div className="link-capture-error" role="alert"><p>{error}</p>{!result && <button type="button" onClick={saveUrlOnly} disabled={saving || plainSaved}>{saving ? 'Saving…' : plainSaved ? 'URL saved' : 'Save URL only'}</button>}</div>}{plainSaved && <p className="link-capture-warning" role="status">URL saved to your Notely notes. You can retry extraction whenever you like.</p>}
         {result && <section className="link-capture-result" aria-label="Extracted webpage">
           <div className="link-capture-source"><span>{result.domain}</span><a href={result.sourceUrl} target="_blank" rel="noreferrer">Open original ↗</a></div>
           <h2>{result.title}</h2>
@@ -175,7 +218,7 @@ export default function LinkCapture() {
         .link-capture-loading{display:flex;align-items:center;gap:12px;padding:22px;color:var(--muted,#777);font-size:13px}
         .link-capture-spinner{width:18px;height:18px;border:2px solid var(--line,#ddd);border-top-color:var(--accent,#71856f);border-radius:50%;animation:spin .8s linear infinite}
         @keyframes spin{to{transform:rotate(360deg)}}
-        .link-capture-error,.link-capture-warning{padding:12px 14px;border-radius:10px;background:#fff4e8;color:#805324;font-size:13px;line-height:1.5}
+        .link-capture-error,.link-capture-warning{padding:12px 14px;border-radius:10px;background:#fff4e8;color:#805324;font-size:13px;line-height:1.5}.link-capture-error p{margin:0 0 10px}.link-capture-error button{min-height:38px}
         .link-capture-result{margin-top:22px}
         .link-capture-source{display:flex;justify-content:space-between;gap:12px;color:var(--muted,#888);font-size:11px}
         .link-capture-source a{color:var(--accent,#647b63);text-decoration:none}
