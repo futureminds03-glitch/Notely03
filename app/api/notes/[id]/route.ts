@@ -16,6 +16,7 @@ interface DocumentRow {
   started_at: string | null
   created_at: string
   updated_at: string
+  tags?: string[]
 }
 
 interface VersionRow {
@@ -37,7 +38,7 @@ function parseUpdate(value: unknown): {
   if (typeof value !== 'object' || value === null) return null
 
   const input = value as NoteUpdateRequest
-  const result: { title?: string; body?: string; startedAt?: string | null } = {}
+  const result: { title?: string; body?: string; startedAt?: string | null; tags?: string[] } = {}
 
   if (input.title !== undefined) {
     if (typeof input.title !== 'string') return null
@@ -108,7 +109,7 @@ export async function PATCH(
 
   const { data: before, error: beforeError } = await supabase
     .from('documents')
-    .select('id,user_id,title,body,started_at,created_at,updated_at')
+    .select('id,user_id,title,body,started_at,created_at,updated_at,tags')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -180,6 +181,7 @@ export async function PATCH(
     created_at: document.created_at,
     updated_at: document.updated_at,
     started_at: document.started_at,
+    tags: document.tags ?? [],
     history: toHistory(
       (versions ?? []) as VersionRow[],
       document.body,
