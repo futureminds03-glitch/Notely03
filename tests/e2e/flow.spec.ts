@@ -13,6 +13,9 @@ test.describe('Notely Flow', () => {
       return notes.some((note: { body?: string }) => note.body?.includes('A loose idea I need to remember later'))
     })).toBe(true)
     await expect(page.getByText('Captured. Come back to organize this whenever you want.')).toBeVisible()
+    const noteId = await page.evaluate(() => JSON.parse(localStorage.getItem('notely_notes') || '[]')[0].id)
+    await page.goto(new URL('/?note=' + encodeURIComponent(noteId), baseURL).toString())
+    await expect(page.locator('.note-body')).toHaveValue('A loose idea I need to remember later')
   })
 
   test('keeps Parking Lot thoughts across reloads and promotes them to notes', async ({ page }) => {
