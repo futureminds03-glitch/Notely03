@@ -244,7 +244,7 @@ test('Time Machine browses notes by day, week, and month and opens the original 
   await page.getByRole('button', { name: 'Day', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Thought from the timeline', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Month', exact: true }).click()
-  await expect(page.getByText('Thought from the timeline', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Thought from the timeline', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Open Thought from the timeline' }).click()
   await expect(page.locator('.desktop-editor .note-title')).toHaveValue('Thought from the timeline')
   await expect(page.locator('.desktop-editor .note-body')).toHaveValue('This thought must be findable by the day it was captured.')
