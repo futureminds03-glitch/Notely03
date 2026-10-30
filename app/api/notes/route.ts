@@ -119,6 +119,7 @@ export async function GET() {
     created_at: row.created_at,
     updated_at: row.updated_at,
     started_at: row.started_at,
+    tags: row.tags ?? [],
     history: byDocument.get(row.id)?.length
       ? toHistory(byDocument.get(row.id)!)
       : [{ content: row.body, timestamp: Date.parse(row.started_at ?? row.created_at) }],
