@@ -90,6 +90,16 @@ as $function$
       coalesce(tokens.words, array[]::text[]) as words
     from tokens
   ),
+  vector_candidates as (
+    select de.document_id,
+      greatest(0, 1 - (de.embedding <=> p_query_embedding))::real as similarity
+    from public.document_embeddings de
+    where p_query_embedding is not null
+      and de.embedding is not null
+      and de.model = 'text-embedding-3-small'
+    order by de.embedding <=> p_query_embedding
+    limit 50
+  ),
   ranked as (
     select
       d.id, d.title, d.body, d.created_at, d.updated_at, d.tags,
@@ -97,17 +107,22 @@ as $function$
       coalesce(i.entities, '[]'::jsonb) as entities,
       coalesce(i.action_items, '[]'::jsonb) as action_items,
       coalesce(ts_rank_cd(d.search_vector, parsed.query), 0)::real as text_score,
-      case when p_query_embedding is not null and e.embedding is not null
-        then greatest(0, 1 - (e.embedding <=> p_query_embedding))::real else 0::real end as vector_score,
+      coalesce(vc.similarity, 0)::real as vector_score,
       (coalesce(d.title, '') ilike '%' || left(coalesce(p_search_text, ''), 80) || '%') as title_match,
-      (coalesce(d.tags, '{}'::text[]) && parsed.words) as tag_match,
-      (coalesce(i.key_topics, '[]'::jsonb)::text ilike '%' || lower(coalesce(p_search_text, '')) || '%'
-        or coalesce(i.entities, '[]'::jsonb)::text ilike '%' || lower(coalesce(p_search_text, '')) || '%') as insight_match,
+      exists (
+        select 1 from unnest(parsed.words) as query_word
+        where lower(query_word) = any(array(select lower(tag) from unnest(coalesce(d.tags, '{}'::text[])) as tag))
+      ) as tag_match,
+      exists (
+        select 1 from unnest(parsed.words) as query_word
+        where coalesce(i.key_topics, '[]'::jsonb)::text ilike '%' || query_word || '%'
+          or coalesce(i.entities, '[]'::jsonb)::text ilike '%' || query_word || '%'
+      ) as insight_match,
       parsed.query
     from public.documents d
     cross join parsed
     left join public.document_insights i on i.document_id = d.id
-    left join public.document_embeddings e on e.document_id = d.id
+    left join vector_candidates vc on vc.document_id = d.id
     where auth.uid() is not null and d.user_id = (select auth.uid()) and d.status = 'active'
       and (p_exclude_id is null or d.id <> p_exclude_id)
   )
