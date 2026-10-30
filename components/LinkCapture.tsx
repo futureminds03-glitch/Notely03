@@ -65,7 +65,7 @@ export default function LinkCapture() {
     setResult(null)
     setSaved(false)
     try {
-      const response = await fetch('/api/link-preview', {
+      const response = await fetch('/api/link-capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: url.trim() }),
