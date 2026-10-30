@@ -279,6 +279,40 @@ test('Memory Studio captures thoughts, tags them, resurfaces notes, and finds co
   await expect(page.getByRole('button', { name: 'Another memory' })).toBeVisible()
 })
 
+
+test('voice capture handles interim and final transcripts and stops cleanly', async ({ page }) => {
+  await page.addInitScript(() => {
+    class FakeSpeechRecognition {
+      start() { window.__fakeRecognition = this }
+      stop() { this.onend?.() }
+    }
+    window.SpeechRecognition = FakeSpeechRecognition
+  })
+  await page.goto('/memory')
+  const capture = page.getByPlaceholder('A thought, an idea, something to remember…')
+  await capture.fill('Existing typed thought.')
+  await page.getByRole('button', { name: '◉ Voice dump' }).click()
+  await expect(capture).toBeDisabled()
+  await page.evaluate(() => {
+    const recognition = window.__fakeRecognition
+    recognition.onresult({ results: [
+      Object.assign([{ transcript: ' spoken words' }], { isFinal: false }),
+    ] })
+  })
+  await expect(capture).toHaveValue('Existing typed thought. spoken words')
+  await page.evaluate(() => {
+    const recognition = window.__fakeRecognition
+    recognition.onresult({ results: [
+      Object.assign([{ transcript: ' spoken words' }], { isFinal: false }),
+      Object.assign([{ transcript: ' become text.' }], { isFinal: true }),
+    ] })
+  })
+  await expect(capture).toHaveValue('Existing typed thought. spoken words become text.')
+  await page.getByRole('button', { name: 'Stop recording' }).click()
+  await expect(capture).toBeEnabled()
+  await expect(capture).toHaveValue('Existing typed thought. spoken words become text.')
+})
+
 test('Ask My Memory retrieves matching notes without requiring an AI key', async ({ request }) => {
   const response = await request.post('/api/memory/ask', { data: {
     question: 'What did I write about my business idea?',

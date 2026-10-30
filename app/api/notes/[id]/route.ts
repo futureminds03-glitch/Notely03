@@ -129,7 +129,7 @@ export async function PATCH(
     .update(updates)
     .eq('id', id)
     .eq('user_id', user.id)
-    .select('id,user_id,title,body,started_at,created_at,updated_at')
+    .select('id,user_id,title,body,started_at,created_at,updated_at,tags')
     .single()
 
   if (error || !data) {
