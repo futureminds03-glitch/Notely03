@@ -2,7 +2,7 @@
 
 **Just write — nothing else.**
 
-Notely is a lightweight personal note-taking web app focused on getting ideas down quickly. It combines a distraction-light writing surface with autosaving, searchable notes, version history, optional AI summaries, and a mobile-friendly installable experience.
+Notely is a lightweight personal note-taking web app focused on getting ideas down quickly. It combines a distraction-light writing surface with autosaving, searchable notes, version history, an adaptive ADHD-friendly Flow workspace, optional AI assistance, and a mobile-friendly installable experience.
 
 - **Production app:** https://notely03.vercel.app
 - **Repository:** https://github.com/futureminds03-glitch/Notely03
@@ -17,11 +17,12 @@ Notely is a lightweight personal note-taking web app focused on getting ideas do
 - **Notes library:** create, open, search, and delete notes.
 - **Time Travel:** browse recorded note-body versions by timestamp and restore an earlier version.
 - **AI summaries:** append a concise summary using the configured Groq API.
+- **Notely Flow:** one-step brain dumps, browser voice transcription, a persistent Parking Lot, AI De-Clutter, contextual resurfacing, focus timer, and low-friction reading layouts.
 - **Export:** download a note as a plain-text TXT file.
 - **Accounts and sync:** Supabase Auth and cloud-backed notes for signed-in users.
 - **Mobile/PWA support:** responsive mobile views, web app manifest, service worker registration, and app icon.
 
-Feature availability depends on environment configuration. AI summaries require a server-side Groq API key; cloud accounts and sync require Supabase configuration.
+Feature availability depends on environment configuration. AI summaries and AI De-Clutter require the server-side `GROQ_API_KEY`; cloud accounts and sync require Supabase configuration. Voice transcription depends on browser Speech Recognition support and microphone permission. Parking Lot entries and focus-session counts are browser-local.
 
 ## Technology
 
@@ -45,7 +46,7 @@ See [architecture](docs/ARCHITECTURE.md) and [product brief](docs/PRODUCT_BRIEF.
 - Node.js 20 or later
 - pnpm compatible with the repository lockfile
 - A Supabase project for authentication and cloud-backed notes
-- A Groq API key only if AI summaries are to be enabled
+- A Groq API key only if AI summaries and Flow's AI De-Clutter are to be enabled
 
 ### Install and run
 
@@ -64,7 +65,7 @@ Create a local .env.local file. Never commit real credentials.
 | NEXT_PUBLIC_SUPABASE_URL | Supabase client and cloud features | Public configuration |
 | NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | Supabase browser client (preferred) | Public/publishable key |
 | NEXT_PUBLIC_SUPABASE_ANON_KEY | Legacy-compatible fallback | Public/anonymous key |
-| GROQ_API_KEY | AI summaries | **Server-only secret** |
+| GROQ_API_KEY | AI summaries and Flow AI De-Clutter | **Server-only secret** |
 
 Supabase's database schema and row-level security policies must be configured for the tables used by the application, including documents and version history. Review the API routes before configuring a new database. Do not expose service-role keys in NEXT_PUBLIC variables.
 
@@ -86,14 +87,17 @@ Check the Actions run for the actual outcome; the existence of a workflow file d
 
     app/
       api/notes/          Authenticated note CRUD and version history
+      api/organize/       Groq-backed brain-dump organization
       api/summarize/      Groq-backed summary endpoint
       api/link-preview/   Server-side page metadata extraction
       auth/               Authentication callback routes
+      flow/               Adaptive Notely Flow workspace
       globals.css         Application styling
       layout.tsx          Metadata, viewport, PWA registration
       page.tsx            App entry point
     components/
       NotelyApp.tsx       Main note-taking experience
+      NotelyFlow.tsx      Brain dump, Parking Lot, focus, and resurfacing
     lib/
       supabase-client.ts
       supabase-server.ts
