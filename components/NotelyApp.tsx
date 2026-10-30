@@ -15,6 +15,7 @@ interface Note {
   updated_at: string
   started_at?: string
   history?: NoteVersion[]
+  tags?: string[]
   synced?: boolean
 }
 
@@ -394,6 +395,13 @@ export default function NotelyApp() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    const noteId = new URLSearchParams(window.location.search).get('note')
+    if (!noteId) return
+    const target = notes.find(note => note.id === noteId)
+    if (target) { openNote(target); window.history.replaceState({}, '', '/') }
+  }, [notes])
 
   useEffect(() => {
     if (user) {
@@ -1023,6 +1031,7 @@ export default function NotelyApp() {
             />
           </div>
           <button className={`time-machine-link ${showTimeMachine ? "active" : ""}`} onClick={() => setShowTimeMachine(value => !value)} aria-pressed={showTimeMachine}><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.7" stroke="currentColor" strokeWidth="1.2"/><path d="M8 4.5V8l2.4 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>Time Machine</button>
+          <a className="time-machine-link" href="/memory" style={{textDecoration:"none"}}>✧ Memory Studio</a>
           <div className="notes-count">
             {filteredNotes.length > 0 ? `${filteredNotes.length} note${filteredNotes.length !== 1 ? 's' : ''}` : ''}
           </div>
