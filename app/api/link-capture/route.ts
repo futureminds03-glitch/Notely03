@@ -25,8 +25,26 @@ function parseAI(raw: unknown): { summary: string; keyPoints: string[]; concepts
   }
 }
 
+function fallbackAnalysis(page: ExtractedLinkPage) {
+  const sentences = page.fullContent.replace(/\\s+/g, ' ').split(/(?<=[.!?])\\s+/).map(value => value.trim()).filter(value => value.length >= 45)
+  const keyPoints = sentences.slice(0, 5).map(value => value.slice(0, 280))
+  const titleTerms = page.title.match(/\\b[A-Z][A-Za-z0-9-]{2,}(?:\\s+[A-Z][A-Za-z0-9-]{2,}){0,2}\\b/g) ?? []
+  const namedTerms = page.fullContent.match(/\\b[A-Z][a-z]{3,}(?:\\s+[A-Z][a-z]{3,})?\\b/g) ?? []
+  const concepts = [...new Set([...titleTerms, ...namedTerms])]
+    .filter(value => !/^(The article|This article|In this|According to)$/i.test(value))
+    .slice(0, 6)
+  const potentialTasks = sentences
+    .filter(value => /\\b(consider|you should|you can|try|start by|make sure to|remember to|need to)\\b/i.test(value))
+    .slice(0, 4)
+    .map(value => value.slice(0, 280))
+  const summary = page.description || sentences.slice(0, 2).join(' ') || ('A webpage from ' + page.domain + ' titled "' + page.title + '".')
+  return { summary: summary.slice(0, 1200), keyPoints, concepts, potentialTasks }
+}
+
 async function analyze(page: ExtractedLinkPage) {
-  if (!process.env.GROQ_API_KEY) return { analysis: null, warning: 'AI insights are unavailable right now. The extracted page content is still ready to save.' }
+  const fallback = fallbackAnalysis(page)
+  const fallbackWarning = 'Showing a source-based extractive overview. Add GROQ_API_KEY to enable richer AI insights.'
+  if (!process.env.GROQ_API_KEY) return { analysis: fallback, warning: fallbackWarning, analysisMode: 'extractive' as const }
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.GROQ_API_KEY },
@@ -39,11 +57,11 @@ async function analyze(page: ExtractedLinkPage) {
         ],
       }),
     })
-    if (!response.ok) return { analysis: null, warning: 'The page was extracted, but AI insights could not be generated. You can still save the source.' }
+    if (!response.ok) return { analysis: fallback, warning: 'Showing a source-based overview because AI insights are temporarily unavailable.', analysisMode: 'extractive' as const }
     const data = await response.json().catch(() => ({}))
     const analysis = parseAI(data.choices?.[0]?.message?.content)
-    return analysis ? { analysis, warning: null } : { analysis: null, warning: 'The page was extracted, but its AI response was not usable. You can still save the source.' }
-  } catch { return { analysis: null, warning: 'The page was extracted, but AI insights timed out. You can still save the source.' } }
+    return analysis && (analysis.summary || analysis.keyPoints.length || analysis.concepts.length || analysis.potentialTasks.length)\n      ? { analysis, warning: null, analysisMode: 'ai' as const }\n      : { analysis: fallback, warning: 'Showing a source-based overview because the AI response was not usable.', analysisMode: 'extractive' as const }
+  } catch { return { analysis: fallback, warning: 'Showing a source-based overview because AI insights timed out.', analysisMode: 'extractive' as const } }
 }
 
 export async function POST(request: Request) {
