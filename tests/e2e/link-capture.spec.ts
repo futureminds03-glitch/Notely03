@@ -125,6 +125,27 @@ test.describe('Notely link capture', () => {
     await expect(privateTarget.json()).resolves.toMatchObject({ error: 'This URL cannot be fetched safely. Check the address and try a public webpage.' })
   })
 
+
+  test('can preserve a URL as a plain note when the publisher blocks extraction', async ({ page }) => {
+    await page.route('**/api/link-capture', route => route.fulfill({
+      status: 502, contentType: 'application/json',
+      body: JSON.stringify({ error: 'Could not read this webpage. It may be private, unavailable, or blocking automated access.' }),
+    }))
+    await page.route('**/api/notes', route => route.fulfill({
+      status: 401, contentType: 'application/json', body: '{"error":"Unauthorized"}',
+    }))
+    await page.goto(new URL('/flow/links', baseURL).toString())
+    await page.getByLabel('Webpage URL').fill('example.com/blocked-article')
+    await page.getByRole('button', { name: 'Read page' }).click()
+    await expect(page.getByRole('alert')).toContainText('blocking automated access')
+    await page.getByRole('button', { name: 'Save URL only' }).click()
+    await expect(page.getByText(/URL saved to your Notely notes/)).toBeVisible()
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('notely_notes') || '[]')[0])
+    expect(saved.title).toBe('Saved link')
+    expect(saved.tags).toContain('Links')
+    expect(saved.body).toContain('Source URL: example.com/blocked-article')
+  })
+
   test('keeps the link capture layout usable on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(new URL('/flow/links', baseURL).toString())
