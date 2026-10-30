@@ -14,10 +14,6 @@ export async function POST(request: Request) {
   requestCounts.set(forwarded, bucket && bucket.resetAt > now ? { count: bucket.count + 1, resetAt: bucket.resetAt } : { count: 1, resetAt: now + 60_000 })
   if (requestCounts.size > 5000) for (const [key, value] of requestCounts) if (value.resetAt <= now) requestCounts.delete(key)
 
-  if (!process.env.GROQ_API_KEY) {
-    return NextResponse.json({ error: 'Ask My Memory requires AI to be enabled. Add the server-side Groq key to activate it.' }, { status: 503 })
-  }
-
   let payload: unknown
   try {
     const raw = await request.text()
@@ -35,6 +31,21 @@ export async function POST(request: Request) {
   }
 
   const notes = (input.notes as MemoryNote[]).filter(n => n && typeof n.body === 'string')
+  if (!process.env.GROQ_API_KEY) {
+    const stopWords = new Set(['what','when','where','which','that','this','with','from','about','have','has','had','did','does','was','were','are','the','and','for','you','your','i','me','my','our','not','but','how','why'])
+    const terms = input.question.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\\s+/).filter(word => word.length > 2 && !stopWords.has(word))
+    const matches = notes.map((note, index) => {
+      const title = typeof note.title === 'string' ? note.title : 'Untitled'
+      const body = note.body as string
+      const haystack = (title + ' ' + body).toLowerCase()
+      const score = terms.reduce((total, term) => total + (haystack.includes(term) ? (title.toLowerCase().includes(term) ? 3 : 1) : 0), 0)
+      return { index: index + 1, title, body, date: typeof note.created_at === 'string' ? note.created_at : '', score }
+    }).filter(note => note.score > 0).sort((a, b) => b.score - a.score).slice(0, 5)
+    const answer = matches.length
+      ? 'I found these notes that may help:\\n\\n' + matches.map(note => `[Note ${note.index}] ${note.title}${note.date ? ' · ' + new Date(note.date).toLocaleDateString() : ''}\\n${note.body.slice(0, 360)}`).join('\\n\\n')
+      : 'I couldn’t find a clear match in the notes you shared. Try different keywords or a phrase you remember.'
+    return NextResponse.json({ answer, mode: 'search' })
+  }
   let remaining = 24000
   const context = notes.map((note, index) => {
     const title = typeof note.title === 'string' ? note.title.slice(0, 160) : 'Untitled'
@@ -67,7 +78,7 @@ export async function POST(request: Request) {
     }
     const answer = data.choices?.[0]?.message?.content
     if (typeof answer !== 'string' || !answer.trim()) return NextResponse.json({ error: 'No answer was generated.' }, { status: 502 })
-    return NextResponse.json({ answer })
+    return NextResponse.json({ answer, mode: 'ai' })
   } catch (error) {
     console.error('Ask My Memory request failed:', error)
     return NextResponse.json({ error: 'Could not connect to the memory assistant.' }, { status: 502 })
