@@ -2,13 +2,28 @@ import { NextResponse } from 'next/server'
 
 type MemoryNote = { id?: unknown; title?: unknown; body?: unknown; created_at?: unknown; tags?: unknown }
 
+const requestCounts = new Map<string, { count: number; resetAt: number }>()
+
 export async function POST(request: Request) {
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const now = Date.now()
+  const bucket = requestCounts.get(forwarded)
+  if (bucket && bucket.resetAt > now && bucket.count >= 8) {
+    return NextResponse.json({ error: 'Please wait a moment before asking another memory question.' }, { status: 429 })
+  }
+  requestCounts.set(forwarded, bucket && bucket.resetAt > now ? { count: bucket.count + 1, resetAt: bucket.resetAt } : { count: 1, resetAt: now + 60_000 })
+  if (requestCounts.size > 5000) for (const [key, value] of requestCounts) if (value.resetAt <= now) requestCounts.delete(key)
+
   if (!process.env.GROQ_API_KEY) {
     return NextResponse.json({ error: 'Ask My Memory requires AI to be enabled. Add the server-side Groq key to activate it.' }, { status: 503 })
   }
 
   let payload: unknown
-  try { payload = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  try {
+    const raw = await request.text()
+    if (raw.length > 32_000) return NextResponse.json({ error: 'Memory context is too large. Try searching fewer notes.' }, { status: 413 })
+    payload = JSON.parse(raw)
+  } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
   if (!payload || typeof payload !== 'object') return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
 
   const input = payload as { question?: unknown; notes?: unknown }
