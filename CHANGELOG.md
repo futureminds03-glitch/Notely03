@@ -8,7 +8,8 @@ All notable user-facing changes to Notely are recorded here. The project is pre-
 - Added a Parking Lot with promotion into the existing notes collection; signed-in users sync parked thoughts through an authenticated, owner-scoped Supabase API, while guest entries remain browser-local.
 - Added Groq-backed AI De-Clutter with bounded input, timeout handling, and non-destructive original preservation.
 - Added contextual resurfacing of related notes, direct note-editor deep links, bionic reading, compact outline layout, and a gentle focus timer with local session counts.
-- Added permanent Notely Flow shortcuts in desktop and mobile navigation, plus Playwright regression coverage for capture, Parking Lot authorization/persistence, organization validation, focus navigation, and memory layouts.
+- Added permanent Notely Flow shortcuts in desktop and mobile navigation, plus an app-wide quick-capture overlay with a Ctrl/Cmd+Shift+Space shortcut and immediate Parking Lot updates.
+- Expanded Playwright regression coverage for global capture, keyboard activation, mobile navigation, Parking Lot authorization/persistence, organization validation, focus navigation, and memory layouts.
 - Product and engineering documentation established for the repository; release verification expectations include deployment readiness and browser regression checks.
 
 ## 0.1.0 — Initial product baseline
