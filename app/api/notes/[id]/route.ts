@@ -5,6 +5,7 @@ interface NoteUpdateRequest {
   title?: unknown
   body?: unknown
   started_at?: unknown
+  tags?: unknown
 }
 
 interface DocumentRow {
@@ -31,6 +32,7 @@ function parseUpdate(value: unknown): {
   title?: string
   body?: string
   startedAt?: string | null
+  tags?: string[]
 } | null {
   if (typeof value !== 'object' || value === null) return null
 
@@ -50,6 +52,11 @@ function parseUpdate(value: unknown): {
   if (input.started_at !== undefined) {
     if (input.started_at !== null && typeof input.started_at !== 'string') return null
     result.startedAt = input.started_at as string | null
+  }
+
+  if (input.tags !== undefined) {
+    if (!Array.isArray(input.tags) || input.tags.some(tag => typeof tag !== 'string')) return null
+    result.tags = input.tags.map(tag => tag.trim()).filter(Boolean).slice(0, 20)
   }
 
   return result
@@ -114,6 +121,7 @@ export async function PATCH(
   if (parsed.title !== undefined) updates.title = parsed.title
   if (parsed.body !== undefined) updates.body = parsed.body
   if (parsed.startedAt !== undefined) updates.started_at = parsed.startedAt
+  if (parsed.tags !== undefined) updates.tags = parsed.tags
 
   const { data, error } = await supabase
     .from('documents')
