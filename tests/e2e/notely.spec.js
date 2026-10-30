@@ -242,7 +242,7 @@ test('Time Machine browses notes by day, week, and month and opens the original 
   await page.getByRole('button', { name: 'Time Machine' }).first().click()
   await expect(page.getByRole('heading', { name: 'Time Machine' })).toBeVisible()
   await page.getByRole('button', { name: 'Day', exact: true }).click()
-  await expect(page.getByText('Thought from the timeline', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Thought from the timeline', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Month', exact: true }).click()
   await expect(page.getByText('Thought from the timeline', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Open Thought from the timeline' }).click()
