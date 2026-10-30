@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { extractLinkPage } from '../../lib/link-extractor'
+import { buildExtractiveAnalysis, extractLinkPage } from '../../lib/link-extractor'
 
 const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
 
@@ -39,6 +39,26 @@ test.describe('Notely link capture', () => {
     expect(page.fullContent).toContain('Preserving the source context')
     expect(page.fullContent).not.toContain('Navigation noise')
     expect(page.fullContent).not.toContain('Footer noise')
+  })
+
+
+  test('creates a grounded extractive overview and only suggests explicit actions', () => {
+    const page = {
+      title: 'Working Memory Systems',
+      description: 'A short guide to making interrupted work easier to resume.',
+      image: '',
+      author: null,
+      publishedAt: null,
+      modifiedAt: null,
+      publisher: null,
+      domain: 'example.org',
+      fullContent: 'The team should keep the next action visible during each session. Consider saving one source link before moving to the next task.',
+    }
+    const analysis = buildExtractiveAnalysis(page)
+    expect(analysis.summary).toBe(page.description)
+    expect(analysis.keyPoints).toHaveLength(2)
+    expect(analysis.concepts).toContain('Working Memory Systems')
+    expect(analysis.potentialTasks).toEqual(['Consider saving one source link before moving to the next task.'])
   })
 
   const extracted = {
