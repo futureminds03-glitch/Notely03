@@ -963,6 +963,7 @@ export default function NotelyApp() {
                 </svg>
               </button>
               <button className="mobile-btn" aria-label="Time Machine" title="Time Machine" onClick={() => setShowTimeMachine(value => !value)}><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4"/><path d="M10 5.5V10l3 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg></button>
+              <button className="mobile-btn" aria-label="Memory Studio" title="Memory Studio" onClick={() => { window.location.href = "/memory" }}>✧</button>
               <button className="mobile-btn" onClick={newNote}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
