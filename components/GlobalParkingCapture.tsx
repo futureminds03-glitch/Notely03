@@ -49,18 +49,22 @@ export default function GlobalParkingCapture() {
         body: JSON.stringify({ text: thought }),
       })
 
+      let savedItem: ParkingItem
       if (response.status === 401) {
-        const next = [{
+        savedItem = {
           id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
           text: thought,
           createdAt: new Date().toISOString(),
-        }, ...readLocalParking()]
-        localStorage.setItem(PARKING_KEY, JSON.stringify(next))
-      } else if (!response.ok) {
+        }
+        localStorage.setItem(PARKING_KEY, JSON.stringify([savedItem, ...readLocalParking()]))
+      } else if (response.ok) {
+        savedItem = await response.json() as ParkingItem
+      } else {
         const data = await response.json().catch(() => ({}))
         throw new Error(typeof data.error === 'string' ? data.error : 'Could not save this thought. Please try again.')
       }
 
+      window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: savedItem }))
       setText('')
       setOpen(false)
       setNotice('Thought parked. You can find it in Notely Flow.')
