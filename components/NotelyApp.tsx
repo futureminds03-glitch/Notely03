@@ -250,7 +250,7 @@ function Editor({
 }
 
 
-interface TimeMachineProps { notes: Note[]; onOpen: (note: Note) => void }
+interface TimeMachineProps { notes: Note[]; onOpen: (note: Note) => void; onBack: () => void }
 
 function noteMoment(note: Note) {
   const timestamp = Date.parse(note.started_at || note.created_at)
@@ -261,7 +261,7 @@ function localDateKey(date: Date) {
   return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0')
 }
 
-function TimeMachine({ notes, onOpen }: TimeMachineProps) {
+function TimeMachine({ notes, onOpen, onBack }: TimeMachineProps) {
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('week')
   const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()))
   const period = useMemo(() => {
@@ -301,7 +301,7 @@ function TimeMachine({ notes, onOpen }: TimeMachineProps) {
   return (
     <section className="time-machine" aria-label="Time Machine">
       <div className="time-machine-heading">
-        <div><div className="time-machine-eyebrow">YOUR NOTES, IN TIME</div><h1>Time Machine</h1><p>Go back to the moment a thought first showed up.</p></div>
+        <div><button className="tm-back" onClick={onBack}>← Back to notes</button><div className="time-machine-eyebrow">YOUR NOTES, IN TIME</div><h1>Time Machine</h1><p>Go back to the moment a thought first showed up.</p></div>
         <button className="tm-today" onClick={() => setSelectedDate(localDateKey(new Date()))}>Today</button>
       </div>
       <div className="tm-controls">
@@ -963,8 +963,6 @@ export default function NotelyApp() {
                   <path d="M3 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                 </svg>
               </button>
-              <button className="mobile-btn" aria-label="Time Machine" title="Time Machine" onClick={() => setShowTimeMachine(value => !value)}><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4"/><path d="M10 5.5V10l3 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg></button>
-              <button className="mobile-btn" aria-label="Memory Studio" title="Memory Studio" onClick={() => { window.location.href = "/memory" }}>✧</button>
               <button className="mobile-btn" onClick={newNote}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
@@ -1024,6 +1022,14 @@ export default function NotelyApp() {
               New note
             </button>
           </div>
+          <div className="studio-nav" aria-label="Explore Notely">
+            <button aria-label="Time Machine" className={`studio-nav-link ${showTimeMachine ? "active" : ""}`} onClick={() => setShowTimeMachine(value => !value)} aria-pressed={showTimeMachine}>
+              <span className="studio-nav-icon" aria-hidden="true">◷</span><span><strong>Time Machine</strong><small>Explore your notes over time</small></span><span className="studio-nav-arrow">↗</span>
+            </button>
+            <a className="studio-nav-link" href="/memory">
+              <span className="studio-nav-icon memory" aria-hidden="true">✧</span><span><strong>Memory Studio</strong><small>Connect ideas and find thoughts</small></span><span className="studio-nav-arrow">↗</span>
+            </a>
+          </div>
           <div className="search-wrap">
             <input
               className="search-input"
@@ -1032,8 +1038,6 @@ export default function NotelyApp() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <button className={`time-machine-link ${showTimeMachine ? "active" : ""}`} onClick={() => setShowTimeMachine(value => !value)} aria-pressed={showTimeMachine}><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.7" stroke="currentColor" strokeWidth="1.2"/><path d="M8 4.5V8l2.4 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>Time Machine</button>
-          <a className="time-machine-link" href="/memory" style={{textDecoration:"none"}}>✧ Memory Studio</a>
           <div className="notes-count">
             {filteredNotes.length > 0 ? `${filteredNotes.length} note${filteredNotes.length !== 1 ? 's' : ''}` : ''}
           </div>
@@ -1050,7 +1054,7 @@ export default function NotelyApp() {
         </aside>
 
         <main className="editor-area">
-          {showTimeMachine ? <TimeMachine notes={notes} onOpen={handleOpen} /> : (
+          {showTimeMachine ? <TimeMachine notes={notes} onOpen={handleOpen} onBack={() => setShowTimeMachine(false)} /> : (
             <>
           {mobileView === 'list' && (
             <>
@@ -1062,6 +1066,14 @@ export default function NotelyApp() {
                   onChange={e => setSearch(e.target.value)}
                   style={{ width: '100%' }}
                 />
+              </div>
+              <div className="mobile-studio-nav" aria-label="Explore Notely">
+                <button aria-label="Time Machine" className={`studio-nav-link ${showTimeMachine ? "active" : ""}`} onClick={() => setShowTimeMachine(value => !value)} aria-pressed={showTimeMachine}>
+                  <span className="studio-nav-icon" aria-hidden="true">◷</span><span><strong>Time Machine</strong><small>Browse your timeline</small></span>
+                </button>
+                <a className="studio-nav-link" href="/memory">
+                  <span className="studio-nav-icon memory" aria-hidden="true">✧</span><span><strong>Memory Studio</strong><small>Explore connected thoughts</small></span>
+                </a>
               </div>
               <NotesList notes={filteredNotes} activeId={activeId} onOpen={handleOpen} onDelete={handleDelete} className="mobile-notes-panel" />
             </>
