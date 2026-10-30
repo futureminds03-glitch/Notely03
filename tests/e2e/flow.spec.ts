@@ -61,6 +61,14 @@ test.describe('Notely Flow', () => {
     await expect(page.getByRole('heading', { name: 'Make room to think.' })).toBeVisible()
   })
 
+  test('keeps the Flow shortcut visible on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto(new URL('/', baseURL).toString())
+    await page.locator('.mobile-studio-nav').getByRole('link', { name: /Notely Flow/ }).click()
+    await expect(page).toHaveURL(/\/flow$/)
+    await expect(page.getByRole('heading', { name: 'Make room to think.' })).toBeVisible()
+  })
+
   test('AI De-Clutter leaves the original brain dump untouched', async ({ page }) => {
     await page.route('**/api/organize', route => route.fulfill({
       status: 200,
