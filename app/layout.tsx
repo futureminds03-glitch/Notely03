@@ -5,18 +5,9 @@ export const metadata: Metadata = {
   title: 'Notely — Just Write',
   description: 'Personal note taking. Just write.',
   manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Notely',
-  },
-  icons: {
-    apple: '/icon.svg',
-  },
-  // Adding the meta tags you had manually in the head here
-  other: {
-    'mobile-web-app-capable': 'yes',
-  },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Notely' },
+  icons: { apple: '/icon.svg' },
+  other: { 'mobile-web-app-capable': 'yes' },
 }
 
 export const viewport: Viewport = {
@@ -32,18 +23,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
-        {/* Service Worker Script */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js').catch(() => {})
-                })
-              }
-            `,
-          }}
-        />
+        <a className="flow-launcher" href="/flow" aria-label="Open Notely Flow workspace">
+          <span aria-hidden="true">✳</span><span>Flow</span>
+        </a>
+        <script dangerouslySetInnerHTML={{ __html: "if('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}) }) }" }} />
       </body>
     </html>
   )
