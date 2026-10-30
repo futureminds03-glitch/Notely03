@@ -1,14 +1,31 @@
 import { NextResponse } from 'next/server'
 import { safeFetchHtml } from '@/lib/safe-url-fetch'
-import { extractLinkPage } from '@/lib/link-extractor'
+import { extractLinkPage, type ExtractedLinkPage } from '@/lib/link-extractor'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const MAX_URL = 2048
-const MAX_CONTENT = 12000
+function parseAI(raw: unknown): { summary: string; keyPoints: string[]; concepts: string[]; potentialTasks: string[] } | null {
+  if (typeof raw !== 'string') return null
+  try {
+    const cleaned = raw.trim().replace(/^\`\`\`(?:json)?/i, '').replace(/\`\`\`$/, '')
+    const parsed = JSON.parse(cleaned) as Record<string, unknown>
+    const list = (key: string) => Array.isArray(parsed[key])
+      ? (parsed[key] as unknown[]).filter((value): value is string => typeof value === 'string' && value.trim().length > 0).slice(0, 8).map(value => value.trim().slice(0, 300))
+      : []
+    return {
+      summary: typeof parsed.summary === 'string' ? parsed.summary.trim().slice(0, 1200) : '',
+      keyPoints: list('keyPoints'),
+      concepts: list('concepts'),
+      potentialTasks: list('potentialTasks'),
+    }
+  } catch {
+    return null
+  }
+}
 
-async function analyze(page: ReturnType<typeof extract>) {
+async function analyze(page: ExtractedLinkPage) {
   if (!process.env.GROQ_API_KEY) return { analysis: null, warning: 'AI insights are unavailable right now. The extracted page content is still ready to save.' }
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
