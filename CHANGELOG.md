@@ -4,6 +4,11 @@ All notable user-facing changes to Notely are recorded here. The project is pre-
 
 ## Unreleased
 
+- Added Smart Recall: owner-scoped ranked natural-language search over the existing indexed Postgres search vector, source-linked Ask My Memory, and related-memory recommendations.
+- Removed browser-supplied note content from the Ask My Memory trust boundary; the server retrieves only the signed-in user's active notes through a SECURITY INVOKER RPC and existing row-level security.
+- Added search, related-memory, and grounded-answer APIs with input limits, per-user question throttling, source excerpts, and a no-AI ranked retrieval mode when Groq is not configured.
+- Added Playwright coverage for unsigned access denial, forged-note payload rejection, source citations/deep links, ranked search, and related-memory recommendations.
+
 - Added Notely Flow, a persistent adaptive workspace for low-friction brain-dump capture, browser speech transcription, and an optional future-self cue.
 - Added a Parking Lot with promotion into the existing notes collection; signed-in users sync parked thoughts through an authenticated, owner-scoped Supabase API, while guest entries remain browser-local.
 - Added Groq-backed AI De-Clutter with bounded input, timeout handling, and non-destructive original preservation.
