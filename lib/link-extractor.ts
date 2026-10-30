@@ -113,3 +113,28 @@ export function extractLinkPage(html: string, finalUrl: string): ExtractedLinkPa
     fullContent: fullContent.slice(0, 12000),
   }
 }
+
+export type ExtractedLinkAnalysis = {
+  summary: string
+  keyPoints: string[]
+  concepts: string[]
+  potentialTasks: string[]
+}
+
+export function buildExtractiveAnalysis(page: ExtractedLinkPage): ExtractedLinkAnalysis {
+  const sentences = page.fullContent.replace(/\\s+/g, ' ').split(/(?<=[.!?])\\s+/)
+    .map(value => value.trim()).filter(value => value.length >= 45)
+  const keyPoints = sentences.slice(0, 5).map(value => value.slice(0, 280))
+  const titleTerms = page.title.match(/\\b[A-Z][A-Za-z0-9-]{2,}(?:\\s+[A-Z][A-Za-z0-9-]{2,}){0,2}\\b/g) ?? []
+  const namedTerms = page.fullContent.match(/\\b[A-Z][a-z]{3,}(?:\\s+[A-Z][a-z]{3,})?\\b/g) ?? []
+  const concepts = [...new Set([...titleTerms, ...namedTerms])]
+    .filter(value => !/^(The article|This article|In this|According to)$/i.test(value))
+    .slice(0, 6)
+  const potentialTasks = sentences
+    .filter(value => /\\b(consider|you should|you can|try|start by|make sure to|remember to|need to)\\b/i.test(value))
+    .slice(0, 4)
+    .map(value => value.slice(0, 280))
+  const summary = page.description || sentences.slice(0, 2).join(' ') ||
+    ('A webpage from ' + page.domain + ' titled "' + page.title + '".')
+  return { summary: summary.slice(0, 1200), keyPoints, concepts, potentialTasks }
+}
