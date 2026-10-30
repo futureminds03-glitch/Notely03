@@ -250,7 +250,7 @@ function Editor({
 }
 
 
-interface TimeMachineProps { notes: Note[]; onOpen: (note: Note) => void }
+interface TimeMachineProps { notes: Note[]; onOpen: (note: Note) => void; onBack: () => void }
 
 function noteMoment(note: Note) {
   const timestamp = Date.parse(note.started_at || note.created_at)
@@ -261,7 +261,7 @@ function localDateKey(date: Date) {
   return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0')
 }
 
-function TimeMachine({ notes, onOpen }: TimeMachineProps) {
+function TimeMachine({ notes, onOpen, onBack }: TimeMachineProps) {
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('week')
   const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()))
   const period = useMemo(() => {
@@ -301,7 +301,7 @@ function TimeMachine({ notes, onOpen }: TimeMachineProps) {
   return (
     <section className="time-machine" aria-label="Time Machine">
       <div className="time-machine-heading">
-        <div><div className="time-machine-eyebrow">YOUR NOTES, IN TIME</div><h1>Time Machine</h1><p>Go back to the moment a thought first showed up.</p></div>
+        <div><button className="tm-back" onClick={onBack}>← Back to notes</button><div className="time-machine-eyebrow">YOUR NOTES, IN TIME</div><h1>Time Machine</h1><p>Go back to the moment a thought first showed up.</p></div>
         <button className="tm-today" onClick={() => setSelectedDate(localDateKey(new Date()))}>Today</button>
       </div>
       <div className="tm-controls">
@@ -1056,7 +1056,7 @@ export default function NotelyApp() {
         </aside>
 
         <main className="editor-area">
-          {showTimeMachine ? <TimeMachine notes={notes} onOpen={handleOpen} /> : (
+          {showTimeMachine ? <TimeMachine notes={notes} onOpen={handleOpen} onBack={() => setShowTimeMachine(false)} /> : (
             <>
           {mobileView === 'list' && (
             <>
