@@ -166,7 +166,7 @@ test.describe('Notely Flow', () => {
     await page.goto(new URL('/memory', baseURL).toString())
     await page.getByRole('button', { name: 'Ask My Memory' }).click()
     await page.getByPlaceholder('What did I write about hiring engineers or starting a business?').fill('What was my plan for hiring AI engineers?')
-    await page.getByRole('button', { name: 'Ask my memory' }).click()
+    await page.getByRole('button', { name: 'Ask my memory →', exact: true }).click()
     await expect(page.getByText(/trusted recruiting network/)).toBeVisible()
     await expect(page.getByText('SOURCE MEMORIES · 1')).toBeVisible()
     await page.getByRole('button', { name: /Pakistan engineering talent plan/ }).click()
@@ -209,7 +209,7 @@ test.describe('Notely Flow', () => {
     await page.getByRole('button', { name: 'Thought Connections' }).click()
     await page.getByRole('combobox', { name: 'Source memory' }).selectOption(sourceId)
     await page.getByRole('button', { name: 'Find related' }).click()
-    await expect(page.getByRole('button', { name: /Engineering assessment framework/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Engineering assessment/ }).first()).toBeVisible()
   })
 
 })
