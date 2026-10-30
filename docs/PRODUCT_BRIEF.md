@@ -36,7 +36,9 @@ Key jobs:
 | Guest mode | Notes persist in browser local storage | Browser-specific; not cloud-synced |
 | Accounts | Email/password sign-up and sign-in through Supabase Auth | Supabase configuration |
 | Cloud notes | API routes read/write notes for the authenticated user | Supabase database, policies, auth cookies |
-| Search | Filters notes by title and body | Currently loaded note collection |
+| Search | Local guest filtering plus authenticated server-ranked recall over title/body/tags | Indexed Postgres full-text search; source notes stay owner-scoped |
+| Smart Recall | Natural-language query retrieval, related-memory suggestions, and Ask My Memory with clickable source notes | Supabase `search_vector` + GIN index and owner-scoped `SECURITY INVOKER` RPC; ranked retrieval works without AI; AI synthesis requires GROQ_API_KEY |
+| Memory Q&A | Retrieves up to six relevant source notes and optionally synthesizes a concise answer with inline source references | Server-side retrieval only; browser-supplied note arrays are ignored; AI provider receives only selected excerpts when configured |
 | Time Travel | Select historical body snapshots by timestamp and restore one | Version rows/history must be available; focused on body content |
 | AI summary | Appends a concise summary to the current note | GROQ_API_KEY and provider availability; body input limited to 4,000 characters |
 | Notely Flow | Adaptive workspace for capture, Parking Lot, focus, and resurfaced notes; global quick-capture overlay is available across app routes | Browser UI; desktop/mobile navigation plus floating overlay and Ctrl/Cmd+Shift+Space shortcut; not an OS-wide overlay |
@@ -44,11 +46,17 @@ Key jobs:
 | Parking Lot | Temporary quick-capture queue; entries can be promoted into notes | Signed-in users sync through an authenticated owner-scoped API using `documents.status = 'parking'`; guest entries remain browser-local |
 | AI De-Clutter | Creates a structured version of a brain dump while preserving the original | GROQ_API_KEY and provider availability; request capped at 12,000 characters |
 | Memory resurfacing | Ranks existing notes by lexical overlap with a current topic or parked thoughts | Local heuristic over the currently loaded note collection; suggestions, not semantic/AI guarantees |
+| Related memories | Choose a source note and retrieve other owner-scoped notes with overlapping indexed terms | Authenticated API; suggestions are clues, not guaranteed relationships |
 | Focus tools | 15/25/45-minute focus timer and locally stored completed-session count | Browser-local state; no background alarm guarantee |
 | Reading layouts | Bionic reading toggle and cards/outline layout for resurfaced notes | Browser UI |
 | Export | Downloads title, capture time, and body as plain text | Browser download |
 | Link preview | Extracts title, description, image, and paragraph text from a page URL | Guarded outbound fetch; remote HTML varies |
 | PWA affordances | Manifest, icon, service-worker registration, mobile layouts | Browser/platform support varies |
+
+### Smart Recall boundaries
+- Cloud retrieval uses the existing `documents.search_vector` generated column and GIN index; it is ranked full-text retrieval, not vector-embedding semantic search.
+- True embedding-based semantic retrieval and automated entity extraction are not enabled in this release; they require a configured embedding model/provider and a separately evaluated indexing pipeline.
+- If `GROQ_API_KEY` is absent, Ask My Memory still returns ranked source notes and excerpts without generating unsupported AI claims.
 
 ## 4. Main user flows
 
