@@ -60,6 +60,7 @@ test.describe('Notely link capture', () => {
       potentialTasks: ['Choose one recurring workflow and make its next action visible.'],
     },
     warning: null,
+    analysisMode: 'ai',
     extractedAt: '2026-10-30T12:00:00.000Z',
   }
 
