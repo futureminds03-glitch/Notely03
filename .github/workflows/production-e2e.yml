@@ -18,7 +18,7 @@ on:
       - 'tests/e2e/**'
       - '.github/workflows/production-e2e.yml'
   push:
-    branches: [main, 'feat/**']
+    branches: [main]
     paths:
       - 'api/**'
       - 'app/**'
@@ -43,7 +43,7 @@ concurrency:
 
 jobs:
   local-e2e:
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
