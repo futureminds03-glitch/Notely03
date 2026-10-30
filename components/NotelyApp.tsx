@@ -577,6 +577,15 @@ export default function NotelyApp() {
     if (!userRef.current) saveGuest(updated)
     openNote(tempNote)
     setTimeout(() => {
+      // The editor may already be focused by the time this deferred focus runs.
+      // Never steal focus from a field the user has started typing into.
+      if (activeIdRef.current !== tempId) return
+      const activeElement = document.activeElement
+      const userIsEditing = activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        Boolean(activeElement && (activeElement as HTMLElement).isContentEditable)
+      if (userIsEditing) return
+
       const titleField = window.matchMedia('(max-width: 640px)').matches
         ? mobileTitleRef.current
         : titleRef.current
