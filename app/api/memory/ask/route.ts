@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   const notes = (input.notes as MemoryNote[]).filter(n => n && typeof n.body === 'string')
   if (!process.env.GROQ_API_KEY) {
     const stopWords = new Set(['what','when','where','which','that','this','with','from','about','have','has','had','did','does','was','were','are','the','and','for','you','your','i','me','my','our','not','but','how','why'])
-    const terms = input.question.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\\s+/).filter(word => word.length > 2 && !stopWords.has(word))
+    const terms = input.question.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(word => word.length > 2 && !stopWords.has(word))
     const matches = notes.map((note, index) => {
       const title = typeof note.title === 'string' ? note.title : 'Untitled'
       const body = note.body as string
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       return { index: index + 1, title, body, date: typeof note.created_at === 'string' ? note.created_at : '', score }
     }).filter(note => note.score > 0).sort((a, b) => b.score - a.score).slice(0, 5)
     const answer = matches.length
-      ? 'I found these notes that may help:\\n\\n' + matches.map(note => `[Note ${note.index}] ${note.title}${note.date ? ' · ' + new Date(note.date).toLocaleDateString() : ''}\\n${note.body.slice(0, 360)}`).join('\\n\\n')
+      ? 'I found these notes that may help:\n\n' + matches.map(note => `[Note ${note.index}] ${note.title}${note.date ? ' · ' + new Date(note.date).toLocaleDateString() : ''}\\n${note.body.slice(0, 360)}`).join('\n\n')
       : 'I couldn’t find a clear match in the notes you shared. Try different keywords or a phrase you remember.'
     return NextResponse.json({ answer, mode: 'search' })
   }
