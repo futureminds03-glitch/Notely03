@@ -249,3 +249,25 @@ test('Time Machine browses notes by day, week, and month and opens the original 
   await expect(page.locator('.desktop-editor .note-title')).toHaveValue('Thought from the timeline')
   await expect(page.locator('.desktop-editor .note-body')).toHaveValue('This thought must be findable by the day it was captured.')
 })
+
+test('Memory Studio captures thoughts, tags them, resurfaces notes, and finds connections', async ({ page }) => {
+  await page.goto('/memory')
+  const capture = page.getByPlaceholder('A thought, an idea, something to remember…')
+  await capture.fill('Build a thoughtful personal knowledge system for collecting ideas.')
+  await page.getByRole('button', { name: 'Capture thought' }).click()
+  await expect(page.getByText('Thought captured in this browser.')).toBeVisible()
+  await expect.poll(async () => page.evaluate(() => {
+    const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
+    return notes.some(note => note.body.includes('personal knowledge system') && note.tags?.includes('Brain Dump'))
+  })).toBe(true)
+
+  await page.getByPlaceholder('A thought, an idea, something to remember…').fill('Personal knowledge system connections should help ideas grow.')
+  await page.getByRole('button', { name: 'Capture thought' }).click()
+  await page.getByRole('button', { name: 'Thought Connections' }).click()
+  await expect(page.getByText('Thoughts that may belong together')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Build a thoughtful personal knowledge system/ })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Thought Inbox' }).click()
+  await expect(page.getByText('A thought from before')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Another memory' })).toBeVisible()
+})
