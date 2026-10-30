@@ -265,9 +265,19 @@ test('Memory Studio captures thoughts, tags them, resurfaces notes, and finds co
   await page.getByRole('button', { name: 'Capture thought' }).click()
   await page.getByRole('button', { name: 'Thought Connections' }).click()
   await expect(page.getByText('Thoughts that may belong together')).toBeVisible()
-  await expect(page.getByRole('button', { name: /Build a thoughtful personal knowledge system/ })).toBeVisible()
+  const connectedNote = page.getByRole('button', { name: /Build a thoughtful personal knowledge system/ })
+  await expect(connectedNote).toBeVisible()
+  await connectedNote.click()
+  await expect(page.locator('.desktop-editor .note-title')).toHaveValue('Build a thoughtful personal knowledge system for collecting ideas.')
+  await page.goto('/memory')
 
   await page.getByRole('button', { name: 'Thought Inbox' }).click()
   await expect(page.getByText('A thought from before')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Another memory' })).toBeVisible()
+})
+
+test('Ask My Memory reports missing AI configuration safely', async ({ request }) => {
+  const response = await request.post('/api/memory/ask', { data: { question: 'What did I think about?', notes: [] } })
+  expect(response.status()).toBe(503)
+  expect((await response.json()).error).toContain('requires AI to be enabled')
 })
