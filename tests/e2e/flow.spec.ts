@@ -12,14 +12,14 @@ test.describe('Notely Flow', () => {
       const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
       return notes.some((note: { body?: string }) => note.body?.includes('A loose idea I need to remember later'))
     })).toBe(true)
-    await expect(page.getByText('Captured. You can come back to organize this whenever you want.')).toBeVisible()
+    await expect(page.getByText('Captured. Come back to organize this whenever you want.')).toBeVisible()
   })
 
   test('keeps Parking Lot thoughts across reloads and promotes them to notes', async ({ page }) => {
     await page.goto(new URL('/flow', baseURL).toString())
     await page.getByRole('textbox', { name: 'Quick parking lot capture' }).fill('Book the dentist appointment')
     await page.getByRole('button', { name: '+' }).click()
-    await page.getByRole('button', { name: /Parking Lot/ }).click()
+    await page.locator('.flow-tabs').getByRole('button', { name: /Parking Lot/ }).click()
     await expect(page.getByText('Book the dentist appointment')).toBeVisible()
     await page.reload()
     await page.getByRole('button', { name: /Parking Lot/ }).click()
