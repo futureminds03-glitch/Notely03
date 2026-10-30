@@ -12,7 +12,8 @@ function clean(value: string): string {
 
 export function extractMemoryInsights(document: MemoryDocument): MemoryInsights {
   const title = clean(document.title || '')
-  const body = clean(document.body || '')
+  const rawBody = (document.body || '').replace(/\\u0000/g, '').slice(0, 30_000)
+  const body = clean(rawBody)
   const source = (title + ' ' + body).slice(0, 30_000)
   const counts = new Map<string, number>()
   for (const match of source.toLocaleLowerCase().matchAll(/[\p{L}\p{N}][\p{L}\p{N}_'-]{2,}/gu)) {
@@ -29,8 +30,8 @@ export function extractMemoryInsights(document: MemoryDocument): MemoryInsights 
   const entities = [...new Set(entityMatches.map(clean).filter(value =>
     value.length >= 2 && value.length <= 80 && !/^(The|This|That|When|Where|What|Note|Today|Tomorrow|Yesterday)$/.test(value)
   ))].slice(0, 20)
-  const actionMatches = body.match(/(?:^|\n)\s*(?:[-*•]\s*)?(?:\[ \]\s*)?(?:todo|to-do|next step|action item|remember to|need to|should|must|follow up|follow-up|task)\b[^\n.!?]{0,180}/gim) ?? []
-  const checklistMatches = body.match(/(?:^|\n)\s*[-*•]\s*\[ \]\s*[^\n]{3,180}/g) ?? []
+  const actionMatches = rawBody.match(/(?:^|\n)\s*(?:[-*•]\s*)?(?:\[ \]\s*)?(?:todo|to-do|next step|action item|remember to|need to|should|must|follow up|follow-up|task)\b[^\n.!?]{0,180}/gim) ?? []
+  const checklistMatches = rawBody.match(/(?:^|\n)\s*[-*•]\s*\[ \]\s*[^\n]{3,180}/g) ?? []
   const actionItems = [...new Set([...actionMatches, ...checklistMatches].map(value => clean(value.replace(/^[-*•\s]+/, ''))))].slice(0, 12)
   const firstSentence = body.split(/(?<=[.!?])\s+/)[0] || body
   return { summary: (firstSentence || title).slice(0, 280), key_topics: topics.slice(0, 10), entities, action_items: actionItems }
