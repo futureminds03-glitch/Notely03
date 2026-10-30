@@ -19,10 +19,11 @@ Notely is a lightweight personal note-taking web app focused on getting ideas do
 - **AI summaries:** append a concise summary using the configured Groq API.
 - **Notely Flow:** one-step brain dumps, browser voice transcription, an app-wide quick-capture overlay (`Ctrl/Cmd+Shift+Space`), a synced Parking Lot for signed-in users, AI De-Clutter, contextual resurfacing, focus timer, and low-friction reading layouts.
 - **Export:** download a note as a plain-text TXT file.
+- **Smart Recall:** ranked natural-language retrieval, related-memory recommendations, and source-linked Ask My Memory; cloud search is enforced by the authenticated Supabase session.
 - **Accounts and sync:** Supabase Auth and cloud-backed notes for signed-in users.
 - **Mobile/PWA support:** responsive mobile views, web app manifest, service worker registration, and app icon.
 
-Feature availability depends on environment configuration. AI summaries and AI De-Clutter require the server-side `GROQ_API_KEY`; cloud accounts and sync require Supabase configuration. Voice transcription depends on browser Speech Recognition support and microphone permission. Signed-in Parking Lot entries sync through the authenticated Supabase API; guest Parking Lot entries and focus-session counts remain browser-local.
+Feature availability depends on environment configuration. AI summaries, AI De-Clutter, and AI-generated memory synthesis require the server-side `GROQ_API_KEY`; Smart Recall's ranked source retrieval works without it; cloud accounts and sync require Supabase configuration. Voice transcription depends on browser Speech Recognition support and microphone permission. Signed-in Parking Lot entries sync through the authenticated Supabase API; guest Parking Lot entries and focus-session counts remain browser-local.
 
 ## Technology
 
@@ -89,6 +90,7 @@ Check the Actions run for the actual outcome; the existence of a workflow file d
       api/notes/          Authenticated note CRUD and version history
       api/organize/       Groq-backed brain-dump organization
       api/parking-lot/   Authenticated Parking Lot read/write/delete
+      api/memory/        Owner-scoped ranked search, related memories, and source-grounded Q&A
       api/summarize/      Groq-backed summary endpoint
       api/link-preview/   Server-side page metadata extraction
       auth/               Authentication callback routes
