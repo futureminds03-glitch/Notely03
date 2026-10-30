@@ -7,7 +7,7 @@
 
 ## 1. Product intent
 
-Notely is a minimal personal writing and note-taking product. It prioritizes low-friction capture over the complexity of a full workspace, while retaining retrieval, history, and optional AI assistance.
+Notely is a minimal personal writing and note-taking product with an adaptive Flow workspace. It prioritizes low-friction capture over the complexity of a full workspace, while retaining retrieval, history, and optional AI assistance. Flow extends the product with ADHD-friendly patterns without requiring an ADHD diagnosis or making clinical claims.
 
 ### Product principles
 1. **Writing comes first.** Keep the primary interaction focused on title and body.
@@ -39,6 +39,13 @@ Key jobs:
 | Search | Filters notes by title and body | Currently loaded note collection |
 | Time Travel | Select historical body snapshots by timestamp and restore one | Version rows/history must be available; focused on body content |
 | AI summary | Appends a concise summary to the current note | GROQ_API_KEY and provider availability; body input limited to 4,000 characters |
+| Notely Flow | Separate adaptive workspace for capture, Parking Lot, focus, and resurfaced notes | Browser UI; floating launcher across app routes |
+| Brain Dump | Saves unstructured text without requiring a title or folder; browser speech-to-text is available where supported | Existing notes API for signed-in users; localStorage for guests; microphone permission and Speech Recognition browser support |
+| Parking Lot | Temporary quick-capture queue; entries can be promoted into notes | Browser-local storage; not cross-device synced until promoted |
+| AI De-Clutter | Creates a structured version of a brain dump while preserving the original | GROQ_API_KEY and provider availability; request capped at 12,000 characters |
+| Memory resurfacing | Ranks existing notes by lexical overlap with a current topic or parked thoughts | Local heuristic over the currently loaded note collection; suggestions, not semantic/AI guarantees |
+| Focus tools | 15/25/45-minute focus timer and locally stored completed-session count | Browser-local state; no background alarm guarantee |
+| Reading layouts | Bionic reading toggle and cards/outline layout for resurfaced notes | Browser UI |
 | Export | Downloads title, capture time, and body as plain text | Browser download |
 | Link preview | Extracts title, description, image, and paragraph text from a page URL | Guarded outbound fetch; remote HTML varies |
 | PWA affordances | Manifest, icon, service-worker registration, mobile layouts | Browser/platform support varies |
@@ -63,6 +70,14 @@ Key jobs:
 2. Use the range slider to select a snapshot.
 3. Review the historical body.
 4. Choose Restore to make the selected body current.
+
+### Notely Flow
+1. Open Flow from the persistent launcher.
+2. Capture a brain dump by typing or browser-supported speech transcription; add an optional cue for future-you.
+3. Save it directly into the existing notes collection without choosing a folder or title.
+4. Park distracting thoughts in the temporary Parking Lot and promote them to notes when ready.
+5. Optionally use AI De-Clutter to create a structured copy; the original remains intact.
+6. Use Focus for a gentle timer, or Resurfaced to find notes with overlapping terms and open them in the main editor.
 
 ## 5. Product success measures
 
@@ -96,7 +111,10 @@ These are recommendations, not claims that analytics are currently implemented.
 - Version 0.1.0 is pre-1.0; interfaces and behavior may change.
 - Guest notes are browser-local and are not automatically synchronized to a signed-in account.
 - Time Travel currently focuses on body snapshots; do not describe it as full-document versioning for title and metadata.
-- AI summarization depends on a Groq key and provider/network availability.
+- AI summarization and Flow AI De-Clutter depend on a Groq key and provider/network availability.
+- Flow voice transcription depends on browser Speech Recognition support and microphone permission; it stores the transcript, not a raw audio recording.
+- Parking Lot entries and focus-session counts are browser-local; they do not sync between devices.
+- Memory resurfacing currently uses transparent lexical-overlap ranking, not embeddings or a semantic AI agent.
 - Link previews depend on third-party pages and the HTML available to the fetcher.
 - PWA assets and service-worker registration exist; full offline functionality and background sync should not be promised without dedicated verification.
 - Performance, accessibility, and security are ongoing engineering responsibilities. A configured E2E workflow is not proof of a passing run.
