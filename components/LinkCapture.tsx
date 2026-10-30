@@ -95,7 +95,7 @@ export default function LinkCapture() {
           body: JSON.stringify({ title, body, tags: ['Links'], started_at: result.extractedAt }),
         })
         const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Could not save this link to your account. Your extracted content is still here.')
+        if (!response.ok) throw new Error('Could not save this link to your account. ' + (typeof data.error === 'string' ? data.error : 'Your extracted content is still here.'))
       } else if (remote.status === 401) {
         const key = 'notely_notes'
         let existing: unknown[] = []
