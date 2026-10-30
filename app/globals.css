@@ -522,3 +522,10 @@ body:has(.flow-page) .flow-launcher{display:none}
 @media(max-width:760px){.flow-grid,.flow-focus-layout{grid-template-columns:1fr}.flow-side-stack{grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}.flow-header-mark{width:54px;height:54px;font-size:28px}}
 @media(max-width:520px){.flow-shell{padding:18px 13px 28px}.flow-header{align-items:flex-start}.flow-header-mark{display:none}.flow-tabs button{padding:10px 11px}.flow-parking-item{align-items:flex-start;flex-direction:column}.flow-item-actions{width:100%;justify-content:flex-end}.flow-footer{align-items:flex-start;flex-wrap:wrap}.flow-launcher{right:14px;bottom:14px}}
 @media(prefers-reduced-motion:reduce){.flow-launcher,.flow-button,.flow-primary,.flow-pulse{transition:none;animation:none}}
+
+.flow-memory-list.outline{grid-template-columns:1fr;gap:0;border-top:1px solid var(--line)}
+.flow-memory-list.outline .flow-memory-item{display:grid;grid-template-columns:minmax(130px,.4fr) minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 3px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent}
+.flow-memory-list.outline .flow-memory-item h3{margin:0;font-size:13px}
+.flow-memory-list.outline .flow-memory-item p{max-height:3.4em;overflow:hidden}
+.flow-memory-list.outline .flow-memory-actions{margin:0}
+@media(max-width:640px){.flow-memory-list.outline .flow-memory-item{grid-template-columns:1fr}.flow-memory-list.outline .flow-memory-actions{justify-content:flex-start}}
