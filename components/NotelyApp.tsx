@@ -227,14 +227,8 @@ function Editor({
               style={{
                 background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%, var(--line) ${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%, var(--line) 100%)`
               }}
-              onInput={e => onTravel(parseInt(e.currentTarget.value))}
               onChange={e => onTravel(parseInt(e.currentTarget.value))}
               aria-label="Time travel history"
-            />
-            <span
-              className="tt-liquid-thumb"
-              aria-hidden="true"
-              style={{ left: `${history.length > 1 ? ((travelIndex >= 0 ? travelIndex : history.length - 1) / (history.length - 1)) * 100 : 100}%` }}
             />
           </div>
           <span className="tt-time">
