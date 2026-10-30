@@ -60,7 +60,9 @@ async function analyze(page: ExtractedLinkPage) {
     if (!response.ok) return { analysis: fallback, warning: 'Showing a source-based overview because AI insights are temporarily unavailable.', analysisMode: 'extractive' as const }
     const data = await response.json().catch(() => ({}))
     const analysis = parseAI(data.choices?.[0]?.message?.content)
-    return analysis && (analysis.summary || analysis.keyPoints.length || analysis.concepts.length || analysis.potentialTasks.length)\n      ? { analysis, warning: null, analysisMode: 'ai' as const }\n      : { analysis: fallback, warning: 'Showing a source-based overview because the AI response was not usable.', analysisMode: 'extractive' as const }
+    return analysis && (analysis.summary || analysis.keyPoints.length || analysis.concepts.length || analysis.potentialTasks.length)
+      ? { analysis, warning: null, analysisMode: 'ai' as const }
+      : { analysis: fallback, warning: 'Showing a source-based overview because the AI response was not usable.', analysisMode: 'extractive' as const }
   } catch { return { analysis: fallback, warning: 'Showing a source-based overview because AI insights timed out.', analysisMode: 'extractive' as const } }
 }
 
