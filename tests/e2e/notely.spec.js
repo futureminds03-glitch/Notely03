@@ -313,14 +313,12 @@ test('voice capture handles interim and final transcripts and stops cleanly', as
   await expect(capture).toHaveValue('Existing typed thought. spoken words become text.')
 })
 
-test('Ask My Memory retrieves matching notes without requiring an AI key', async ({ request }) => {
+test('Ask My Memory rejects browser-supplied note context when signed out', async ({ request }) => {
   const response = await request.post('/api/memory/ask', { data: {
     question: 'What did I write about my business idea?',
-    notes: [{ title: 'Business idea', body: 'I want to build a business that helps independent creators.', created_at: '2026-10-01T10:00:00.000Z' }]
+    notes: [{ title: 'Forged note', body: 'This is not authenticated user data.', created_at: '2026-10-01T10:00:00.000Z' }]
   } })
-  expect(response.status()).toBe(200)
+  expect(response.status()).toBe(401)
   const result = await response.json()
-  expect(result.mode).toBe('search')
-  expect(result.answer).toContain('[Note 1] Business idea')
-  expect(result.answer).toContain('independent creators')
+  expect(result.error).toContain('Sign in')
 })
