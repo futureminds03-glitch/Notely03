@@ -158,7 +158,7 @@ test.describe('Notely link capture', () => {
     await page.goto(new URL('/flow/links', baseURL).toString())
     await page.getByLabel('Webpage URL').fill('example.com/blocked-article')
     await page.getByRole('button', { name: 'Read page' }).click()
-    await expect(page.getByRole('alert')).toContainText('blocking automated access')
+    await expect(page.locator('.link-capture-error')).toContainText('blocking automated access')
     await page.getByRole('button', { name: 'Save URL only' }).click()
     await expect(page.getByText(/URL saved to your Notely notes/)).toBeVisible()
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('notely_notes') || '[]')[0])
