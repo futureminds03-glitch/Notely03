@@ -4,8 +4,12 @@ All notable user-facing changes to Notely are recorded here. The project is pre-
 
 ## Unreleased
 
-- Product and engineering documentation established for the repository.
-- Release verification expectations documented, including deployment readiness and browser regression checks.
+- Added Notely Flow, a persistent adaptive workspace for low-friction brain-dump capture, browser speech transcription, and an optional future-self cue.
+- Added a browser-local Parking Lot with promotion into the existing notes collection.
+- Added Groq-backed AI De-Clutter with bounded input, timeout handling, and non-destructive original preservation.
+- Added contextual resurfacing of related notes, direct note-editor deep links, bionic reading, compact outline layout, and a gentle focus timer with local session counts.
+- Added a persistent Flow launcher and Playwright regression coverage for capture, Parking Lot, organization validation, focus navigation, and memory layouts.
+- Product and engineering documentation established for the repository; release verification expectations include deployment readiness and browser regression checks.
 
 ## 0.1.0 — Initial product baseline
 
