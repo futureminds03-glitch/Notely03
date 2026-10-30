@@ -131,7 +131,7 @@ export default function LinkCapture() {
         <form className="link-capture-form" onSubmit={extract}>
           <label htmlFor="link-capture-url">Webpage URL</label>
           <div className="link-capture-input-row">
-            <input id="link-capture-url" type="url" inputMode="url" autoComplete="url" placeholder="https://example.com/article" value={url} onChange={event => setUrl(event.target.value)} required />
+            <input id="link-capture-url" type="text" inputMode="url" spellCheck={false} autoCapitalize="off" autoComplete="url" placeholder="https://example.com/article" value={url} onChange={event => setUrl(event.target.value)} required />
             <button type="submit" disabled={!url.trim() || loading}>{loading ? 'Reading…' : 'Read page →'}</button>
           </div>
           <small>Public webpages only. Private pages and sign-in protected content are not accessed.</small>
