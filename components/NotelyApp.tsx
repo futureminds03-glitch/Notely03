@@ -247,6 +247,87 @@ function Editor({
   )
 }
 
+
+interface TimeMachineProps { notes: Note[]; onOpen: (note: Note) => void }
+
+function noteMoment(note: Note) {
+  const timestamp = Date.parse(note.started_at || note.created_at)
+  return Number.isFinite(timestamp) ? timestamp : Date.parse(note.created_at)
+}
+
+function localDateKey(date: Date) {
+  return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0')
+}
+
+function TimeMachine({ notes, onOpen }: TimeMachineProps) {
+  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('week')
+  const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()))
+  const period = useMemo(() => {
+    const parts = selectedDate.split('-').map(Number)
+    const start = new Date(parts[0], parts[1] - 1, parts[2])
+    if (granularity === 'week') start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
+    if (granularity === 'month') start.setDate(1)
+    const end = new Date(start)
+    if (granularity === 'day') end.setDate(end.getDate() + 1)
+    if (granularity === 'week') end.setDate(end.getDate() + 7)
+    if (granularity === 'month') end.setMonth(end.getMonth() + 1)
+    return { start, end }
+  }, [selectedDate, granularity])
+  const entries = useMemo(() => notes.map(note => ({ note, timestamp: noteMoment(note) }))
+    .filter(item => item.timestamp >= period.start.getTime() && item.timestamp < period.end.getTime())
+    .sort((a, b) => b.timestamp - a.timestamp), [notes, period])
+  const grouped = useMemo(() => {
+    const groups = new Map<string, typeof entries>()
+    for (const entry of entries) {
+      const key = localDateKey(new Date(entry.timestamp))
+      groups.set(key, [...(groups.get(key) ?? []), entry])
+    }
+    return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+  }, [entries])
+  const periodLabel = granularity === 'day'
+    ? period.start.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    : granularity === 'week'
+      ? period.start.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' – ' + new Date(period.end.getTime() - 1).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+      : period.start.toLocaleDateString([], { month: 'long', year: 'numeric' })
+  function movePeriod(direction: number) {
+    const next = new Date(period.start)
+    if (granularity === 'day') next.setDate(next.getDate() + direction)
+    if (granularity === 'week') next.setDate(next.getDate() + 7 * direction)
+    if (granularity === 'month') next.setMonth(next.getMonth() + direction)
+    setSelectedDate(localDateKey(next))
+  }
+  return (
+    <section className="time-machine" aria-label="Time Machine">
+      <div className="time-machine-heading">
+        <div><div className="time-machine-eyebrow">YOUR NOTES, IN TIME</div><h1>Time Machine</h1><p>Go back to the moment a thought first showed up.</p></div>
+        <button className="tm-today" onClick={() => setSelectedDate(localDateKey(new Date()))}>Today</button>
+      </div>
+      <div className="tm-controls">
+        <div className="tm-zoom" role="group" aria-label="Timeline scale">
+          {(['day', 'week', 'month'] as const).map(value => <button key={value} className={granularity === value ? 'active' : ''} aria-pressed={granularity === value} onClick={() => setGranularity(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}
+        </div>
+        <label className="tm-date-label"><span>Jump to date</span><input aria-label="Jump to date" type="date" value={selectedDate} onChange={event => setSelectedDate(event.target.value)} /></label>
+      </div>
+      <div className="tm-period-nav"><button aria-label="Previous period" onClick={() => movePeriod(-1)}>←</button><strong>{periodLabel}</strong><button aria-label="Next period" onClick={() => movePeriod(1)}>→</button></div>
+      <div className="tm-results" aria-live="polite">
+        {grouped.length === 0 ? <div className="tm-empty"><span>Nothing captured in this stretch of time.</span><p>Try another date, or zoom out to see a whole month.</p></div> : grouped.map(([day, dayEntries]) => (
+          <section className="tm-day" key={day}>
+            <h2>{new Date(day + 'T12:00:00').toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</h2>
+            <div className="tm-day-entries">
+              {dayEntries.map(({ note, timestamp }) => <article className="tm-entry" key={note.id}>
+                <time dateTime={new Date(timestamp).toISOString()}>{new Date(timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time>
+                <div className="tm-entry-copy"><button className="tm-entry-title" onClick={() => onOpen(note)}>{note.title.trim() || 'Untitled'}</button><p>{note.body.trim().replace(/\s+/g, ' ').slice(0, 180) || 'An empty note — a thought captured before the words arrived.'}</p></div>
+                <button className="tm-open" onClick={() => onOpen(note)} aria-label={'Open ' + (note.title.trim() || 'Untitled')}>Open ↗</button>
+              </article>)}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className="tm-footnote">{entries.length} {entries.length === 1 ? 'note' : 'notes'} from this {granularity} · Sorted by capture time</div>
+    </section>
+  )
+}
+
 // ── MAIN COMPONENT ──
 
 export default function NotelyApp() {
@@ -271,6 +352,7 @@ export default function NotelyApp() {
   const [authLoading, setAuthLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list')
+  const [showTimeMachine, setShowTimeMachine] = useState(false)
 
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
@@ -472,6 +554,7 @@ export default function NotelyApp() {
   // ── INSTANT NEW NOTE ──
   async function newNote() {
     if (creationInFlightRef.current) return
+    setShowTimeMachine(false)
     creationInFlightRef.current = true
     const now = new Date().toISOString()
     const tempId = `temp-${Date.now()}`
@@ -830,7 +913,7 @@ export default function NotelyApp() {
     setMobileView('list')
   }
 
-  const handleOpen = useCallback((n: Note) => openNote(n), [])
+  const handleOpen = useCallback((n: Note) => { setShowTimeMachine(false); openNote(n) }, [])
 
   const filteredNotes = useMemo(() => {
     const query = search.toLowerCase()
@@ -862,6 +945,7 @@ export default function NotelyApp() {
                   <path d="M3 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                 </svg>
               </button>
+              <button className="mobile-btn" aria-label="Time Machine" title="Time Machine" onClick={() => setShowTimeMachine(value => !value)}><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4"/><path d="M10 5.5V10l3 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg></button>
               <button className="mobile-btn" onClick={newNote}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
@@ -929,6 +1013,7 @@ export default function NotelyApp() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+          <button className={`time-machine-link ${showTimeMachine ? "active" : ""}`} onClick={() => setShowTimeMachine(value => !value)} aria-pressed={showTimeMachine}><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.7" stroke="currentColor" strokeWidth="1.2"/><path d="M8 4.5V8l2.4 1.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>Time Machine</button>
           <div className="notes-count">
             {filteredNotes.length > 0 ? `${filteredNotes.length} note${filteredNotes.length !== 1 ? 's' : ''}` : ''}
           </div>
@@ -945,6 +1030,8 @@ export default function NotelyApp() {
         </aside>
 
         <main className="editor-area">
+          {showTimeMachine ? <TimeMachine notes={notes} onOpen={handleOpen} /> : (
+            <>
           {mobileView === 'list' && (
             <>
               <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--line)', background: 'var(--paper)', flexShrink: 0 }}>
@@ -967,6 +1054,8 @@ export default function NotelyApp() {
           <div className="desktop-editor">
             <Editor {...editorProps} bodyRef={bodyRef} titleRef={titleRef} />
           </div>
+            </>
+          )}
         </main>
       </div>
 
