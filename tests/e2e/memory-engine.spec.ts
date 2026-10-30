@@ -50,7 +50,7 @@ test.describe('Notely memory engine', () => {
     await page.goto(new URL('/memory', baseURL).toString())
     await page.getByRole('button', { name: 'Ask My Memory' }).click()
     await page.getByRole('button', { name: 'Prepare my memory archive' }).click()
-    await expect(page.getByRole('status')).toContainText('Your memory insights are up to date')
+    await expect(page.locator('p[role="status"]')).toContainText('Your memory insights are up to date')
     expect(offsets).toEqual([0])
   })
 })
