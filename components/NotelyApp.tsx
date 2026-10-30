@@ -374,11 +374,22 @@ export default function NotelyApp() {
   const creationInFlightRef = useRef(false)
   const authGenerationRef = useRef(0)
   const dirtyFieldsRef = useRef({ title: false, body: false })
+  const deepLinkOpenedRef = useRef(false)
 
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
   useEffect(() => { userRef.current = user }, [user])
   useEffect(() => { startedAtRef.current = startedAt }, [startedAt])
   useEffect(() => { notesRef.current = notes }, [notes])
+
+  useEffect(() => {
+    if (deepLinkOpenedRef.current) return
+    const requestedNoteId = new URLSearchParams(window.location.search).get('note')
+    if (!requestedNoteId) return
+    const requestedNote = notes.find(note => note.id === requestedNoteId)
+    if (!requestedNote) return
+    deepLinkOpenedRef.current = true
+    openNote(requestedNote)
+  }, [notes])
   useEffect(() => { activeDraftRef.current = { title, body } }, [title, body])
 
   useEffect(() => {
