@@ -133,4 +133,83 @@ test.describe('Notely Flow', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0)
   })
 
+
+  test('Smart Recall APIs reject unsigned requests and forged browser note payloads', async ({ request }) => {
+    const ask = await request.post(new URL('/api/memory/ask', baseURL).toString(), {
+      data: { question: 'What was my hiring plan?', notes: [{ id: 'forged', title: 'Injected', body: 'Not a real private note' }] },
+    })
+    expect(ask.status()).toBe(401)
+    const search = await request.post(new URL('/api/memory/search', baseURL).toString(), { data: { query: 'hiring engineers' } })
+    expect(search.status()).toBe(401)
+    const related = await request.post(new URL('/api/memory/related', baseURL).toString(), { data: { noteId: '00000000-0000-4000-8000-000000000000' } })
+    expect(related.status()).toBe(401)
+  })
+
+  test('Ask My Memory returns source-linked answers from server retrieval', async ({ page }) => {
+    const noteId = '123e4567-e89b-42d3-a456-426614174000'
+    await page.route('**/api/notes', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify([{ id: noteId, title: 'Pakistan engineering talent plan', body: 'Build a trusted recruiting network for AI engineers.', created_at: '2026-10-01T10:00:00.000Z', updated_at: '2026-10-02T10:00:00.000Z', tags: ['Work'], synced: true }]),
+    }))
+    await page.route('**/api/memory/ask', async route => {
+      const payload = route.request().postDataJSON()
+      expect(payload).toEqual({ question: 'What was my plan for hiring AI engineers?' })
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          answer: 'You planned a trusted recruiting network for AI engineers. [Source 1]',
+          mode: 'ai-grounded',
+          sources: [{ id: noteId, title: 'Pakistan engineering talent plan', excerpt: 'Build a trusted recruiting network for AI engineers.', created_at: '2026-10-01T10:00:00.000Z', tags: ['Work'], score: 0.82 }],
+        }),
+      })
+    })
+    await page.goto(new URL('/memory', baseURL).toString())
+    await page.getByRole('button', { name: 'Ask My Memory' }).click()
+    await page.getByPlaceholder('What did I write about hiring engineers or starting a business?').fill('What was my plan for hiring AI engineers?')
+    await page.getByRole('button', { name: 'Ask my memory' }).click()
+    await expect(page.getByText(/trusted recruiting network/)).toBeVisible()
+    await expect(page.getByText('SOURCE MEMORIES · 1')).toBeVisible()
+    await page.getByRole('button', { name: /Pakistan engineering talent plan/ }).click()
+    await expect(page).toHaveURL(new RegExp('note=' + noteId))
+  })
+
+  test('Ranked archive search returns source memories and opens the original note', async ({ page }) => {
+    const noteId = '123e4567-e89b-42d3-a456-426614174001'
+    await page.route('**/api/notes', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify([{ id: noteId, title: 'AI hiring network', body: 'Recruiting and evaluating software engineers.', created_at: '2026-10-01T10:00:00.000Z', updated_at: '2026-10-02T10:00:00.000Z', tags: ['Work'], synced: true }]),
+    }))
+    await page.route('**/api/memory/search', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ query: 'recruiting engineers', count: 1, mode: 'ranked-search', sources: [{ id: noteId, title: 'AI hiring network', excerpt: 'Recruiting and evaluating software engineers.', created_at: '2026-10-01T10:00:00.000Z', tags: ['Work'], score: 0.6 }] }),
+    }))
+    await page.goto(new URL('/memory', baseURL).toString())
+    await page.getByPlaceholder('Search by phrase, project, person, or idea…').fill('recruiting engineers')
+    await page.keyboard.press('Enter')
+    await expect(page.getByText('RANKED RECALL · 1 MATCHES')).toBeVisible()
+    await page.getByRole('button', { name: /AI hiring network/ }).click()
+    await expect(page).toHaveURL(new RegExp('note=' + noteId))
+  })
+
+  test('Related memory recommendations use the selected source note', async ({ page }) => {
+    const sourceId = '123e4567-e89b-42d3-a456-426614174002'
+    const relatedId = '123e4567-e89b-42d3-a456-426614174003'
+    await page.route('**/api/notes', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify([
+        { id: sourceId, title: 'AI hiring network', body: 'Recruiting AI engineers.', created_at: '2026-10-01T10:00:00.000Z', updated_at: '2026-10-02T10:00:00.000Z', tags: ['Work'], synced: true },
+        { id: relatedId, title: 'Engineering assessment framework', body: 'Evaluate AI engineers with practical projects.', created_at: '2026-10-03T10:00:00.000Z', updated_at: '2026-10-03T10:00:00.000Z', tags: ['Work'], synced: true },
+      ]),
+    }))
+    await page.route('**/api/memory/related', async route => {
+      expect(route.request().postDataJSON()).toEqual({ noteId: sourceId })
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ source: { id: sourceId, title: 'AI hiring network' }, count: 1, sources: [{ id: relatedId, title: 'Engineering assessment framework', excerpt: 'Evaluate AI engineers with practical projects.', created_at: '2026-10-03T10:00:00.000Z', tags: ['Work'], score: 0.55 }] }) })
+    })
+    await page.goto(new URL('/memory', baseURL).toString())
+    await page.getByRole('button', { name: 'Thought Connections' }).click()
+    await page.getByRole('combobox', { name: 'Source memory' }).selectOption(sourceId)
+    await page.getByRole('button', { name: 'Find related' }).click()
+    await expect(page.getByRole('button', { name: /Engineering assessment framework/ })).toBeVisible()
+  })
+
 })
