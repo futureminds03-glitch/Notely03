@@ -19,7 +19,7 @@ const styles:Record<string,React.CSSProperties> = {
   primary:{border:0,borderRadius:7,padding:'10px 15px',background:'var(--accent)',color:'white',font:'12px Georgia,serif',cursor:'pointer'},
 }
 function readGuest():Note[]{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}}
-function terms(s:string){return new Set(s.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\\s+/).filter(w=>w.length>3))}
+function terms(s:string){return new Set(s.toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(w=>w.length>3))}
 function overlap(a:string,b:string){const aa=terms(a),bb=terms(b);if(!aa.size||!bb.size)return 0;let n=0;aa.forEach(x=>{if(bb.has(x))n++});return n/Math.sqrt(aa.size*bb.size)}
 function badgeStyle(tag:string):React.CSSProperties{const i=Math.max(0,PRESETS.indexOf(tag));return {fontSize:10,padding:'4px 8px',borderRadius:20,border:'1px solid '+colors[i%colors.length]+'66',color:colors[i%colors.length],background:colors[i%colors.length]+'12',whiteSpace:'nowrap'}}
 
