@@ -52,6 +52,8 @@ Never expose provider keys through `NEXT_PUBLIC_*` variables. No embedding key i
 
 ## Verification
 
+Feature-branch pushes run the local build and E2E suite; only pushes to `main` run production smoke tests. The `feat/memory-engine` branch is excluded from Vercel deployments until release.
+
 The E2E suite covers:
 - Signed-out archive indexing is rejected.
 - Memory Studio invokes the authenticated archive preparation flow.
