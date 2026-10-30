@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
   if (error || !data) {
     console.error('Failed to save Parking Lot thought:', error)
-    return NextResponse.json({ error: 'Could not save this thought. It is still on this device.' }, { status: 500 })
+    return NextResponse.json({ error: 'Could not sync this thought. Please try again.' }, { status: 500 })
   }
   return NextResponse.json(toItem(data), { status: 201 })
 }
