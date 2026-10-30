@@ -32,14 +32,15 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  let payload: ParkingInput
-  try { payload = await request.json() as ParkingInput } catch {
+  let payload: unknown
+  try { payload = await request.json() } catch {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
   }
-  if (typeof payload.text !== 'string' || !payload.text.trim()) {
+  const inputText = typeof payload === 'object' && payload !== null ? (payload as ParkingInput).text : null
+  if (typeof inputText !== 'string' || !inputText.trim()) {
     return NextResponse.json({ error: 'Add a thought before parking it.' }, { status: 400 })
   }
-  const text = payload.text.trim()
+  const text = inputText.trim()
   if (text.length > 12000) {
     return NextResponse.json({ error: 'This thought is too long to park at once.' }, { status: 413 })
   }
@@ -72,6 +73,9 @@ export async function DELETE(request: Request) {
 
   const id = new URL(request.url).searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'A parked thought ID is required.' }, { status: 400 })
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    return NextResponse.json({ error: 'Invalid parked thought ID.' }, { status: 400 })
+  }
 
   const { data, error } = await supabase
     .from('documents')
