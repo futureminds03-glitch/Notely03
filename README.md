@@ -22,7 +22,7 @@ Notely is a lightweight personal note-taking web app focused on getting ideas do
 - **Accounts and sync:** Supabase Auth and cloud-backed notes for signed-in users.
 - **Mobile/PWA support:** responsive mobile views, web app manifest, service worker registration, and app icon.
 
-Feature availability depends on environment configuration. AI summaries and AI De-Clutter require the server-side `GROQ_API_KEY`; cloud accounts and sync require Supabase configuration. Voice transcription depends on browser Speech Recognition support and microphone permission. Parking Lot entries and focus-session counts are browser-local.
+Feature availability depends on environment configuration. AI summaries and AI De-Clutter require the server-side `GROQ_API_KEY`; cloud accounts and sync require Supabase configuration. Voice transcription depends on browser Speech Recognition support and microphone permission. Signed-in Parking Lot entries sync through the authenticated Supabase API; guest Parking Lot entries and focus-session counts remain browser-local.
 
 ## Technology
 
@@ -88,6 +88,7 @@ Check the Actions run for the actual outcome; the existence of a workflow file d
     app/
       api/notes/          Authenticated note CRUD and version history
       api/organize/       Groq-backed brain-dump organization
+      api/parking-lot/   Authenticated Parking Lot read/write/delete
       api/summarize/      Groq-backed summary endpoint
       api/link-preview/   Server-side page metadata extraction
       auth/               Authentication callback routes
@@ -96,7 +97,7 @@ Check the Actions run for the actual outcome; the existence of a workflow file d
       layout.tsx          Metadata, viewport, PWA registration
       page.tsx            App entry point
     components/
-      NotelyApp.tsx       Main note-taking experience
+      NotelyApp.tsx       Main note-taking experience and desktop/mobile Flow navigation
       NotelyFlow.tsx      Brain dump, Parking Lot, focus, and resurfacing
     lib/
       supabase-client.ts

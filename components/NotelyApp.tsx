@@ -1034,6 +1034,9 @@ export default function NotelyApp() {
             </button>
           </div>
           <div className="studio-nav" aria-label="Explore Notely">
+            <a className="studio-nav-link" href="/flow">
+              <span className="studio-nav-icon memory" aria-hidden="true">✳</span><span><strong>Notely Flow</strong><small>Capture, focus and clear your mind</small></span><span className="studio-nav-arrow">↗</span>
+            </a>
             <button aria-label="Time Machine" className={`studio-nav-link ${showTimeMachine ? "active" : ""}`} onClick={() => setShowTimeMachine(value => !value)} aria-pressed={showTimeMachine}>
               <span className="studio-nav-icon" aria-hidden="true">◷</span><span><strong>Time Machine</strong><small>Explore your notes over time</small></span><span className="studio-nav-arrow">↗</span>
             </button>
@@ -1079,6 +1082,9 @@ export default function NotelyApp() {
                 />
               </div>
               <div className="mobile-studio-nav" aria-label="Explore Notely">
+                <a className="studio-nav-link" href="/flow">
+                  <span className="studio-nav-icon memory" aria-hidden="true">✳</span><span><strong>Notely Flow</strong><small>Capture and focus</small></span>
+                </a>
                 <button aria-label="Time Machine" className={`studio-nav-link ${showTimeMachine ? "active" : ""}`} onClick={() => setShowTimeMachine(value => !value)} aria-pressed={showTimeMachine}>
                   <span className="studio-nav-icon" aria-hidden="true">◷</span><span><strong>Time Machine</strong><small>Browse your timeline</small></span>
                 </button>
