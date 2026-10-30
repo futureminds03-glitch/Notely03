@@ -108,4 +108,29 @@ test.describe('Notely Flow', () => {
     await expect(response.json()).resolves.toMatchObject({ error: 'This thought is too long to organize at once. Try a smaller section.' })
   })
 
+
+  test('global quick capture parks a thought without leaving the current screen', async ({ page }) => {
+    await page.goto(new URL('/flow', baseURL).toString())
+    await page.getByRole('button', { name: 'Quick capture' }).click()
+    await expect(page.getByRole('dialog', { name: 'Park it. Keep going.' })).toBeVisible()
+    await page.getByRole('textbox', { name: 'Quick thought' }).fill('Remember to send the project update')
+    await page.getByRole('button', { name: /Park thought/ }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect.poll(async () => page.evaluate(() => {
+      const items = JSON.parse(localStorage.getItem('notely_parking_lot_v1') || '[]')
+      return items.some((item: { text?: string }) => item.text === 'Remember to send the project update')
+    })).toBe(true)
+    await page.locator('.flow-tabs').getByRole('button', { name: /Parking Lot/ }).click()
+    await expect(page.getByText('Remember to send the project update')).toBeVisible()
+  })
+
+  test('global quick capture opens with the keyboard shortcut on Memory Studio', async ({ page }) => {
+    await page.goto(new URL('/memory', baseURL).toString())
+    await page.keyboard.press('Control+Shift+Space')
+    await expect(page.getByRole('dialog', { name: 'Park it. Keep going.' })).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Quick thought' })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
+
 })

@@ -39,7 +39,7 @@ Key jobs:
 | Search | Filters notes by title and body | Currently loaded note collection |
 | Time Travel | Select historical body snapshots by timestamp and restore one | Version rows/history must be available; focused on body content |
 | AI summary | Appends a concise summary to the current note | GROQ_API_KEY and provider availability; body input limited to 4,000 characters |
-| Notely Flow | Separate adaptive workspace for capture, Parking Lot, focus, and resurfaced notes | Browser UI; discoverable from desktop sidebar and mobile navigation; not an OS-wide overlay |
+| Notely Flow | Adaptive workspace for capture, Parking Lot, focus, and resurfaced notes; global quick-capture overlay is available across app routes | Browser UI; desktop/mobile navigation plus floating overlay and Ctrl/Cmd+Shift+Space shortcut; not an OS-wide overlay |
 | Brain Dump | Saves unstructured text without requiring a title or folder; browser speech-to-text is available where supported | Existing notes API for signed-in users; localStorage for guests; microphone permission and Speech Recognition browser support |
 | Parking Lot | Temporary quick-capture queue; entries can be promoted into notes | Signed-in users sync through an authenticated owner-scoped API using `documents.status = 'parking'`; guest entries remain browser-local |
 | AI De-Clutter | Creates a structured version of a brain dump while preserving the original | GROQ_API_KEY and provider availability; request capped at 12,000 characters |
@@ -72,8 +72,8 @@ Key jobs:
 4. Choose Restore to make the selected body current.
 
 ### Notely Flow
-1. Open Flow from the Notely Flow shortcut in the desktop sidebar or mobile navigation.
-2. Capture a brain dump by typing or browser-supported speech transcription; add an optional cue for future-you.
+1. Capture an interruption from any Notely screen with the floating Quick Capture button or Ctrl/Cmd+Shift+Space, or open Flow from desktop/mobile navigation.
+2. Park the thought without leaving the current page, or capture a brain dump in Flow by typing or browser-supported speech transcription; add an optional cue for future-you.
 3. Save it directly into the existing notes collection without choosing a folder or title.
 4. Park distracting thoughts in the Parking Lot; signed-in users can resume them across devices, while guest entries stay in the current browser. Promote parked thoughts into notes when ready.
 5. Optionally use AI De-Clutter to create a structured copy; the original remains intact.
@@ -114,8 +114,9 @@ These are recommendations, not claims that analytics are currently implemented.
 - AI summarization and Flow AI De-Clutter depend on a Groq key and provider/network availability. The production Vercel project currently has no `GROQ_API_KEY`, so De-Clutter safely returns a configuration error until the owner supplies the secret.
 - Flow voice transcription depends on browser Speech Recognition support and microphone permission; it stores the transcript, not a raw audio recording.
 - Guest Parking Lot entries and focus-session counts are browser-local. Signed-in Parking Lot entries sync across devices through the authenticated API.
-- Notely Flow is available inside the Notely web app; the scratchpad is not a system-wide OS overlay or desktop widget.
+- Global Quick Capture is available across Notely web-app routes, including Memory Studio and Flow, but it is not a system-wide OS overlay or desktop widget.
 - Voice capture stores the transcript, not a raw audio recording; no automatic audio snippet is retained.
+- Global Quick Capture uses the authenticated Parking Lot API for signed-in users and the same browser-local Parking Lot store for guests; failed network requests stay visible in the dialog rather than silently falling back to local storage.
 - Reading layout choices currently include cards and outline. Kanban/mind-map rotations, dynamic themes, and soundscape rewards are not implemented.
 - Memory resurfacing currently uses transparent lexical-overlap ranking, not embeddings or a semantic AI agent.
 - Link previews depend on third-party pages and the HTML available to the fetcher.

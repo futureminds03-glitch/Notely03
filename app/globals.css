@@ -427,7 +427,6 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
 .flow-launcher{position:fixed;right:22px;bottom:22px;z-index:300;display:inline-flex;align-items:center;gap:8px;padding:11px 17px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));border-radius:999px;background:var(--ink);color:var(--paper);box-shadow:0 8px 28px rgba(44,36,22,.2);font:600 12px Inter,ui-sans-serif,system-ui,sans-serif;text-decoration:none;transition:transform .18s ease,box-shadow .18s ease}
 .flow-launcher span:first-child{font-size:16px;color:#e8ad77}
 .flow-launcher:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(44,36,22,.25)}
-body:has(.flow-page) .flow-launcher{display:none}
 .flow-page{height:100dvh;overflow-y:auto;overscroll-behavior:contain;background:var(--paper);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 .flow-shell{width:min(1120px,100%);margin:0 auto;padding:clamp(22px,4vw,54px) clamp(16px,4vw,42px) 36px}
 .flow-header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px}
@@ -529,3 +528,38 @@ body:has(.flow-page) .flow-launcher{display:none}
 .flow-memory-list.outline .flow-memory-item p{max-height:3.4em;overflow:hidden}
 .flow-memory-list.outline .flow-memory-actions{margin:0}
 @media(max-width:640px){.flow-memory-list.outline .flow-memory-item{grid-template-columns:1fr}.flow-memory-list.outline .flow-memory-actions{justify-content:flex-start}}
+
+
+/* GLOBAL QUICK CAPTURE — available on every Notely screen */
+.global-parking-launcher{cursor:pointer;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.global-capture-backdrop{position:fixed;inset:0;z-index:400;display:grid;place-items:center;padding:20px;background:rgba(25,22,18,.48);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.global-capture-dialog{width:min(560px,100%);padding:clamp(20px,4vw,30px);border:1px solid var(--line);border-radius:18px;background:var(--paper);color:var(--ink);box-shadow:0 24px 90px rgba(0,0,0,.28);font-family:Inter,ui-sans-serif,system-ui,sans-serif;animation:global-capture-in .18s ease-out}
+@keyframes global-capture-in{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+.global-capture-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:20px}
+.global-capture-eyebrow{margin-bottom:8px;color:var(--accent);font-size:9px;font-weight:750;letter-spacing:.14em}
+.global-capture-heading h2{font-family:Georgia,serif;font-size:clamp(23px,4vw,30px);font-weight:500;letter-spacing:-.04em}
+.global-capture-heading p{margin-top:7px;color:var(--ink-faint);font-size:12px;line-height:1.5}
+.global-capture-close{display:grid;place-items:center;width:34px;height:34px;flex:none;border:1px solid var(--line);border-radius:50%;background:transparent;color:var(--ink-light);font-size:22px;cursor:pointer}
+.global-capture-close:hover{background:var(--paper-dark)}
+.global-capture-textarea{display:block;width:100%;min-height:155px;max-height:45vh;resize:vertical;padding:16px;border:1px solid var(--line);border-radius:11px;outline:none;background:rgba(255,255,255,.48);color:var(--ink);font:15px/1.65 Georgia,serif}
+.global-capture-textarea:focus{border-color:color-mix(in srgb,var(--accent) 60%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
+.global-capture-textarea::placeholder{color:var(--ink-faint);font-style:italic}
+.global-capture-error{margin-top:9px;color:#a33b2b;font-size:12px}
+.global-capture-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:16px}
+.global-capture-footer>span{color:var(--ink-faint);font-size:10px}
+.global-capture-footer kbd{padding:2px 5px;border:1px solid var(--line);border-radius:4px;background:var(--paper-dark);font:inherit}
+.global-capture-footer>div{display:flex;align-items:center;gap:14px}
+.global-capture-footer a{color:var(--ink-light);font-size:11px;text-decoration:none}
+.global-capture-footer a:hover{color:var(--accent)}
+.global-capture-footer .flow-primary{min-height:38px;padding:9px 13px;font-size:11px}
+.global-capture-announcement{position:fixed;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(max-width:640px){
+ .flow-launcher{right:12px;bottom:12px;padding:10px 14px}
+ .global-capture-backdrop{align-items:end;padding:12px}
+ .global-capture-dialog{padding:20px;border-radius:17px 17px 13px 13px}
+ .global-capture-textarea{min-height:130px}
+ .global-capture-footer{align-items:flex-end}
+ .global-capture-footer>span{max-width:112px;line-height:1.5}
+ .global-capture-footer>div{gap:10px}
+}
+@media(prefers-reduced-motion:reduce){.global-capture-dialog{animation:none}}

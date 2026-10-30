@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import GlobalParkingCapture from '@/components/GlobalParkingCapture'
 
 export const metadata: Metadata = {
   title: 'Notely — Just Write',
@@ -23,9 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
-        <a className="flow-launcher" href="/flow" aria-label="Open Notely Flow workspace">
-          <span aria-hidden="true">✳</span><span>Flow</span>
-        </a>
+        <GlobalParkingCapture />
         <script dangerouslySetInnerHTML={{ __html: "if('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}) }) }" }} />
       </body>
     </html>

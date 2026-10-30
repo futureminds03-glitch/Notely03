@@ -17,7 +17,7 @@ Notely is a lightweight personal note-taking web app focused on getting ideas do
 - **Notes library:** create, open, search, and delete notes.
 - **Time Travel:** browse recorded note-body versions by timestamp and restore an earlier version.
 - **AI summaries:** append a concise summary using the configured Groq API.
-- **Notely Flow:** one-step brain dumps, browser voice transcription, a persistent Parking Lot, AI De-Clutter, contextual resurfacing, focus timer, and low-friction reading layouts.
+- **Notely Flow:** one-step brain dumps, browser voice transcription, an app-wide quick-capture overlay (`Ctrl/Cmd+Shift+Space`), a synced Parking Lot for signed-in users, AI De-Clutter, contextual resurfacing, focus timer, and low-friction reading layouts.
 - **Export:** download a note as a plain-text TXT file.
 - **Accounts and sync:** Supabase Auth and cloud-backed notes for signed-in users.
 - **Mobile/PWA support:** responsive mobile views, web app manifest, service worker registration, and app icon.
@@ -99,6 +99,7 @@ Check the Actions run for the actual outcome; the existence of a workflow file d
     components/
       NotelyApp.tsx       Main note-taking experience and desktop/mobile Flow navigation
       NotelyFlow.tsx      Brain dump, Parking Lot, focus, and resurfacing
+      GlobalParkingCapture.tsx  App-wide quick-capture overlay
     lib/
       supabase-client.ts
       supabase-server.ts
