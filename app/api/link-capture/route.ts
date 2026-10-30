@@ -26,15 +26,15 @@ function parseAI(raw: unknown): { summary: string; keyPoints: string[]; concepts
 }
 
 function fallbackAnalysis(page: ExtractedLinkPage) {
-  const sentences = page.fullContent.replace(/\\s+/g, ' ').split(/(?<=[.!?])\\s+/).map(value => value.trim()).filter(value => value.length >= 45)
+  const sentences = page.fullContent.replace(/\s+/g, ' ').split(/(?<=[.!?])\s+/).map(value => value.trim()).filter(value => value.length >= 45)
   const keyPoints = sentences.slice(0, 5).map(value => value.slice(0, 280))
-  const titleTerms = page.title.match(/\\b[A-Z][A-Za-z0-9-]{2,}(?:\\s+[A-Z][A-Za-z0-9-]{2,}){0,2}\\b/g) ?? []
-  const namedTerms = page.fullContent.match(/\\b[A-Z][a-z]{3,}(?:\\s+[A-Z][a-z]{3,})?\\b/g) ?? []
+  const titleTerms = page.title.match(/\b[A-Z][A-Za-z0-9-]{2,}(?:\s+[A-Z][A-Za-z0-9-]{2,}){0,2}\b/g) ?? []
+  const namedTerms = page.fullContent.match(/\b[A-Z][a-z]{3,}(?:\s+[A-Z][a-z]{3,})?\b/g) ?? []
   const concepts = [...new Set([...titleTerms, ...namedTerms])]
     .filter(value => !/^(The article|This article|In this|According to)$/i.test(value))
     .slice(0, 6)
   const potentialTasks = sentences
-    .filter(value => /\\b(consider|you should|you can|try|start by|make sure to|remember to|need to)\\b/i.test(value))
+    .filter(value => /\b(consider|you should|you can|try|start by|make sure to|remember to|need to)\b/i.test(value))
     .slice(0, 4)
     .map(value => value.slice(0, 280))
   const summary = page.description || sentences.slice(0, 2).join(' ') || ('A webpage from ' + page.domain + ' titled "' + page.title + '".')
@@ -76,8 +76,8 @@ export async function POST(request: Request) {
     const { url: canonicalUrl, html } = await safeFetchHtml(normalized)
     const page = extractLinkPage(html, canonicalUrl)
     if (page.fullContent.length < 80 && !page.description) return NextResponse.json({ error: 'This page did not expose readable content. You can still save the URL as a plain note.' }, { status: 422 })
-    const { analysis, warning } = await analyze(page)
-    return NextResponse.json({ sourceUrl, canonicalUrl, ...page, analysis, warning, extractedAt: new Date().toISOString() })
+    const { analysis, warning, analysisMode } = await analyze(page)
+    return NextResponse.json({ sourceUrl, canonicalUrl, ...page, analysis, analysisMode, warning, extractedAt: new Date().toISOString() })
   } catch (error) {
     const code = error instanceof Error ? error.message : 'UPSTREAM_FAILED'
     if (code === 'BLOCKED_TARGET' || code === 'DNS_FAILED') return NextResponse.json({ error: 'This URL cannot be fetched safely. Check the address and try a public webpage.' }, { status: 400 })
