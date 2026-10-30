@@ -166,42 +166,31 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
   margin-top: -5px;
   border: 2px solid var(--paper-deep);
   border-radius: 50%;
-  background: transparent;
-  box-shadow: none;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgb(0 0 0 / 16%);
   cursor: grab;
+  transition: box-shadow 110ms ease, transform 110ms cubic-bezier(.16, 1, .3, 1);
 }
-.tt-scrubber:active::-webkit-slider-thumb { cursor: grabbing; }
+.tt-scrubber:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.13);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent), 0 2px 7px rgb(0 0 0 / 18%);
+}
 .tt-scrubber::-moz-range-track { height: 4px; border-radius: 999px; background: var(--line); }
 .tt-scrubber::-moz-range-progress { height: 4px; border-radius: 999px; background: var(--accent); }
 .tt-scrubber::-moz-range-thumb {
   width: 10px;
   height: 10px;
-  border: 2px solid transparent;
-  border-radius: 50%;
-  background: transparent;
-  box-shadow: none;
-  cursor: grab;
-}
-.tt-scrubber:active::-moz-range-thumb { cursor: grabbing; }
-.tt-liquid-thumb {
-  position: absolute;
-  z-index: 2;
-  top: 50%;
-  width: 14px;
-  height: 14px;
   border: 2px solid var(--paper-deep);
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgb(0 0 0 / 16%);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  transition: left 90ms cubic-bezier(.22, 1, .36, 1), box-shadow 110ms ease, scale 110ms cubic-bezier(.16, 1, .3, 1);
-  will-change: left;
+  cursor: grab;
+  transition: box-shadow 110ms ease, transform 110ms cubic-bezier(.16, 1, .3, 1);
 }
-.tt-scrubber-wrap:active .tt-liquid-thumb {
-  /* Track the pointer directly while dragging; easing here creates visible lag on reversals. */
-  transition: none;
-  scale: 1.13;
+.tt-scrubber:active::-moz-range-thumb {
+  cursor: grabbing;
+  transform: scale(1.13);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent), 0 2px 7px rgb(0 0 0 / 18%);
 }
 @media (max-width: 640px) { .tt-scrubber-wrap { width: 80px; } }
