@@ -8,7 +8,7 @@ const KEY='notely_notes'
 const PRESETS=['Brain Dump','New Idea','To-do','Study','Work','Personal','Important']
 const colors=['#9b7bc8','#6b9b78','#c28b53','#6689b5','#8b8175','#b4778b','#bd9d4d']
 const styles:Record<string,React.CSSProperties> = {
-  shell:{minHeight:'100%',overflowY:'auto',background:'var(--paper)',padding:'clamp(20px,4vw,52px)',color:'var(--ink)'},
+  shell:{height:'100dvh',minHeight:0,overflowY:'auto',overscrollBehaviorY:'contain',WebkitOverflowScrolling:'touch',scrollbarWidth:'none',background:'var(--paper)',padding:'clamp(20px,4vw,52px)',paddingBottom:'max(clamp(20px,4vw,52px), env(safe-area-inset-bottom))',color:'var(--ink)'},
   wrap:{maxWidth:1000,margin:'0 auto'},
   eyebrow:{fontSize:10,letterSpacing:'.17em',fontWeight:700,color:'var(--accent)',textTransform:'uppercase'},
   heading:{fontFamily:'Georgia,serif',fontSize:'clamp(28px,4vw,42px)',letterSpacing:'-.045em',fontWeight:500,margin:'8px 0'},
@@ -59,7 +59,7 @@ export default function MemoryStudio(){
  const currentResurfaced=resurfaced.length?resurfaced[resurfaceIndex%resurfaced.length]:null
  useEffect(()=>()=>{recognitionRef.current?.stop();recognitionRef.current=null},[])
  if(!ready)return <div style={styles.shell}>Opening your memory…</div>
- return <div style={styles.shell}><div style={styles.wrap}>
+ return <div className="memory-studio-scroll" style={styles.shell}><div style={styles.wrap}>
   <button style={{...styles.button,marginBottom:24}} onClick={()=>router.push('/')}>← Back to notes</button>
   <div style={styles.eyebrow}>YOUR PERSONAL MEMORY</div><h1 style={styles.heading}>A little more room to think.</h1><p style={styles.muted}>Capture now. Make sense of it later. Find it when it matters.</p>
   <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'24px 0 20px'}}>{(['inbox','memory','connections'] as const).map(t=><button key={t} style={{...styles.button,background:tab===t?'var(--paper-dark)':'transparent',borderColor:tab===t?'var(--accent)':'var(--line)'}} onClick={()=>setTab(t)}>{t==='inbox'?'Thought Inbox':t==='memory'?'Ask My Memory':'Thought Connections'}</button>)}</div>
