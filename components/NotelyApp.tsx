@@ -83,6 +83,7 @@ const NotesList = memo(function NotesList({ notes, activeId, onOpen, onDelete, c
               {n.started_at && <span style={{ marginRight: 6 }}>⏱ {fmtTime(n.started_at)}</span>}
               {fmtDate(n.updated_at)}
             </div>
+            {n.tags?.length ? <div className="note-item-tags">{n.tags.slice(0,3).map(tag => <span key={tag}>{tag}</span>)}</div> : null}
             <button className="note-del" onClick={e => onDelete(n.id, e)} title="Delete">
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
