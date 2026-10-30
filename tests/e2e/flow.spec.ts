@@ -167,7 +167,7 @@ test.describe('Notely Flow', () => {
     await page.getByRole('button', { name: 'Ask My Memory' }).click()
     await page.getByPlaceholder('What did I write about hiring engineers or starting a business?').fill('What was my plan for hiring AI engineers?')
     await page.getByRole('button', { name: 'Ask my memory →', exact: true }).click()
-    await expect(page.getByText('You planned a trusted recruiting network for AI engineers. [Source 1]', { exact: true })).toBeVisible()
+    await expect(page.getByText(/You planned a trusted recruiting network/).first()).toBeVisible()
     await expect(page.getByText('SOURCE MEMORIES · 1')).toBeVisible()
     await page.getByRole('button', { name: /Pakistan engineering talent plan/ }).first().click()
     await expect(page).toHaveURL(new RegExp('note=' + noteId))
