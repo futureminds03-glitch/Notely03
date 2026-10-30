@@ -35,7 +35,8 @@
 - app/api/notes/[id]/route.ts: authenticated per-note update/delete operations.
 - app/api/summarize/route.ts: validates note body, limits submitted content, calls Groq, and returns a summary.
 - app/api/organize/route.ts: validates brain-dump text (12,000-character maximum), requires server-only GROQ_API_KEY, calls Groq with a 20-second timeout, and returns a structured Markdown copy. It does not mutate the source note.
-- app/api/link-preview/route.ts: fetches a user-supplied page using lib/safe-url-fetch.ts and extracts metadata.
+- app/api/link-capture/route.ts: safely fetches public webpages, extracts article metadata and readable source text, then optionally generates source-grounded summaries, key points, concepts, and potential tasks with Groq. When Groq is not configured or unavailable, a deterministic source-based overview remains available.
+- lib/link-extractor.ts: pure, tested HTML/JSON-LD metadata and article-text extraction plus deterministic extractive analysis.\n- app/flow/links/page.tsx and components/LinkCapture.tsx: dedicated URL capture UI; saves original and resolved URLs, metadata, extracted text, and insights as a Links-tagged note using the existing cloud/guest note persistence.
 - lib/supabase-server.ts: server-side Supabase client and request-cookie integration.
 - app/auth/: authentication callback route(s).
 
@@ -81,7 +82,7 @@ The client debounces edits, tracks dirty fields, queues writes per note, and use
 - Client-published Supabase keys are intended to be public/publishable; they do not replace server authorization or database RLS.
 - Never place a Supabase service-role key or Groq secret in a public variable or source file.
 - Note APIs must verify the current user and constrain database operations to that user's records.
-- Link-preview fetching is an SSRF boundary: maintain private-address blocking, redirect validation, DNS/address checks, timeouts, and response-size limits in lib/safe-url-fetch.ts.
+- Link capture fetching is an SSRF boundary: maintain private-address blocking, redirect validation, DNS/address checks, timeouts, and response-size limits in lib/safe-url-fetch.ts. Treat fetched page text as untrusted input to AI.
 - Treat note content as private user data; avoid logging raw bodies or credentials.
 - Review dependencies and lockfile changes when changing packages.
 
@@ -104,7 +105,7 @@ The client debounces edits, tracks dirty fields, queues writes per note, and use
 | Time Travel/history | selection, restore, save regression; desktop and mobile interaction |
 | Auth/session | sign-in/out, unauthenticated API response, per-user isolation |
 | Database/API routes | authorization, validation, RLS review, regression suite |
-| Link preview/URL fetch | private IPv4/IPv6, redirect, DNS rebinding, timeout and size-limit tests |
+| Link capture/URL fetch | metadata parsing, source traceability, guest/cloud persistence, private IPv4/IPv6, redirect, DNS rebinding, timeout and size-limit tests |
 | AI summaries | missing key, empty body, provider error, long input, successful summary |
 | PWA/responsive layout | mobile viewport, install/offline behavior tested separately |
 | Dependency updates | frozen lockfile install, build, E2E, dependency/security review |

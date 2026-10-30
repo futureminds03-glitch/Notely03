@@ -17,7 +17,7 @@ Notely is a lightweight personal note-taking web app focused on getting ideas do
 - **Notes library:** create, open, search, and delete notes.
 - **Time Travel:** browse recorded note-body versions by timestamp and restore an earlier version.
 - **AI summaries:** append a concise summary using the configured Groq API.
-- **Notely Flow:** one-step brain dumps, browser voice transcription, an app-wide quick-capture overlay (`Ctrl/Cmd+Shift+Space`), a synced Parking Lot for signed-in users, AI De-Clutter, contextual resurfacing, focus timer, and low-friction reading layouts.
+- **Notely Flow:** one-step brain dumps, browser voice transcription, an app-wide quick-capture overlay (`Ctrl/Cmd+Shift+Space`), a synced Parking Lot for signed-in users, AI De-Clutter, contextual resurfacing, focus timer, low-friction reading layouts, and source-linked webpage capture at `/flow/links`.
 - **Export:** download a note as a plain-text TXT file.
 - **Smart Recall:** ranked natural-language retrieval, related-memory recommendations, and source-linked Ask My Memory; cloud search is enforced by the authenticated Supabase session.
 - **Accounts and sync:** Supabase Auth and cloud-backed notes for signed-in users.
@@ -33,7 +33,7 @@ Feature availability depends on environment configuration. AI summaries, AI De-C
 | UI | React 19, TypeScript, custom CSS |
 | Authentication and data | Supabase Auth, Postgres, Realtime |
 | AI summaries | Groq Chat Completions API, llama-3.1-8b-instant |
-| External-page metadata | Server-side link-preview route with guarded URL fetching |
+| Link capture | Server-side SSRF-guarded extraction, article metadata, source text, and optional Groq insights |
 | Icons | Lucide React |
 | Hosting | Vercel |
 | Browser regression tests | Playwright and GitHub Actions |

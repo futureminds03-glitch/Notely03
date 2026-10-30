@@ -4,6 +4,9 @@ All notable user-facing changes to Notely are recorded here. The project is pre-
 
 ## Unreleased
 
+- Added source-linked Link Capture at `/flow/links`: safely fetches public webpages, extracts article text and publication metadata, and optionally generates grounded summaries, key points, concepts, and suggested next steps. A deterministic extractive overview remains available without Groq credentials. Saves the original and resolved URLs with the extracted source as a Links-tagged note, preserving guest and signed-in persistence paths.
+- Added end-to-end coverage for extraction display, source traceability, guest save, cloud-save failure recovery, private-network URL rejection, and mobile layout.
+
 - Added Smart Recall: owner-scoped ranked natural-language search over the existing indexed Postgres search vector, source-linked Ask My Memory, and related-memory recommendations.
 - Removed browser-supplied note content from the Ask My Memory trust boundary; the server retrieves only the signed-in user's active notes through a SECURITY INVOKER RPC and existing row-level security.
 - Added search, related-memory, and grounded-answer APIs with input limits, per-user question throttling, source excerpts, and a no-AI ranked retrieval mode when Groq is not configured.
