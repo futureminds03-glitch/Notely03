@@ -268,7 +268,7 @@ test('Memory Studio captures thoughts, tags them, resurfaces notes, and finds co
   const connectionsPanel = page.locator('section').filter({ hasText: 'Thoughts that may belong together' }).first()
   await expect(connectionsPanel.getByRole('button', { name: /Build a thoughtful personal knowledge system/ })).toBeVisible()
   await expect(connectionsPanel.getByRole('button', { name: /Personal knowledge system connections/ })).toBeVisible()
-  const connectedNote = page.getByRole('button', { name: /Build a thoughtful personal knowledge system/ })
+  const connectedNote = connectionsPanel.getByRole('button', { name: /Build a thoughtful personal knowledge system/ })
   await expect(connectedNote).toBeVisible()
   await connectedNote.click()
   await expect(page.locator('.desktop-editor .note-title')).toHaveValue('Build a thoughtful personal knowledge system for collecting ideas.')
