@@ -963,8 +963,6 @@ export default function NotelyApp() {
                   <path d="M3 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                 </svg>
               </button>
-              <button className="mobile-btn" aria-label="Time Machine" title="Time Machine" onClick={() => setShowTimeMachine(value => !value)}><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.4"/><path d="M10 5.5V10l3 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg></button>
-              <button className="mobile-btn" aria-label="Memory Studio" title="Memory Studio" onClick={() => { window.location.href = "/memory" }}>✧</button>
               <button className="mobile-btn" onClick={newNote}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M10 4v12M4 10h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
@@ -1024,6 +1022,14 @@ export default function NotelyApp() {
               New note
             </button>
           </div>
+          <div className="studio-nav" aria-label="Explore Notely">
+            <button className={`studio-nav-link ${showTimeMachine ? "active" : ""}`} onClick={() => setShowTimeMachine(value => !value)} aria-pressed={showTimeMachine}>
+              <span className="studio-nav-icon" aria-hidden="true">◷</span><span><strong>Time Machine</strong><small>Explore your notes over time</small></span><span className="studio-nav-arrow">↗</span>
+            </button>
+            <a className="studio-nav-link" href="/memory">
+              <span className="studio-nav-icon memory" aria-hidden="true">✧</span><span><strong>Memory Studio</strong><small>Connect ideas and find thoughts</small></span><span className="studio-nav-arrow">↗</span>
+            </a>
+          </div>
           <div className="search-wrap">
             <input
               className="search-input"
@@ -1062,6 +1068,14 @@ export default function NotelyApp() {
                   onChange={e => setSearch(e.target.value)}
                   style={{ width: '100%' }}
                 />
+              </div>
+              <div className="mobile-studio-nav" aria-label="Explore Notely">
+                <button className={`studio-nav-link ${showTimeMachine ? "active" : ""}`} onClick={() => setShowTimeMachine(value => !value)} aria-pressed={showTimeMachine}>
+                  <span className="studio-nav-icon" aria-hidden="true">◷</span><span><strong>Time Machine</strong><small>Browse your timeline</small></span>
+                </button>
+                <a className="studio-nav-link" href="/memory">
+                  <span className="studio-nav-icon memory" aria-hidden="true">✧</span><span><strong>Memory Studio</strong><small>Explore connected thoughts</small></span>
+                </a>
               </div>
               <NotesList notes={filteredNotes} activeId={activeId} onOpen={handleOpen} onDelete={handleDelete} className="mobile-notes-panel" />
             </>
