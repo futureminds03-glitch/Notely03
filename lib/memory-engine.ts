@@ -12,7 +12,7 @@ function clean(value: string): string {
 
 export function extractMemoryInsights(document: MemoryDocument): MemoryInsights {
   const title = clean(document.title || '')
-  const rawBody = (document.body || '').replace(/\\u0000/g, '').slice(0, 30_000)
+  const rawBody = (document.body || '').replace(/\u0000/g, '').slice(0, 30_000)
   const body = clean(rawBody)
   const source = (title + ' ' + body).slice(0, 30_000)
   const counts = new Map<string, number>()
