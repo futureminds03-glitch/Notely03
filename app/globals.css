@@ -366,6 +366,24 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
 .memory-studio-scroll { scrollbar-width: none; -ms-overflow-style: none; }
 .memory-studio-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
+
+/* Memory Studio live voice capture */
+.voice-live{display:inline-flex;align-items:center;gap:9px;min-height:38px;padding:5px 8px 5px 6px;border:1px solid color-mix(in srgb,var(--accent) 34%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent) 7%,var(--paper));animation:voice-enter .24s ease-out both}
+.voice-live-orb{position:relative;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:color-mix(in srgb,var(--accent) 15%,var(--paper));flex:none}
+.voice-live-orb:before,.voice-live-orb:after{content:"";position:absolute;inset:0;border:1px solid var(--accent);border-radius:50%;animation:voice-ripple 1.8s ease-out infinite}
+.voice-live-orb:after{animation-delay:.9s}
+.voice-live-orb span{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px color-mix(in srgb,var(--accent) 55%,transparent)}
+.voice-wave{height:20px;display:flex;align-items:center;gap:2px}
+.voice-wave i{display:block;width:2px;height:5px;border-radius:4px;background:var(--accent);transform-origin:center;animation:voice-wave .78s ease-in-out infinite alternate;animation-delay:calc(var(--bar)*-85ms)}
+.voice-live-label{font:11px Georgia,serif;color:var(--accent);white-space:nowrap}
+.voice-stop{border:0;border-radius:999px;background:var(--accent);color:white;padding:6px 10px;font:11px Georgia,serif;cursor:pointer;transition:transform .16s ease,opacity .16s ease}
+.voice-stop:hover{transform:translateY(-1px);opacity:.9}
+@keyframes voice-ripple{0%{transform:scale(.72);opacity:.55}100%{transform:scale(1.8);opacity:0}}
+@keyframes voice-wave{from{transform:scaleY(.45);opacity:.65}to{transform:scaleY(2.5);opacity:1}}
+@keyframes voice-enter{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.voice-live,.voice-live-orb:before,.voice-live-orb:after,.voice-wave i{animation:none!important}.voice-wave i{height:8px}}
+@media(max-width:480px){.voice-live{gap:6px}.voice-live-label{font-size:10px}.voice-wave{gap:1px}}
+
 /* NOTE TAGS */
 .note-item-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
 .note-item-tags span{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:20px;padding:2px 6px;color:var(--accent);font:9px Georgia,serif;line-height:1.3}
