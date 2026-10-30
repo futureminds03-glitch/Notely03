@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 })
   }
 
-  const batchSize = 25
+  const batchSize = 10
   const { data: documents, error } = await supabase
     .from('documents').select('id,title,body,tags')
     .eq('user_id', user.id).eq('status', 'active')
