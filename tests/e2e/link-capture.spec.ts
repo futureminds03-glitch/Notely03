@@ -1,8 +1,46 @@
 import { test, expect } from '@playwright/test'
+import { extractLinkPage } from '../../lib/link-extractor'
 
 const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
 
 test.describe('Notely link capture', () => {
+  test('extracts page metadata, JSON-LD publication details, and readable article text', () => {
+    const html = `
+      <!doctype html>
+      <html><head>
+        <title>Fallback title</title>
+        <meta content="Research &amp; better workflows" property="og:title">
+        <meta name="description" content="A useful article about working memory and focus.">
+        <meta content="Mira &amp; Patel" name="author">
+        <meta property="og:site_name" content="Example Journal">
+        <script type="application/ld+json">
+          {"@context":"https://schema.org","@type":"NewsArticle","datePublished":"2026-09-15","dateModified":"2026-09-20","publisher":{"@type":"Organization","name":"Example Journal"}}
+        </script>
+      </head><body>
+        <nav>Navigation noise should not be captured.</nav>
+        <main>
+          <h1>Working with less cognitive load</h1>
+          <p>Externalizing the next action can make a complex project easier to resume after an interruption.</p>
+          <p>Preserving the source context helps readers verify the original claims and return to the complete article later.</p>
+        </main>
+        <footer>Footer noise should not be captured.</footer>
+      </body></html>`
+    const page = extractLinkPage(html, 'https://www.example.com/research/article')
+    expect(page).toMatchObject({
+      title: 'Research & better workflows',
+      description: 'A useful article about working memory and focus.',
+      author: 'Mira & Patel',
+      publishedAt: '2026-09-15',
+      modifiedAt: '2026-09-20',
+      publisher: 'Example Journal',
+      domain: 'example.com',
+    })
+    expect(page.fullContent).toContain('Externalizing the next action')
+    expect(page.fullContent).toContain('Preserving the source context')
+    expect(page.fullContent).not.toContain('Navigation noise')
+    expect(page.fullContent).not.toContain('Footer noise')
+  })
+
   const extracted = {
     sourceUrl: 'https://example.com/research/adhd-workflows',
     canonicalUrl: 'https://www.example.com/research/adhd-workflows',
