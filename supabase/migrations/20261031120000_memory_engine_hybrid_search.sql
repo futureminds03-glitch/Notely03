@@ -110,13 +110,13 @@ as $function$
       coalesce(vc.similarity, 0)::real as vector_score,
       (coalesce(d.title, '') ilike '%' || left(coalesce(p_search_text, ''), 80) || '%') as title_match,
       exists (
-        select 1 from unnest(parsed.words) as query_word
-        where lower(query_word) = any(array(select lower(tag) from unnest(coalesce(d.tags, '{}'::text[])) as tag))
+        select 1 from unnest(parsed.words) as q(word)
+        where lower(q.word) = any(array(select lower(t.tag_value) from unnest(coalesce(d.tags, '{}'::text[])) as t(tag_value)))
       ) as tag_match,
       exists (
-        select 1 from unnest(parsed.words) as query_word
-        where coalesce(i.key_topics, '[]'::jsonb)::text ilike '%' || query_word || '%'
-          or coalesce(i.entities, '[]'::jsonb)::text ilike '%' || query_word || '%'
+        select 1 from unnest(parsed.words) as q(word)
+        where coalesce(i.key_topics, '[]'::jsonb)::text ilike '%' || q.word || '%'
+          or coalesce(i.entities, '[]'::jsonb)::text ilike '%' || q.word || '%'
       ) as insight_match,
       parsed.query
     from public.documents d
