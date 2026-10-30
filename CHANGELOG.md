@@ -4,7 +4,7 @@ All notable user-facing changes to Notely are recorded here. The project is pre-
 
 ## Unreleased
 
-- Added source-linked Link Capture at `/flow/links`: safely fetches public webpages, extracts article text and publication metadata, and optionally generates grounded summaries, key points, concepts, and suggested next steps. Saves the original and resolved URLs with the extracted source as a Links-tagged note, preserving guest and signed-in persistence paths.
+- Added source-linked Link Capture at `/flow/links`: safely fetches public webpages, extracts article text and publication metadata, and optionally generates grounded summaries, key points, concepts, and suggested next steps. A deterministic extractive overview remains available without Groq credentials. Saves the original and resolved URLs with the extracted source as a Links-tagged note, preserving guest and signed-in persistence paths.
 - Added end-to-end coverage for extraction display, source traceability, guest save, cloud-save failure recovery, private-network URL rejection, and mobile layout.
 
 - Added Smart Recall: owner-scoped ranked natural-language search over the existing indexed Postgres search vector, source-linked Ask My Memory, and related-memory recommendations.
