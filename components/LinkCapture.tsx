@@ -130,7 +130,7 @@ export default function LinkCapture() {
     setError('')
     const now = new Date().toISOString()
     const sourceUrl = url.trim()
-    const body = 'Source URL: ' + sourceUrl + '\\n\\nThis link was saved without webpage extraction. You can retry extraction later.\\n\\nCaptured with Notely on ' + now
+    const body = 'Source URL: ' + sourceUrl + '\n\nThis link was saved without webpage extraction. You can retry extraction later.\n\nCaptured with Notely on ' + now
     try {
       const remote = await fetch('/api/notes', { cache: 'no-store' })
       if (remote.ok) {
