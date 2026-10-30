@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import type { User } from '@supabase/supabase-js'
 
@@ -69,7 +69,7 @@ interface NotesListProps {
   className?: string
 }
 
-function NotesList({ notes, activeId, onOpen, onDelete, className }: NotesListProps) {
+const NotesList = memo(function NotesList({ notes, activeId, onOpen, onDelete, className }: NotesListProps) {
   return (
     <div className={className}>
       {notes.length === 0
@@ -92,7 +92,7 @@ function NotesList({ notes, activeId, onOpen, onDelete, className }: NotesListPr
       }
     </div>
   )
-}
+})
 
 interface EditorProps {
   activeId: string | null
@@ -250,7 +250,7 @@ function Editor({
 // ── MAIN COMPONENT ──
 
 export default function NotelyApp() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [user, setUser] = useState<User | null>(null)
   const [notes, setNotes] = useState<Note[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -832,10 +832,13 @@ export default function NotelyApp() {
 
   const handleOpen = useCallback((n: Note) => openNote(n), [])
 
-  const filteredNotes = notes.filter(n =>
-    !search || n.title.toLowerCase().includes(search.toLowerCase()) ||
-    n.body.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredNotes = useMemo(() => {
+    const query = search.toLowerCase()
+    return notes.filter(n =>
+      !query || n.title.toLowerCase().includes(query) ||
+      n.body.toLowerCase().includes(query)
+    )
+  }, [notes, search])
 
   const editorProps = {
     activeId, title, body, startedAt, saveStatus, wordCount, aiStatus,
