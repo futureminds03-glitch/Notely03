@@ -5,6 +5,7 @@ interface NoteUpdateRequest {
   title?: unknown
   body?: unknown
   started_at?: unknown
+  tags?: unknown
 }
 
 interface DocumentRow {
@@ -15,6 +16,7 @@ interface DocumentRow {
   started_at: string | null
   created_at: string
   updated_at: string
+  tags?: string[]
 }
 
 interface VersionRow {
@@ -31,11 +33,12 @@ function parseUpdate(value: unknown): {
   title?: string
   body?: string
   startedAt?: string | null
+  tags?: string[]
 } | null {
   if (typeof value !== 'object' || value === null) return null
 
   const input = value as NoteUpdateRequest
-  const result: { title?: string; body?: string; startedAt?: string | null } = {}
+  const result: { title?: string; body?: string; startedAt?: string | null; tags?: string[] } = {}
 
   if (input.title !== undefined) {
     if (typeof input.title !== 'string') return null
@@ -50,6 +53,11 @@ function parseUpdate(value: unknown): {
   if (input.started_at !== undefined) {
     if (input.started_at !== null && typeof input.started_at !== 'string') return null
     result.startedAt = input.started_at as string | null
+  }
+
+  if (input.tags !== undefined) {
+    if (!Array.isArray(input.tags) || input.tags.some(tag => typeof tag !== 'string')) return null
+    result.tags = input.tags.map(tag => tag.trim()).filter(Boolean).slice(0, 20)
   }
 
   return result
@@ -101,7 +109,7 @@ export async function PATCH(
 
   const { data: before, error: beforeError } = await supabase
     .from('documents')
-    .select('id,user_id,title,body,started_at,created_at,updated_at')
+    .select('id,user_id,title,body,started_at,created_at,updated_at,tags')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -114,6 +122,7 @@ export async function PATCH(
   if (parsed.title !== undefined) updates.title = parsed.title
   if (parsed.body !== undefined) updates.body = parsed.body
   if (parsed.startedAt !== undefined) updates.started_at = parsed.startedAt
+  if (parsed.tags !== undefined) updates.tags = parsed.tags
 
   const { data, error } = await supabase
     .from('documents')
@@ -172,6 +181,7 @@ export async function PATCH(
     created_at: document.created_at,
     updated_at: document.updated_at,
     started_at: document.started_at,
+    tags: document.tags ?? [],
     history: toHistory(
       (versions ?? []) as VersionRow[],
       document.body,

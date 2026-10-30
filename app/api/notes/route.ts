@@ -5,6 +5,7 @@ interface NoteRequest {
   title?: unknown
   body?: unknown
   started_at?: unknown
+  tags?: unknown
 }
 
 interface DocumentRow {
@@ -16,6 +17,7 @@ interface DocumentRow {
   status: string
   created_at: string
   updated_at: string
+  tags?: string[]
 }
 
 interface VersionRow {
@@ -29,6 +31,7 @@ function parseNoteInput(value: unknown): {
   title: string
   body: string
   startedAt: string | null
+  tags: string[]
 } | null {
   if (typeof value !== 'object' || value === null) return null
 
@@ -42,7 +45,8 @@ function parseNoteInput(value: unknown): {
         ? input.started_at
         : null
 
-  return { title, body, startedAt }
+  const tags = Array.isArray(input.tags) ? input.tags.filter((tag): tag is string => typeof tag === 'string').map(tag => tag.trim()).filter(Boolean).slice(0, 20) : []
+  return { title, body, startedAt, tags }
 }
 
 function toHistory(versions: VersionRow[]): { content: string; timestamp: number }[] {
@@ -65,7 +69,7 @@ export async function GET() {
 
   const { data: documents, error: documentsError } = await supabase
     .from('documents')
-    .select('id,user_id,title,body,started_at,status,created_at,updated_at')
+    .select('id,user_id,title,body,started_at,status,created_at,updated_at,tags')
     .eq('user_id', user.id)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
@@ -94,6 +98,7 @@ export async function GET() {
       created_at: row.created_at,
       updated_at: row.updated_at,
       started_at: row.started_at,
+      tags: row.tags ?? [],
       history: [{ content: row.body, timestamp: Date.parse(row.started_at ?? row.created_at) }],
       synced: true,
     })))
@@ -148,8 +153,9 @@ export async function POST(request: Request) {
       title: parsed.title,
       body: parsed.body,
       started_at: parsed.startedAt,
+      tags: parsed.tags,
     })
-    .select('id,user_id,title,body,started_at,status,created_at,updated_at')
+    .select('id,user_id,title,body,started_at,status,created_at,updated_at,tags')
     .single()
 
   if (error || !data) {
@@ -179,6 +185,7 @@ export async function POST(request: Request) {
     created_at: document.created_at,
     updated_at: document.updated_at,
     started_at: document.started_at,
+    tags: document.tags ?? [],
     history: [{ content: document.body, timestamp: Date.parse(document.started_at ?? document.created_at) }],
     synced: true,
   }, { status: 201 })
