@@ -20,7 +20,7 @@ Pipeline:
 - The optional provider uses OpenAI's `text-embedding-3-small` endpoint and 1,536 dimensions to match the existing `document_embeddings.embedding vector(1536)` column.
 - A provider timeout/error does not block note saving; lexical retrieval remains available.
 - Updating a note invalidates its old embedding rather than returning stale semantic matches.
-- The archive preparation endpoint processes 25 owner-scoped documents per batch. Memory Studio advances through batches until complete.
+- The archive preparation endpoint processes 10 owner-scoped documents per batch. Memory Studio advances through batches until complete.
 - No note body is written to application logs.
 - AI answer synthesis remains separately dependent on `GROQ_API_KEY`; the memory index and ranked retrieval do not require it.
 
