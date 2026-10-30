@@ -2,6 +2,21 @@
   "name": "notely",
   "version": "0.1.0",
   "private": true,
+  "description": "A minimal personal note-taking app with autosave, searchable notes, version history, optional AI summaries, and Supabase sync.",
+  "homepage": "https://notely03.vercel.app",
+  "keywords": [
+    "notely",
+    "notes",
+    "note-taking",
+    "writing",
+    "productivity",
+    "nextjs",
+    "supabase",
+    "ai-summaries"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
