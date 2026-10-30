@@ -276,8 +276,14 @@ test('Memory Studio captures thoughts, tags them, resurfaces notes, and finds co
   await expect(page.getByRole('button', { name: 'Another memory' })).toBeVisible()
 })
 
-test('Ask My Memory reports missing AI configuration safely', async ({ request }) => {
-  const response = await request.post('/api/memory/ask', { data: { question: 'What did I think about?', notes: [] } })
-  expect(response.status()).toBe(503)
-  expect((await response.json()).error).toContain('requires AI to be enabled')
+test('Ask My Memory retrieves matching notes without requiring an AI key', async ({ request }) => {
+  const response = await request.post('/api/memory/ask', { data: {
+    question: 'What did I write about my business idea?',
+    notes: [{ title: 'Business idea', body: 'I want to build a business that helps independent creators.', created_at: '2026-10-01T10:00:00.000Z' }]
+  } })
+  expect(response.status()).toBe(200)
+  const result = await response.json()
+  expect(result.mode).toBe('search')
+  expect(result.answer).toContain('[Note 1] Business idea')
+  expect(result.answer).toContain('independent creators')
 })
