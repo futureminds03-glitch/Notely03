@@ -15,6 +15,7 @@ type LinkResult = {
   fullContent: string
   image: string
   analysis: { summary: string; keyPoints: string[]; concepts: string[]; potentialTasks: string[] } | null
+  analysisMode: 'ai' | 'extractive'
   warning: string | null
   extractedAt: string
 }
@@ -192,7 +193,7 @@ export default function LinkCapture() {
           </dl>
           {result.warning && <p className="link-capture-warning" role="status">{result.warning}</p>}
           {result.analysis && <>
-            <div className="link-capture-section"><span>THE SHORT VERSION</span><p>{result.analysis.summary}</p></div>
+            <div className="link-capture-section"><span>{result.analysisMode === 'ai' ? 'AI SUMMARY' : 'QUICK EXTRACT'}</span><p>{result.analysis.summary}</p></div>
             {result.analysis.keyPoints.length > 0 && <div className="link-capture-section"><span>IMPORTANT POINTS</span><ul>{result.analysis.keyPoints.map((item, index) => <li key={index}>{item}</li>)}</ul></div>}
             {result.analysis.concepts.length > 0 && <div className="link-capture-section"><span>CONCEPTS TO REMEMBER</span><div className="link-capture-chips">{result.analysis.concepts.map(item => <span key={item}>{item}</span>)}</div></div>}
             {result.analysis.potentialTasks.length > 0 && <div className="link-capture-section"><span>POSSIBLE NEXT STEPS</span><ul>{result.analysis.potentialTasks.map((item, index) => <li key={index}>{item}</li>)}</ul><small>Suggestions only — nothing is added to your task list automatically.</small></div>}
