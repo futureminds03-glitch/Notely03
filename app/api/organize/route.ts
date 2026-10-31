@@ -8,7 +8,8 @@ export async function POST(request: Request) {
     try { payload = await request.json() } catch {
       return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
     }
-    const text = typeof payload === 'object' && payload !== null ? (payload as { text?: unknown }).text : null\n    const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false
+    const text = typeof payload === 'object' && payload !== null ? (payload as { text?: unknown }).text : null
+    const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false\n    const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false
     if (typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ error: 'Add a thought before asking Notely to organize it.' }, { status: 400 })
     }
@@ -18,7 +19,10 @@ export async function POST(request: Request) {
     if (!process.env.GROQ_API_KEY) {
       return NextResponse.json({ error: 'AI organization is not enabled yet. Your original thought is safe.' }, { status: 503 })
     }
-    if (aiConsent !== true) {\n      return NextResponse.json({ error: 'Confirm that this thought may be sent to Groq for AI processing.' }, { status: 428 })\n    }\n    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    if (aiConsent !== true) {\n      return NextResponse.json({ error: 'Confirm that this thought may be sent to Groq for AI processing.' }, { status: 428 })\n    }\n    if (aiConsent !== true) {
+      return NextResponse.json({ error: 'Confirm that this thought may be sent to Groq for AI processing.' }, { status: 428 })
+    }
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.GROQ_API_KEY },
       signal: AbortSignal.timeout(20000),
