@@ -64,19 +64,12 @@ export async function DELETE(request: Request) {
   const id = new URL(request.url).searchParams.get('id')
   if (!id || !UUID.test(id)) return NextResponse.json({ error: 'Invalid note ID.' }, { status: 400 })
 
-  const { data, error } = await supabase
-    .from('documents')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .eq('status', 'archived')
-    .select('id')
-    .maybeSingle()
+  const { data, error } = await supabase.rpc('delete_archived_document', { p_document_id: id })
 
   if (error) {
     console.error('Failed to permanently delete archived note:', error.message)
     return NextResponse.json({ error: 'Could not permanently delete this note.' }, { status: 500 })
   }
-  if (!data) return NextResponse.json({ error: 'Archived note not found.' }, { status: 404 })
-  return NextResponse.json({ deleted: true, id: data.id })
+  if (data !== true) return NextResponse.json({ error: 'Archived note not found.' }, { status: 404 })
+  return NextResponse.json({ deleted: true, id })
 }
