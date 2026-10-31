@@ -78,6 +78,7 @@ test.describe('Notely Flow', () => {
     await page.goto(new URL('/flow', baseURL).toString())
     const original = 'A messy thought with several ideas and no clear order'
     await page.getByRole('textbox', { name: 'Brain dump' }).fill(original)
+    page.once('dialog', dialog => dialog.accept())
     await page.getByRole('button', { name: /De-clutter/ }).click()
     await expect(page.getByText('One clearer version')).toBeVisible()
     await expect(page.locator('.flow-textarea')).toHaveValue(original)
@@ -153,7 +154,7 @@ test.describe('Notely Flow', () => {
     }))
     await page.route('**/api/memory/ask', async route => {
       const payload = route.request().postDataJSON()
-      expect(payload).toEqual({ question: 'What was my plan for hiring AI engineers?' })
+      expect(payload).toEqual({ question: 'What was my plan for hiring AI engineers?', aiConsent: true })
       await route.fulfill({
         status: 200, contentType: 'application/json',
         body: JSON.stringify({
@@ -166,6 +167,7 @@ test.describe('Notely Flow', () => {
     await page.goto(new URL('/memory', baseURL).toString())
     await page.getByRole('button', { name: 'Ask My Memory' }).click()
     await page.getByPlaceholder('What did I write about hiring engineers or starting a business?').fill('What was my plan for hiring AI engineers?')
+    page.once('dialog', dialog => dialog.accept())
     await page.getByRole('button', { name: 'Ask my memory →', exact: true }).click()
     await expect(page.getByText(/You planned a trusted recruiting network/).first()).toBeVisible()
     await expect(page.getByText('SOURCE MEMORIES · 1')).toBeVisible()
@@ -202,12 +204,13 @@ test.describe('Notely Flow', () => {
       ]),
     }))
     await page.route('**/api/memory/related', async route => {
-      expect(route.request().postDataJSON()).toEqual({ noteId: sourceId })
+      expect(route.request().postDataJSON()).toEqual({ noteId: sourceId, aiConsent: true })
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ source: { id: sourceId, title: 'AI hiring network' }, count: 1, sources: [{ id: relatedId, title: 'Engineering assessment framework', excerpt: 'Evaluate AI engineers with practical projects.', created_at: '2026-10-03T10:00:00.000Z', tags: ['Work'], score: 0.55 }] }) })
     })
     await page.goto(new URL('/memory', baseURL).toString())
     await page.getByRole('button', { name: 'Thought Connections' }).click()
     await page.getByRole('combobox', { name: 'Source memory' }).selectOption(sourceId)
+    page.once('dialog', dialog => dialog.accept())
     await page.getByRole('button', { name: 'Find related' }).click()
     await expect(page.getByRole('button', { name: /Engineering assessment/ }).first()).toBeVisible()
   })
