@@ -968,7 +968,7 @@ export default function NotelyApp() {
           <>
             <div className="mobile-header-brand"><span className="brand-mark" aria-hidden="true">✳</span>Notely<span>.</span></div>
             <div style={{ display: 'flex', gap: 2 }}>
-              <button className="mobile-btn" onClick={() => setShowModal(true)}>
+              <button className="mobile-btn" aria-label={user ? 'Account and privacy settings' : 'Sign in'} onClick={() => user ? window.location.assign('/account') : setShowModal(true)}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.4"/>
                   <path d="M3 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
@@ -1061,7 +1061,7 @@ export default function NotelyApp() {
               {user ? <span className="user-email">{user.email?.split('@')[0]}</span> : 'guest mode'}
             </div>
             {user
-              ? <button className="auth-btn" onClick={signOut}>sign out</button>
+              ? <><a className="auth-btn" href="/account">account & privacy</a><button className="auth-btn" onClick={signOut}>sign out</button></>
               : <button className="auth-btn" onClick={() => setShowModal(true)}>sign in</button>
             }
           </div>
