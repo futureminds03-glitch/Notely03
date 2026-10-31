@@ -46,8 +46,26 @@ test.describe('Notely privacy and cache boundaries', () => {
       request.post(new URL('/api/memory/related', baseURL).toString(), { data: { noteId: '123e4567-e89b-42d3-a456-426614174000' } }),
       request.post(new URL('/api/memory/reindex', baseURL).toString(), { data: { offset: 0 } }),
       request.get(new URL('/api/parking-lot', baseURL).toString()),
+      request.get(new URL('/api/account/export', baseURL).toString()),
+      request.post(new URL('/api/account/delete', baseURL).toString()),
+      request.get(new URL('/api/notes/trash', baseURL).toString()),
+      request.delete(new URL('/api/notes/123e4567-e89b-42d3-a456-426614174000', baseURL).toString()),
     ]
     const responses = await Promise.all(checks)
-    expect(responses.map(response => response.status())).toEqual([401, 401, 401, 401, 401, 401, 401])
+    expect(responses.map(response => response.status())).toEqual([401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 401])
+  })
+})
+
+
+test.describe('Notely external AI consent boundaries', () => {
+  test('AI text-processing endpoints never proceed without explicit consent', async ({ request }) => {
+    const summarize = await request.post(new URL('/api/summarize', baseURL).toString(), {
+      data: { title: 'Private note', body: 'Private content must not be sent without consent.' },
+    })
+    const organize = await request.post(new URL('/api/organize', baseURL).toString(), {
+      data: { text: 'Private thought must not be sent without consent.' },
+    })
+    expect([428, 503]).toContain(summarize.status())
+    expect([428, 503]).toContain(organize.status())
   })
 })
