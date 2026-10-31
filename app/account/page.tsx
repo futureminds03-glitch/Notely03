@@ -135,6 +135,7 @@ export default function AccountPage() {
       {message && <p className="account-message" role="status">{message}</p>}
       {error && <p className="account-error" role="alert">{error}</p>}
       <p className="account-footnote">Notely is currently free to use. There are no subscriptions or payment details to manage.</p>
+      <nav aria-label="Legal" style={{ display: "flex", gap: 16, fontSize: 12, marginTop: 18 }}><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a></nav>
 
       <style jsx>{`
         .account-page{max-width:760px;margin:0 auto;padding:clamp(24px,6vw,64px) 20px;color:var(--ink,#292821);min-height:100vh;background:var(--paper,#f8f6f0)}
