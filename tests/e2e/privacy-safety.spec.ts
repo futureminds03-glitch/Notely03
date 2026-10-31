@@ -57,6 +57,28 @@ test.describe('Notely privacy and cache boundaries', () => {
 })
 
 
+test('serves baseline browser security headers', async ({ request }) => {
+  const response = await request.get(baseURL)
+  const headers = response.headers()
+  expect(headers['x-content-type-options']).toBe('nosniff')
+  expect(headers['x-frame-options']).toBe('DENY')
+  expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
+  expect(headers['permissions-policy']).toContain('microphone=(self)')
+})
+
+test('privacy and terms pages remain readable on mobile and keyboard navigable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(new URL('/privacy', baseURL).toString())
+  await expect(page.getByRole('heading', { name: 'Privacy Policy' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false)
+  await page.keyboard.press('Tab')
+  await expect(page.locator('a').first()).toBeFocused()
+
+  await page.goto(new URL('/terms', baseURL).toString())
+  await expect(page.getByRole('heading', { name: 'Terms of Service' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false)
+})
+
 test.describe('Notely external AI consent boundaries', () => {
   test('AI text-processing endpoints never proceed without explicit consent', async ({ request }) => {
     const summarize = await request.post(new URL('/api/summarize', baseURL).toString(), {
