@@ -126,9 +126,9 @@ test.describe('Responsive regression guards', () => {
       } else {
         await page.locator('.sidebar .new-btn').click();
       }
-      const bar = page.locator('.time-travel-bar');
-      await expect(bar).toBeVisible();
-      const bounds = await bar.boundingBox();
+      const visibleBars = page.locator('.time-travel-bar:visible');
+      await expect(visibleBars).toHaveCount(1);
+      const bounds = await visibleBars.first().boundingBox();
       expect(bounds).not.toBeNull();
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);
