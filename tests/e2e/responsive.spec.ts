@@ -46,7 +46,7 @@ test.describe('Responsive product experience', () => {
       await expectNoHorizontalOverflow(page, '.flow-page')
 
       await page.goto(new URL('/flow/links', baseURL).toString())
-      await expect(page.getByRole('heading', { name: /Save a webpage/ })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Save the useful parts.' })).toBeVisible()
       await expect(page.locator('.link-capture-page')).toHaveCSS('overflow-y', 'auto')
       await expectNoHorizontalOverflow(page)
       await expectNoHorizontalOverflow(page, '.link-capture-page')
