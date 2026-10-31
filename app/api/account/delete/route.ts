@@ -16,7 +16,13 @@ export async function POST() {
     return NextResponse.json({ error: 'Please re-enter your password before deleting your account.' }, { status: 403 })
   }
 
-  const { error } = await supabase.rpc('delete_my_account')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { error } = await supabase.functions.invoke('delete-account', {
+    body: {},
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
   if (error) {
     console.error('Account deletion failed:', error.message)
     return NextResponse.json({ error: 'Account deletion could not be completed. Your account has not been intentionally changed; please try again.' }, { status: 500 })
