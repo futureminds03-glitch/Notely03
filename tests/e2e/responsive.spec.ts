@@ -5,6 +5,8 @@ const viewports = [
   { name: 'small phone', width: 320, height: 568 },
   { name: 'phone', width: 360, height: 800 },
   { name: 'large phone', width: 430, height: 932 },
+  { name: 'mobile breakpoint', width: 640, height: 800 },
+  { name: 'desktop breakpoint', width: 641, height: 800 },
   { name: 'phone landscape', width: 844, height: 390 },
   { name: 'small tablet', width: 768, height: 1024 },
   { name: 'tablet landscape', width: 1024, height: 768 },
@@ -33,11 +35,21 @@ test.describe('Responsive product experience', () => {
       await expect(page.locator('.app')).toBeVisible()
       await expectNoHorizontalOverflow(page)
       await expectNoHorizontalOverflow(page, '.editor-area')
+      const viewportMeta = await page.locator('meta[name="viewport"]').getAttribute('content')
+      expect(viewportMeta).not.toMatch(/user-scalable=no|maximum-scale=1/)
 
-      const timeMachine = page.locator('.studio-nav-link[aria-label="Time Machine"]:visible').first()
+      const timeMachine = page.locator(viewport.width <= 640
+        ? '.mobile-studio-nav .studio-nav-link[aria-label="Time Machine"]'
+        : '.sidebar .studio-nav-link[aria-label="Time Machine"]')
       await timeMachine.click()
       await expect(page.locator('.time-machine')).toBeVisible()
       await expectNoHorizontalOverflow(page, '.time-machine')
+
+      await page.goto(new URL('/', baseURL).toString())
+      if (viewport.width <= 640) await page.locator('.mobile-header .mobile-btn').last().click()
+      else await page.locator('.sidebar .new-btn').click()
+      await expect(page.locator('.note-title')).toBeVisible()
+      await expectNoHorizontalOverflow(page, '.toolbar')
 
       await page.goto(new URL('/flow', baseURL).toString())
       await expect(page.getByRole('heading', { name: 'Make room to think.' })).toBeVisible()
@@ -59,7 +71,7 @@ test.describe('Responsive product experience', () => {
   }
 
   test('keeps Flow and Link Capture vertically scrollable on a short phone', async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 480 })
+    await page.setViewportSize({ width: 320, height: 400 })
     await page.goto(new URL('/flow', baseURL).toString())
     const flow = page.locator('.flow-page')
     await expect(flow).toHaveCSS('overflow-y', 'auto')
