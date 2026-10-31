@@ -135,6 +135,8 @@ test.describe('Responsive regression guards', () => {
       });
       await page.route('**/api/notes', route => route.abort());
       await page.goto(new URL('/', baseURL).toString());
+      await expect(page.locator('.note-item').first()).toBeVisible();
+      await page.locator('.note-item').first().click();
       const bar = page.locator('.time-travel-bar');
       await expect(bar).toBeVisible();
       const bounds = await bar.boundingBox();
