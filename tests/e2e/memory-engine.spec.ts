@@ -42,13 +42,14 @@ test.describe('Notely memory engine', () => {
           failed: 0,
           nextOffset: null,
           semanticEnabled: false,
-          message: 'Memory insights are prepared.',
+          message: 'Your memory insights are up to date. Semantic embeddings remain disabled until an embedding provider is configured.',
         }),
       })
     })
 
     await page.goto(new URL('/memory', baseURL).toString())
     await page.getByRole('button', { name: 'Ask My Memory' }).click()
+    page.once('dialog', dialog => dialog.accept())
     await page.getByRole('button', { name: 'Prepare my memory archive' }).click()
     await expect(page.locator('p[role="status"]')).toContainText('Your memory insights are up to date')
     expect(offsets).toEqual([0])

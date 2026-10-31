@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   try {
-    const { title, body } = await request.json()
+    const { title, body, aiConsent } = await request.json()
 
     if (!process.env.GROQ_API_KEY) {
       return NextResponse.json({ error: 'AI summaries are not enabled yet.' }, { status: 503 })
@@ -10,6 +10,10 @@ export async function POST(request: Request) {
 
     if (typeof body !== 'string' || !body.trim()) {
       return NextResponse.json({ error: 'No content' }, { status: 400 })
+    }
+
+    if (aiConsent !== true) {
+      return NextResponse.json({ error: 'Confirm that your note may be sent to Groq for AI processing.' }, { status: 428 })
     }
 
     // Limit the content size to avoid Groq TPM/token errors

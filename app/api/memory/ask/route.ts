@@ -41,8 +41,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Enter a question (up to 1,000 characters).' }, { status: 400 })
   }
 
+  const aiConsent = typeof payload === 'object' && payload !== null && (payload as { aiConsent?: unknown }).aiConsent === true
   const query = question.trim()
-  const queryEmbedding = await createMemoryEmbedding(query)
+  const queryEmbedding = aiConsent ? await createMemoryEmbedding(query) : null
   const { data, error } = await supabase.rpc('search_my_memories_hybrid', {
     p_search_text: query,
     p_query_embedding: queryEmbedding ? '[' + queryEmbedding.join(',') + ']' : null,
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     })
   }
 
-  if (!process.env.GROQ_API_KEY) {
+  if (!process.env.GROQ_API_KEY || !aiConsent) {
     return NextResponse.json({
       answer: 'I found these relevant memories. Open a source to check the original context; AI synthesis is currently unavailable.',
       mode: queryEmbedding ? 'hybrid-search' : 'ranked-search',

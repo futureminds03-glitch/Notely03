@@ -46,8 +46,48 @@ test.describe('Notely privacy and cache boundaries', () => {
       request.post(new URL('/api/memory/related', baseURL).toString(), { data: { noteId: '123e4567-e89b-42d3-a456-426614174000' } }),
       request.post(new URL('/api/memory/reindex', baseURL).toString(), { data: { offset: 0 } }),
       request.get(new URL('/api/parking-lot', baseURL).toString()),
+      request.get(new URL('/api/account/export', baseURL).toString()),
+      request.post(new URL('/api/account/delete', baseURL).toString()),
+      request.get(new URL('/api/notes/trash', baseURL).toString()),
+      request.delete(new URL('/api/notes/123e4567-e89b-42d3-a456-426614174000', baseURL).toString()),
     ]
     const responses = await Promise.all(checks)
-    expect(responses.map(response => response.status())).toEqual([401, 401, 401, 401, 401, 401, 401])
+    expect(responses.map(response => response.status())).toEqual([401, 401, 401, 401, 401, 401, 401, 401, 401, 401, 401])
+  })
+})
+
+
+test('serves baseline browser security headers', async ({ request }) => {
+  const response = await request.get(baseURL)
+  const headers = response.headers()
+  expect(headers['x-content-type-options']).toBe('nosniff')
+  expect(headers['x-frame-options']).toBe('DENY')
+  expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin')
+  expect(headers['permissions-policy']).toContain('microphone=(self)')
+})
+
+test('privacy and terms pages remain readable on mobile and keyboard navigable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(new URL('/privacy', baseURL).toString())
+  await expect(page.getByRole('heading', { name: 'Privacy Policy' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false)
+  await page.keyboard.press('Tab')
+  await expect(page.locator('a').first()).toBeFocused()
+
+  await page.goto(new URL('/terms', baseURL).toString())
+  await expect(page.getByRole('heading', { name: 'Terms of Service' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false)
+})
+
+test.describe('Notely external AI consent boundaries', () => {
+  test('AI text-processing endpoints never proceed without explicit consent', async ({ request }) => {
+    const summarize = await request.post(new URL('/api/summarize', baseURL).toString(), {
+      data: { title: 'Private note', body: 'Private content must not be sent without consent.' },
+    })
+    const organize = await request.post(new URL('/api/organize', baseURL).toString(), {
+      data: { text: 'Private thought must not be sent without consent.' },
+    })
+    expect([428, 503]).toContain(summarize.status())
+    expect([428, 503]).toContain(organize.status())
   })
 })

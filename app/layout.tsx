@@ -3,6 +3,7 @@ import './globals.css'
 import GlobalParkingCapture from '@/components/GlobalParkingCapture'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://notelyapp.com'),
   title: 'Notely — Just Write',
   description: 'Personal note taking. Just write.',
   manifest: '/manifest.json',

@@ -52,6 +52,7 @@ function noteText(result: LinkResult) {
 
 export default function LinkCapture() {
   const [url, setUrl] = useState('')
+  const [useAI, setUseAI] = useState(false)
   const [result, setResult] = useState<LinkResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -71,7 +72,7 @@ export default function LinkCapture() {
       const response = await fetch('/api/link-capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: url.trim(), useAI }),
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Could not read this link.')
@@ -179,6 +180,7 @@ export default function LinkCapture() {
             <button type="submit" disabled={!url.trim() || loading}>{loading ? 'Reading…' : 'Read page →'}</button>
           </div>
           <small>Public webpages only. Private pages and sign-in protected content are not accessed.</small>
+          <label className="link-capture-ai-consent"><input type="checkbox" checked={useAI} onChange={event => setUseAI(event.target.checked)} /> Use AI to analyze page text (sends extracted text to Groq). Off by default.</label>
         </form>
         {loading && <div className="link-capture-loading" role="status" aria-live="polite"><span className="link-capture-spinner" /> Reading the page and finding the useful parts…</div>}
         {error && <div className="link-capture-error" role="alert"><p>{error}</p>{!result && <button type="button" onClick={saveUrlOnly} disabled={saving || plainSaved}>{saving ? 'Saving…' : plainSaved ? 'URL saved' : 'Save URL only'}</button>}</div>}{plainSaved && <p className="link-capture-warning" role="status">URL saved to your Notely notes. You can retry extraction whenever you like.</p>}
@@ -215,6 +217,7 @@ export default function LinkCapture() {
         .link-capture-input-row input{min-width:0;flex:1;border:1px solid var(--line);border-radius:10px;padding:13px 14px;background:var(--paper);color:inherit;font:inherit}
         button{border:0;border-radius:10px;padding:0 18px;background:var(--accent);color:white;font:inherit;font-size:13px;font-weight:650;cursor:pointer}
         button:disabled{opacity:.55;cursor:not-allowed}
+        .link-capture-ai-consent{display:flex;align-items:flex-start;gap:9px;margin-top:14px;font-size:12px;line-height:1.5;color:var(--muted,#777);cursor:pointer}.link-capture-ai-consent input{width:16px;height:16px;margin:0;flex:0 0 auto}
         .link-capture-form small,.link-capture-section small{display:block;color:var(--muted);font-size:11px;margin-top:10px}
         .link-capture-loading{display:flex;align-items:center;gap:12px;padding:22px;color:var(--muted,#777);font-size:13px}
         .link-capture-spinner{width:18px;height:18px;border:2px solid var(--line);border-top-color:var(--accent,#71856f);border-radius:50%;animation:spin .8s linear infinite}

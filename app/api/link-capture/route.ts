@@ -25,10 +25,10 @@ function parseAI(raw: unknown): { summary: string; keyPoints: string[]; concepts
   }
 }
 
-async function analyze(page: ExtractedLinkPage) {
+async function analyze(page: ExtractedLinkPage, allowAI: boolean) {
   const fallback = buildExtractiveAnalysis(page)
   const fallbackWarning = 'Showing a source-based extractive overview. Add GROQ_API_KEY to enable richer AI insights.'
-  if (!process.env.GROQ_API_KEY) return { analysis: fallback, warning: fallbackWarning, analysisMode: 'extractive' as const }
+  if (!process.env.GROQ_API_KEY || !allowAI) return { analysis: fallback, warning: allowAI ? fallbackWarning : 'Showing a source-based overview. AI analysis is off; page text was not sent to an AI provider.', analysisMode: 'extractive' as const }
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.GROQ_API_KEY },
@@ -54,6 +54,7 @@ export async function POST(request: Request) {
   let payload: unknown
   try { payload = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 }) }
   const input = typeof payload === 'object' && payload !== null ? (payload as { url?: unknown }).url : null
+  const useAI = typeof payload === 'object' && payload !== null && (payload as { useAI?: unknown }).useAI === true
   if (typeof input !== 'string' || !input.trim()) return NextResponse.json({ error: 'Paste a webpage URL to capture it.' }, { status: 400 })
   if (input.trim().length > MAX_URL) return NextResponse.json({ error: 'That URL is too long to process.' }, { status: 413 })
   try {
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     const { url: canonicalUrl, html } = await safeFetchHtml(normalized)
     const page = extractLinkPage(html, canonicalUrl)
     if (page.fullContent.length < 80 && !page.description) return NextResponse.json({ error: 'This page did not expose readable content. You can still save the URL as a plain note.' }, { status: 422 })
-    const { analysis, warning, analysisMode } = await analyze(page)
+    const { analysis, warning, analysisMode } = await analyze(page, useAI)
     return NextResponse.json({ sourceUrl, canonicalUrl, ...page, analysis, analysisMode, warning, extractedAt: new Date().toISOString() })
   } catch (error) {
     const code = error instanceof Error ? error.message : 'UPSTREAM_FAILED'

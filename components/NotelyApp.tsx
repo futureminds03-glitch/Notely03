@@ -84,7 +84,7 @@ const NotesList = memo(function NotesList({ notes, activeId, onOpen, onDelete, c
               {fmtDate(n.updated_at)}
             </div>
             {n.tags?.length ? <div className="note-item-tags">{n.tags.slice(0,3).map(tag => <span key={tag}>{tag}</span>)}</div> : null}
-            <button className="note-del" onClick={e => onDelete(n.id, e)} title="Delete">
+            <button className="note-del" onClick={e => onDelete(n.id, e)} title="Archive note">
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
               </svg>
@@ -155,7 +155,7 @@ function Editor({
   return (
     <div className="editor-wrap">
       <div className="toolbar">
-        <button className="tool-btn" title="Delete note" onClick={e => onDelete(activeId, e)}>
+        <button className="tool-btn" title="Archive note" onClick={e => onDelete(activeId, e)}>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M2 3.5h9M5 3.5V2.5h3v1M5.5 6v4M7.5 6v4M3 3.5l.7 7h5.6l.7-7"
               stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -863,6 +863,8 @@ export default function NotelyApp() {
 
   async function handleSummarize() {
     if (!body.trim()) return
+    const approved = window.confirm('AI summary privacy notice: if AI is enabled, Notely sends this note title and text to Groq to generate the summary. Continue?')
+    if (!approved) return
     const noteId = activeIdRef.current
     const sourceTitle = title
     const sourceBody = body
@@ -873,7 +875,7 @@ export default function NotelyApp() {
       const response = await fetch('/api/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: sourceTitle, body: sourceBody })
+        body: JSON.stringify({ title: sourceTitle, body: sourceBody, aiConsent: true })
       })
       const data = await response.json().catch(() => ({}))
       if (activeIdRef.current !== noteId) return
@@ -968,7 +970,7 @@ export default function NotelyApp() {
           <>
             <div className="mobile-header-brand"><span className="brand-mark" aria-hidden="true">✳</span>Notely<span>.</span></div>
             <div style={{ display: 'flex', gap: 2 }}>
-              <button className="mobile-btn" onClick={() => setShowModal(true)}>
+              <button className="mobile-btn" aria-label={user ? 'Account and privacy settings' : 'Sign in'} onClick={() => user ? window.location.assign('/account') : setShowModal(true)}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.4"/>
                   <path d="M3 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
@@ -1061,9 +1063,10 @@ export default function NotelyApp() {
               {user ? <span className="user-email">{user.email?.split('@')[0]}</span> : 'guest mode'}
             </div>
             {user
-              ? <button className="auth-btn" onClick={signOut}>sign out</button>
+              ? <><a className="auth-btn" href="/account">account & privacy</a><button className="auth-btn" onClick={signOut}>sign out</button></>
               : <button className="auth-btn" onClick={() => setShowModal(true)}>sign in</button>
             }
+            <nav aria-label="Legal" style={{ display: 'flex', gap: 12, justifyContent: 'center', padding: '10px 0 2px', fontSize: 10 }}><a href="/privacy">privacy</a><a href="/terms">terms</a></nav>
           </div>
         </aside>
 
