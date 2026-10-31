@@ -27,7 +27,7 @@ test.describe('Notely Flow', () => {
     await page.reload()
     await page.locator('.flow-tabs').getByRole('button', { name: /Thought Inbox/ }).click()
     await expect(page.getByText('Book the dentist appointment')).toBeVisible()
-    await page.getByRole('button', { name: 'Move to notes' }).click()
+    await page.getByRole('button', { name: 'Save as note' }).click()
     await expect.poll(async () => page.evaluate(() => {
       const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
       return notes.some((note: { body?: string }) => note.body === 'Book the dentist appointment')
