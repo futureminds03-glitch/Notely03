@@ -863,6 +863,8 @@ export default function NotelyApp() {
 
   async function handleSummarize() {
     if (!body.trim()) return
+    const approved = window.confirm('AI summary privacy notice: if AI is enabled, Notely sends this note title and text to Groq to generate the summary. Continue?')
+    if (!approved) return
     const noteId = activeIdRef.current
     const sourceTitle = title
     const sourceBody = body
@@ -873,7 +875,7 @@ export default function NotelyApp() {
       const response = await fetch('/api/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: sourceTitle, body: sourceBody })
+        body: JSON.stringify({ title: sourceTitle, body: sourceBody, aiConsent: true })
       })
       const data = await response.json().catch(() => ({}))
       if (activeIdRef.current !== noteId) return
