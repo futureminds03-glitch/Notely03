@@ -31,8 +31,9 @@ export async function POST(request: Request) {
     .eq('id', noteId).eq('user_id', user.id).eq('status', 'active').maybeSingle()
   if (noteError || !note) return NextResponse.json({ error: 'Source note not found.' }, { status: 404 })
 
+  const aiConsent = typeof payload === 'object' && payload !== null && (payload as { aiConsent?: unknown }).aiConsent === true
   const seed = [note.title, ...(note.tags ?? []), note.body.slice(0, 1200)].filter(Boolean).join(' ')
-  const queryEmbedding = await createMemoryEmbedding(seed)
+  const queryEmbedding = aiConsent ? await createMemoryEmbedding(seed) : null
   const { data, error } = await supabase.rpc('search_my_memories_hybrid', {
     p_search_text: seed.slice(0, 1800),
     p_query_embedding: queryEmbedding ? '[' + queryEmbedding.join(',') + ']' : null,
