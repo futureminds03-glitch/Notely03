@@ -10,11 +10,13 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Sign in to prepare your memory archive.' }, { status: 401 })
 
   let offset = 0
+  let aiConsent = false
   try {
     const raw = await request.text()
     if (raw.length > 1000) return NextResponse.json({ error: 'Invalid batch request.' }, { status: 413 })
     if (raw.trim()) {
-      const payload = JSON.parse(raw) as { offset?: unknown }
+      const payload = JSON.parse(raw) as { offset?: unknown; aiConsent?: unknown }
+      aiConsent = payload.aiConsent === true
       if (payload.offset !== undefined) {
         if (!Number.isInteger(payload.offset) || Number(payload.offset) < 0 || Number(payload.offset) > 10000) {
           return NextResponse.json({ error: 'Invalid batch offset.' }, { status: 400 })
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
   let unchanged = 0
   let failed = 0
   for (const document of documents ?? []) {
-    const result = await indexDocumentMemory(supabase, document, { includeEmbedding: true })
+    const result = await indexDocumentMemory(supabase, document, { includeEmbedding: aiConsent })
     if (result === 'indexed') indexed++
     else if (result === 'unchanged') unchanged++
     else failed++
@@ -52,9 +54,11 @@ export async function POST(request: Request) {
   return NextResponse.json({
     processed: count, indexed, unchanged, failed,
     nextOffset: count === batchSize ? offset + batchSize : null,
-    semanticEnabled: Boolean(process.env.OPENAI_API_KEY),
-    message: process.env.OPENAI_API_KEY
-      ? 'Memory insights and available semantic vectors have been prepared.'
-      : 'Memory insights are prepared. Semantic embeddings remain disabled until an embedding provider is configured.',
+    semanticEnabled: Boolean(process.env.OPENAI_API_KEY && aiConsent),
+    message: !process.env.OPENAI_API_KEY
+      ? 'Memory insights are prepared. Semantic embeddings remain disabled until an embedding provider is configured.'
+      : aiConsent
+        ? 'Memory insights and semantic vectors have been prepared.'
+        : 'Memory insights are prepared locally. Semantic vectors were skipped because you did not opt in to sending note text to OpenAI.'
   })
 }
