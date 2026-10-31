@@ -576,3 +576,5 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
 .link-capture-page::-webkit-scrollbar{display:none;width:0;height:0}
 
 .flow-inbox-summary{display:flex;align-items:baseline;gap:8px;max-width:680px;margin:18px 0 4px;padding:13px 15px;border:1px solid var(--line);border-radius:9px;background:color-mix(in srgb,var(--paper) 72%,white)}.flow-inbox-summary strong{font:500 25px Georgia,serif;color:var(--accent)}.flow-inbox-summary span{font-size:12px;color:var(--ink-light)}.flow-inbox-summary small{margin-left:auto;color:var(--ink-faint);font-size:10px}
+
+.mobile-header-brand .brand-mark{font-size:20px;margin-right:6px;vertical-align:-2px}
