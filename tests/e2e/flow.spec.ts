@@ -32,7 +32,7 @@ test.describe('Notely Flow', () => {
       const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
       return notes.some((note: { body?: string }) => note.body === 'Book the dentist appointment')
     })).toBe(true)
-    await expect(page.getByText('Nothing parked right now.')).toBeVisible()
+    await expect(page.getByText('Your inbox is clear.')).toBeVisible()
   })
 
   test('organizer rejects empty content without calling the AI provider', async ({ request }) => {
