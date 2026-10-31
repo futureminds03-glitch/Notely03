@@ -10,7 +10,6 @@ export async function POST(request: Request) {
     }
     const text = typeof payload === 'object' && payload !== null ? (payload as { text?: unknown }).text : null
     const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false
-    const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false
     if (typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ error: 'Add a thought before asking Notely to organize it.' }, { status: 400 })
     }
