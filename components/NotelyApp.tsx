@@ -1024,7 +1024,7 @@ export default function NotelyApp() {
 
         <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
           <div className="sidebar-header">
-            <div className="brand">Notely<span className="brand-dot">.</span></div>
+            <div className="brand"><span className="brand-mark" aria-hidden="true">✳</span>Notely<span className="brand-dot">.</span></div>
             <div className="brand-sub">just write — nothing else</div>
             <button className="new-btn" onClick={newNote}>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
