@@ -143,3 +143,4 @@ test.describe('Responsive regression guards', () => {
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);
     }
   });
+})
