@@ -18,7 +18,10 @@ async function expectNoHorizontalOverflow(page: import('@playwright/test').Page,
   const dimensions = await page.evaluate((selector) => {
     const target = selector === 'document'
       ? document.documentElement
-      : document.querySelector(selector) as HTMLElement | null
+      : Array.from(document.querySelectorAll(selector)).find((element) => {
+          const rect = element.getBoundingClientRect()
+          return rect.width > 0 && rect.height > 0
+        }) as HTMLElement | undefined ?? null
     if (!target) return null
     return { clientWidth: target.clientWidth, scrollWidth: target.scrollWidth }
   }, scope)
@@ -48,7 +51,7 @@ test.describe('Responsive product experience', () => {
       await page.goto(new URL('/', baseURL).toString())
       if (viewport.width <= 640) await page.locator('.mobile-header .mobile-btn').last().click()
       else await page.locator('.sidebar .new-btn').click()
-      await expect(page.locator('.note-title')).toBeVisible()
+      await expect(page.locator('.note-title:visible').first()).toBeVisible()
       await expectNoHorizontalOverflow(page, '.toolbar')
 
       await page.goto(new URL('/flow', baseURL).toString())
