@@ -39,7 +39,7 @@ Feature availability depends on environment configuration. AI summaries, AI De-C
 | Browser regression tests | Playwright and GitHub Actions |
 | Package manager | pnpm, lockfile: pnpm-lock.yaml |
 
-See [architecture](docs/ARCHITECTURE.md) and [product brief](docs/PRODUCT_BRIEF.md).
+See [architecture](docs/ARCHITECTURE.md), [product brief](docs/PRODUCT_BRIEF.md), and [memory engine](docs/MEMORY_ENGINE.md).
 
 ## Quick start
 
@@ -67,6 +67,7 @@ Create a local .env.local file. Never commit real credentials.
 | NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY | Supabase browser client (preferred) | Public/publishable key |
 | NEXT_PUBLIC_SUPABASE_ANON_KEY | Legacy-compatible fallback | Public/anonymous key |
 | GROQ_API_KEY | AI summaries and Flow AI De-Clutter | **Server-only secret** |
+| OPENAI_API_KEY | Optional 1,536-dimensional memory embeddings; not required for lexical recall | **Server-only secret; provider usage may incur charges** |
 
 Supabase's database schema and row-level security policies must be configured for the tables used by the application, including documents and version history. Review the API routes before configuring a new database. Do not expose service-role keys in NEXT_PUBLIC variables.
 

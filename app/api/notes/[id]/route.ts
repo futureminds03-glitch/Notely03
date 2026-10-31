@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
+import { indexDocumentMemory } from '@/lib/memory-engine'
 
 interface NoteUpdateRequest {
   title?: unknown
@@ -138,6 +139,9 @@ export async function PATCH(
   }
 
   const document = data as DocumentRow
+  if (parsed.title !== undefined || parsed.body !== undefined || parsed.tags !== undefined) {
+    await indexDocumentMemory(supabase, document).catch(() => 'failed')
+  }
   const bodyChanged = document.body !== (before as DocumentRow).body
 
   if (bodyChanged) {

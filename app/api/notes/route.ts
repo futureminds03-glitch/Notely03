@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
+import { indexDocumentMemory } from '@/lib/memory-engine'
 
 interface NoteRequest {
   title?: unknown
@@ -165,6 +166,7 @@ export async function POST(request: Request) {
   }
 
   const document = data as DocumentRow
+  await indexDocumentMemory(supabase, document).catch(() => 'failed')
   const { error: versionError } = await supabase
     .from('document_versions')
     .insert({
