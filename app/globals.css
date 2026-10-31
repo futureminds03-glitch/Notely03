@@ -683,3 +683,70 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
 .flow-top-action a:focus-visible,.flow-tabs button:focus-visible,.flow-button:focus-visible,.flow-primary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
 .flow-route .flow-loading{height:auto;min-height:0;flex:1}
+
+
+/* Final responsive guardrails: floating controls and untrusted long-form content. */
+.time-travel-bar {
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  transform: none;
+  margin-inline: auto;
+  justify-content: center;
+  flex-wrap: wrap;
+  white-space: normal;
+  row-gap: 5px;
+}
+.tt-scrubber-wrap {
+  width: clamp(72px, 16vw, 220px);
+  min-width: 0;
+  max-width: 220px;
+  flex: 1 1 96px;
+}
+.tt-scrubber { min-width: 0; }
+.tt-time { flex: 0 1 auto; overflow-wrap: normal; }
+.flow-memory-list,
+.flow-memory-list.outline,
+.flow-memory-list.outline .flow-memory-item,
+.flow-memory-list.outline .flow-memory-item > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.flow-memory-list.outline .flow-memory-item {
+  grid-template-columns: minmax(0, .4fr) minmax(0, 1fr) auto;
+}
+.flow-memory-list.outline .flow-memory-item h3 {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+.flow-memory-list.outline .flow-memory-item p {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.flow-memory-meta,
+.flow-memory-actions { min-width: 0; flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .time-travel-bar {
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    max-width: none;
+    padding-inline: 4px;
+    gap: 6px;
+  }
+  .tt-scrubber-wrap { flex: 1 1 76px; width: auto; }
+  .flow-memory-list.outline .flow-memory-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .flow-memory-list.outline .flow-memory-item h3 { overflow-wrap: anywhere; }
+}
+@media (max-width: 360px) {
+  .time-travel-bar { column-gap: 4px; }
+  .tt-scrubber-wrap { flex-basis: 64px; }
+  .tt-restore { padding-inline: 6px; }
+}
