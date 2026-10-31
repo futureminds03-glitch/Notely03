@@ -105,7 +105,7 @@ test.describe('Responsive regression guards', () => {
       }]),
     }));
     await page.goto(new URL('/flow', baseURL).toString());
-    await page.getByRole('button', { name: 'Resurfaced' }).click();
+    await page.getByRole('button', { name: 'Resurfaced', exact: true }).click();
     await page.getByRole('button', { name: 'Outline' }).click();
     await expect(page.locator('.flow-memory-list.outline .flow-memory-item h3')).toContainText('https://example.com/');
     await expectNoHorizontalOverflow(page);
@@ -135,8 +135,9 @@ test.describe('Responsive regression guards', () => {
       });
       await page.route('**/api/notes', route => route.abort());
       await page.goto(new URL('/', baseURL).toString());
-      await expect(page.locator('.note-item').first()).toBeVisible();
-      await page.locator('.note-item').first().click();
+      const noteItem = page.locator(viewport.width <= 640 ? '.mobile-notes-panel .note-item' : '.sidebar .note-item').first();
+      await expect(noteItem).toBeVisible();
+      await noteItem.click();
       const bar = page.locator('.time-travel-bar');
       await expect(bar).toBeVisible();
       const bounds = await bar.boundingBox();
