@@ -111,7 +111,7 @@ export default function AccountPage() {
         .account-card-copy p{font-size:13px;line-height:1.65;color:var(--muted,#777);margin:0}
         .account-card label{font-size:12px;font-weight:650;margin-top:5px}
         .account-card input{width:100%;box-sizing:border-box;padding:12px;border:1px solid var(--line,#ddd);border-radius:9px;background:var(--paper,#f8f6f0);color:inherit;font:inherit}
-        .account-action,.account-delete{justify-self:start;border:0;border-radius:9px;padding:12px 16px;background:var(--accent,#687d65);color:white;font:600 13px inherit;cursor:pointer}
+        .account-action,.account-delete{justify-self:start;border:0;border-radius:9px;padding:12px 16px;background:var(--accent,#687d65);color:white;font:600 13px/1.2 system-ui,sans-serif;cursor:pointer}
         .account-action:disabled,.account-delete:disabled{opacity:.55;cursor:not-allowed}
         .account-danger{border-color:#e6c9c4}
         .account-delete{background:#a4443b;margin-top:5px}
