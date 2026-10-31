@@ -1066,6 +1066,7 @@ export default function NotelyApp() {
               ? <><a className="auth-btn" href="/account">account & privacy</a><button className="auth-btn" onClick={signOut}>sign out</button></>
               : <button className="auth-btn" onClick={() => setShowModal(true)}>sign in</button>
             }
+            <nav aria-label="Legal" style={{ display: 'flex', gap: 12, justifyContent: 'center', padding: '10px 0 2px', fontSize: 10 }}><a href="/privacy">privacy</a><a href="/terms">terms</a></nav>
           </div>
         </aside>
 
