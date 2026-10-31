@@ -84,7 +84,7 @@ const NotesList = memo(function NotesList({ notes, activeId, onOpen, onDelete, c
               {fmtDate(n.updated_at)}
             </div>
             {n.tags?.length ? <div className="note-item-tags">{n.tags.slice(0,3).map(tag => <span key={tag}>{tag}</span>)}</div> : null}
-            <button className="note-del" onClick={e => onDelete(n.id, e)} title="Delete">
+            <button className="note-del" onClick={e => onDelete(n.id, e)} title="Archive note">
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
               </svg>
@@ -155,7 +155,7 @@ function Editor({
   return (
     <div className="editor-wrap">
       <div className="toolbar">
-        <button className="tool-btn" title="Delete note" onClick={e => onDelete(activeId, e)}>
+        <button className="tool-btn" title="Archive note" onClick={e => onDelete(activeId, e)}>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M2 3.5h9M5 3.5V2.5h3v1M5.5 6v4M7.5 6v4M3 3.5l.7 7h5.6l.7-7"
               stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
