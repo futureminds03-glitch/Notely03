@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { indexDocumentMemory } from '@/lib/memory-engine'
+import { exceedsNoteFieldLimits, readJsonBody } from '@/lib/request-body'
 
 interface NoteUpdateRequest {
   title?: unknown
@@ -96,16 +97,17 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid note id' }, { status: 400 })
   }
 
-  let payload: unknown
-  try {
-    payload = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  const bodyResult = await readJsonBody(request)
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status })
   }
 
-  const parsed = parseUpdate(payload)
+  const parsed = parseUpdate(bodyResult.value)
   if (!parsed || Object.keys(parsed).length === 0) {
     return NextResponse.json({ error: 'No valid changes supplied' }, { status: 400 })
+  }
+  if (exceedsNoteFieldLimits(parsed)) {
+    return NextResponse.json({ error: 'Note title, body, or tags exceed the allowed size' }, { status: 413 })
   }
 
   const { data: before, error: beforeError } = await supabase
