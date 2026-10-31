@@ -22,8 +22,6 @@ export async function POST(request: Request) {
     if (aiConsent !== true) {
       return NextResponse.json({ error: 'Confirm that this thought may be sent to Groq for AI processing.' }, { status: 428 })
     }
-      return NextResponse.json({ error: 'Confirm that this thought may be sent to Groq for AI processing.' }, { status: 428 })
-    }
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.GROQ_API_KEY },
