@@ -42,7 +42,8 @@ export async function POST(request: Request) {
   }
 
   const normalizedQuery = query.trim()
-  const queryEmbedding = await createMemoryEmbedding(normalizedQuery)
+  const aiConsent = typeof payload === 'object' && payload !== null && (payload as { aiConsent?: unknown }).aiConsent === true
+  const queryEmbedding = aiConsent ? await createMemoryEmbedding(normalizedQuery) : null
   const { data, error } = await supabase.rpc('search_my_memories_hybrid', {
     p_search_text: normalizedQuery,
     p_query_embedding: queryEmbedding ? '[' + queryEmbedding.join(',') + ']' : null,
