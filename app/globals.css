@@ -677,3 +677,7 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
 @media(prefers-reduced-motion:reduce){
   .sidebar,.studio-nav-link,.flow-launcher,.flow-button,.flow-primary{transition:none!important}
 }
+
+.flow-top-action a{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--line);border-radius:999px;color:var(--ink);background:color-mix(in srgb,var(--paper) 88%,white);font:650 12px Inter,ui-sans-serif,system-ui,sans-serif;text-decoration:none;transition:border-color .16s ease,color .16s ease}
+.flow-top-action a:hover{border-color:var(--accent);color:var(--accent)}
+.flow-top-action a:focus-visible,.flow-tabs button:focus-visible,.flow-button:focus-visible,.flow-primary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
