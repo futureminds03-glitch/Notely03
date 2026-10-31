@@ -18,14 +18,14 @@ test.describe('Notely Flow', () => {
     await expect(page.locator('.note-body').first()).toHaveValue('A loose idea I need to remember later')
   })
 
-  test('keeps Parking Lot thoughts across reloads and promotes them to notes', async ({ page }) => {
+  test('keeps Thought Inbox thoughts across reloads and promotes them to notes', async ({ page }) => {
     await page.goto(new URL('/flow', baseURL).toString())
     await page.getByRole('textbox', { name: 'Quick parking lot capture' }).fill('Book the dentist appointment')
     await page.getByRole('button', { name: '+' }).click()
-    await page.locator('.flow-tabs').getByRole('button', { name: /Parking Lot/ }).click()
+    await page.locator('.flow-tabs').getByRole('button', { name: /Thought Inbox/ }).click()
     await expect(page.getByText('Book the dentist appointment')).toBeVisible()
     await page.reload()
-    await page.locator('.flow-tabs').getByRole('button', { name: /Parking Lot/ }).click()
+    await page.locator('.flow-tabs').getByRole('button', { name: /Thought Inbox/ }).click()
     await expect(page.getByText('Book the dentist appointment')).toBeVisible()
     await page.getByRole('button', { name: 'Move to notes' }).click()
     await expect.poll(async () => page.evaluate(() => {
@@ -120,7 +120,7 @@ test.describe('Notely Flow', () => {
       const items = JSON.parse(localStorage.getItem('notely_parking_lot_v1') || '[]')
       return items.some((item: { text?: string }) => item.text === 'Remember to send the project update')
     })).toBe(true)
-    await page.locator('.flow-tabs').getByRole('button', { name: /Parking Lot/ }).click()
+    await page.locator('.flow-tabs').getByRole('button', { name: /Thought Inbox/ }).click()
     await expect(page.getByText('Remember to send the project update')).toBeVisible()
   })
 
