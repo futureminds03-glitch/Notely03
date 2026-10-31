@@ -8,19 +8,23 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data, error } = await supabase
-    .from('documents')
-    .select('id,title,body,archived_at,updated_at')
-    .eq('user_id', user.id)
-    .eq('status', 'archived')
-    .order('archived_at', { ascending: false })
-    .limit(200)
-
-  if (error) {
-    console.error('Failed to load archived notes:', error.message)
-    return NextResponse.json({ error: 'Could not load archived notes.' }, { status: 500 })
+  const data: { id: string; title: string; body: string; archived_at: string | null; updated_at: string }[] = []
+  for (let offset = 0; ; offset += 500) {
+    const { data: page, error } = await supabase
+      .from('documents')
+      .select('id,title,body,archived_at,updated_at')
+      .eq('user_id', user.id)
+      .eq('status', 'archived')
+      .order('archived_at', { ascending: false })
+      .range(offset, offset + 499)
+    if (error) {
+      console.error('Failed to load archived notes:', error.message)
+      return NextResponse.json({ error: 'Could not load archived notes.' }, { status: 500 })
+    }
+    data.push(...(page ?? []))
+    if ((page ?? []).length < 500) break
   }
-  return NextResponse.json(data ?? [], { headers: { 'Cache-Control': 'private, no-store' } })
+  return NextResponse.json(data, { headers: { 'Cache-Control': 'private, no-store' } })
 }
 
 export async function PATCH(request: Request) {
