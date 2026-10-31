@@ -118,14 +118,23 @@ test.describe('Responsive regression guards', () => {
   });
 
   test('keeps the floating Time Travel control inside narrow and short viewports', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('notely_notes', JSON.stringify([{
+        id: 'time-travel-regression',
+        title: 'Responsive test note',
+        body: 'Current note body',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        history: [
+          { content: 'Earlier version', timestamp: Date.now() - 60000 },
+          { content: 'Current note body', timestamp: Date.now() },
+        ],
+      }]));
+    });
+
     for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }, { width: 844, height: 390 }]) {
       await page.setViewportSize(viewport);
       await page.goto(new URL('/', baseURL).toString());
-      if (viewport.width <= 640) {
-        await page.locator('.mobile-header .mobile-btn').last().click();
-      } else {
-        await page.locator('.sidebar .new-btn').click();
-      }
       const visibleBars = page.locator('.time-travel-bar:visible');
       await expect(visibleBars).toHaveCount(1);
       const bounds = await visibleBars.first().boundingBox();
@@ -133,4 +142,4 @@ test.describe('Responsive regression guards', () => {
       expect(bounds!.x).toBeGreaterThanOrEqual(0);
       expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);
     }
-  });});
+  }););
