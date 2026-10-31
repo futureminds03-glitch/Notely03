@@ -19,7 +19,9 @@ export async function POST(request: Request) {
     if (!process.env.GROQ_API_KEY) {
       return NextResponse.json({ error: 'AI organization is not enabled yet. Your original thought is safe.' }, { status: 503 })
     }
-    if (aiConsent !== true) {\n      return NextResponse.json({ error: 'Confirm that this thought may be sent to Groq for AI processing.' }, { status: 428 })\n    }\n    if (aiConsent !== true) {
+    if (aiConsent !== true) {
+      return NextResponse.json({ error: 'Confirm that this thought may be sent to Groq for AI processing.' }, { status: 428 })
+    }
       return NextResponse.json({ error: 'Confirm that this thought may be sent to Groq for AI processing.' }, { status: 428 })
     }
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
