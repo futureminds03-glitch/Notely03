@@ -88,3 +88,59 @@ test.describe('Responsive product experience', () => {
     expect(linksCanScroll).toBe(true)
   })
 })
+
+
+test.describe('Responsive regression guards', () => {
+  test('wraps unbroken URL titles in Flow outline mode without page overflow', async ({ page }) => {
+    const longUrl = 'https://example.com/' + 'very-long-path-segment-'.repeat(24) + 'article';
+    await page.route('**/api/notes', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{
+        id: 'outline-long-url',
+        title: longUrl,
+        body: 'A saved note whose title is an unusually long URL.',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }]),
+    }));
+    await page.goto(new URL('/flow', baseURL).toString());
+    await page.getByRole('button', { name: 'Resurfaced' }).click();
+    await page.getByRole('button', { name: 'Outline' }).click();
+    await expect(page.locator('.flow-memory-list.outline .flow-memory-item h3')).toContainText('https://example.com/');
+    await expectNoHorizontalOverflow(page);
+    await expectNoHorizontalOverflow(page, '.flow-memory-list.outline');
+    const title = await page.locator('.flow-memory-list.outline .flow-memory-item h3').evaluate(el => ({
+      width: el.getBoundingClientRect().width,
+      scrollWidth: el.scrollWidth,
+    }));
+    expect(title.scrollWidth).toBeLessThanOrEqual(title.width + 1);
+  });
+
+  test('keeps the floating Time Travel control inside narrow and short viewports', async ({ page }) => {
+    for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }, { width: 844, height: 390 }]) {
+      await page.setViewportSize(viewport);
+      await page.addInitScript(() => {
+        localStorage.setItem('notely_notes', JSON.stringify([{
+          id: 'time-travel-regression',
+          title: 'Responsive test note',
+          body: 'Current note body',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          history: [
+            { content: 'Earlier version', timestamp: Date.now() - 60000 },
+            { content: 'Current note body', timestamp: Date.now() },
+          ],
+        }]));
+      });
+      await page.route('**/api/notes', route => route.abort());
+      await page.goto(new URL('/', baseURL).toString());
+      const bar = page.locator('.time-travel-bar');
+      await expect(bar).toBeVisible();
+      const bounds = await bar.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width + 1);
+    }
+  });
+});
