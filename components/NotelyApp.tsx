@@ -966,7 +966,7 @@ export default function NotelyApp() {
       <div className="mobile-header">
         {mobileView === 'list' ? (
           <>
-            <div className="mobile-header-brand">Notely<span>.</span></div>
+            <div className="mobile-header-brand"><span className="brand-mark" aria-hidden="true">✳</span>Notely<span>.</span></div>
             <div style={{ display: 'flex', gap: 2 }}>
               <button className="mobile-btn" onClick={() => setShowModal(true)}>
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -1024,7 +1024,7 @@ export default function NotelyApp() {
 
         <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
           <div className="sidebar-header">
-            <div className="brand">Notely<span className="brand-dot">.</span></div>
+            <div className="brand"><span className="brand-mark" aria-hidden="true">✳</span>Notely<span className="brand-dot">.</span></div>
             <div className="brand-sub">just write — nothing else</div>
             <button className="new-btn" onClick={newNote}>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">

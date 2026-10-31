@@ -7,16 +7,14 @@ export const metadata: Metadata = {
   description: 'Personal note taking. Just write.',
   manifest: '/manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Notely' },
-  icons: { apple: '/icon.svg' },
+  icons: { icon: '/favicon.svg', shortcut: '/favicon.svg', apple: '/icon.svg' },
   other: { 'mobile-web-app-capable': 'yes' },
 }
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: '#e5dfd0',
+  themeColor: '#f5f0e8',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

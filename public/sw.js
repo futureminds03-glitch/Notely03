@@ -1,4 +1,4 @@
-const CACHE = 'notely-v1'
+const CACHE = 'notely-v2'
 const STATIC = ['/', '/manifest.json']
 
 self.addEventListener('install', e => {
