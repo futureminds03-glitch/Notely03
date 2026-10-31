@@ -53,7 +53,8 @@ async function analyze(page: ExtractedLinkPage, allowAI: boolean) {
 export async function POST(request: Request) {
   let payload: unknown
   try { payload = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 }) }
-  const input = typeof payload === 'object' && payload !== null ? (payload as { url?: unknown }).url : null\n  const useAI = typeof payload === 'object' && payload !== null && (payload as { useAI?: unknown }).useAI === true
+  const input = typeof payload === 'object' && payload !== null ? (payload as { url?: unknown }).url : null
+  const useAI = typeof payload === 'object' && payload !== null && (payload as { useAI?: unknown }).useAI === true\n  const useAI = typeof payload === 'object' && payload !== null && (payload as { useAI?: unknown }).useAI === true
   if (typeof input !== 'string' || !input.trim()) return NextResponse.json({ error: 'Paste a webpage URL to capture it.' }, { status: 400 })
   if (input.trim().length > MAX_URL) return NextResponse.json({ error: 'That URL is too long to process.' }, { status: 413 })
   try {
