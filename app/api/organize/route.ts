@@ -9,7 +9,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
     }
     const text = typeof payload === 'object' && payload !== null ? (payload as { text?: unknown }).text : null
-    const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false\n    const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false
+    const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false
+    const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false
     if (typeof text !== 'string' || !text.trim()) {
       return NextResponse.json({ error: 'Add a thought before asking Notely to organize it.' }, { status: 400 })
     }
