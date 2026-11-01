@@ -930,7 +930,7 @@ export default function NotelyApp() {
           data: {
             legal_terms_accepted: true,
             legal_terms_version: '2026-11-01',
-            privacy_policy_version: '2026-11-01',
+            privacy_policy_version: '2026-11-01-r2',
           },
         },
       }))
