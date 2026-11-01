@@ -210,7 +210,7 @@ test('sign-in and sign-up modal modes enforce and transmit legal acknowledgement
   expect(signupPayload?.data).toMatchObject({
     legal_terms_accepted: true,
     legal_terms_version: '2026-11-01',
-    privacy_policy_version: '2026-11-01',
+    privacy_policy_version: '2026-11-01-r2',
   })
   await expect(page.getByRole('checkbox')).toBeVisible()
 
