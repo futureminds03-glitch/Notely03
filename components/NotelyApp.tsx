@@ -923,7 +923,6 @@ export default function NotelyApp() {
     setAuthLoading(true)
     let error
     if (authMode === 'signup') {
-      const acceptedAt = new Date().toISOString()
       ;({ error } = await supabase.auth.signUp({
         email,
         password,
@@ -932,7 +931,6 @@ export default function NotelyApp() {
             legal_terms_accepted: true,
             legal_terms_version: '2026-11-01',
             privacy_policy_version: '2026-11-01',
-            legal_accepted_at: acceptedAt,
           },
         },
       }))
