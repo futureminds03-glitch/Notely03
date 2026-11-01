@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 }
 
 const sections = [
-  ['1. Who this policy covers', 'This policy applies to the Notely web application intended to be served at notelyapp.com. “Notely”, “we” and “us” refer to the product and the people operating it. Privacy requests can be sent to privacy@notelyapp.com.'],
+  ['1. Who this policy covers', 'This policy applies to the Notely web application intended to be served at notelyapp.com. Notely is a product of FutureMinds Co. References to “we” and “us” mean FutureMinds Co. as the product operator. Privacy requests can be sent to privacy@notelyapp.com.'],
   ['2. Information you choose to store', 'If you use an account, we process your email address and account identifier, the notes and titles you create, tags, timestamps, note versions, saved source URLs, webpage text you choose to save, and memory insights generated to support search and recall. Archived notes remain in your account until you restore or permanently delete them.'],
   ['3. Guest mode and local storage', 'If you use Notely without signing in, notes and some preferences are stored in your browser on that device. They are not synced to your Notely account. Clearing browser storage or changing devices can remove access to those local notes. Guest notes are not included in account exports because they are not held in your account.'],
   ['4. Voice capture', 'If you use voice capture, your browser’s speech-recognition feature converts speech into text. Depending on your browser and its configuration, audio may be processed by the browser or its speech-recognition provider. Notely receives the resulting transcript. You can use text entry instead.'],
