@@ -114,6 +114,7 @@ $$;
 
 revoke all on function private.enforce_signup_legal_acceptance() from public, anon, authenticated, service_role;
 revoke all on function private.record_signup_legal_acceptance() from public, anon, authenticated, service_role;
+revoke all on function private.prepare_legal_acceptance_record() from PUBLIC, anon, authenticated, service_role;
 grant execute on function private.enforce_signup_legal_acceptance() to supabase_auth_admin;
 grant execute on function private.record_signup_legal_acceptance() to supabase_auth_admin;
 grant usage on schema private to authenticated;
