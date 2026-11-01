@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type LinkResult = {
   sourceUrl: string
@@ -51,7 +51,10 @@ function noteText(result: LinkResult) {
 }
 
 export default function LinkCapture() {
+  const [hydrated, setHydrated] = useState(false)
   const [url, setUrl] = useState('')
+
+  useEffect(() => setHydrated(true), [])
   const [useAI, setUseAI] = useState(false)
   const [result, setResult] = useState<LinkResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -167,7 +170,7 @@ export default function LinkCapture() {
   }
 
   return (
-    <main className="link-capture-page">
+    <main className="link-capture-page" data-hydrated={hydrated ? 'true' : 'false'}>
       <div className="link-capture-shell">
         <a className="link-capture-back" href="/flow">← Back to Notely Flow</a>
         <div className="link-capture-eyebrow">NOTELY · FRICTIONLESS CAPTURE</div>

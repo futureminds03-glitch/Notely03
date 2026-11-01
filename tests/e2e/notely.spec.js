@@ -178,7 +178,17 @@ test('private APIs reject anonymous access and link previews block local targets
   expect(serviceWorker.status()).toBe(200)
 })
 
-test('sign-in and sign-up modal modes enforce legal acknowledgement before account creation', async ({ page }) => {
+test('sign-in and sign-up modal modes enforce and transmit legal acknowledgement', async ({ page }) => {
+  let signupPayload
+  await page.route('**/auth/v1/signup*', async route => {
+    signupPayload = route.request().postDataJSON()
+    await route.fulfill({
+      status: 400,
+      contentType: 'application/json',
+      body: JSON.stringify({ msg: 'Signup intercepted by the legal-consent test.' }),
+    })
+  })
+
   await page.locator('.sidebar-footer .auth-btn').click()
   await expect(page.locator('.modal-title')).toHaveText('Welcome back.')
   await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
@@ -193,6 +203,16 @@ test('sign-in and sign-up modal modes enforce legal acknowledgement before accou
   await expect(createAccount).toBeDisabled()
   await legalCheckbox.check()
   await expect(createAccount).toBeEnabled()
+  await page.getByPlaceholder('you@example.com').fill('consent-test@example.invalid')
+  await page.getByPlaceholder('••••••••').fill('NotARealPassword123!')
+  await createAccount.click()
+  await expect.poll(() => signupPayload).toBeTruthy()
+  expect(signupPayload?.data).toMatchObject({
+    legal_terms_accepted: true,
+    legal_terms_version: '2026-11-01',
+    privacy_policy_version: '2026-11-01-r2',
+  })
+  await expect(page.getByRole('checkbox')).toBeVisible()
 
   await page.locator('.modal-tabs .modal-tab').filter({ hasText: 'Sign in' }).click()
   await expect(page.getByRole('button', { name: 'Sign in' }).last()).toBeVisible()

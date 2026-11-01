@@ -28,7 +28,7 @@ export default function TermsPage() {
       <a href="/">← Back to Notely</a>
       <p style={{ marginTop: 36, letterSpacing: '.16em', fontSize: 10, color: 'var(--accent)' }}>NOTELY · TERMS</p>
       <h1 style={{ font: '500 clamp(38px,7vw,58px)/1.08 Georgia,serif', letterSpacing: '-.045em' }}>Terms of Service</h1>
-      <p style={{ fontSize: 12, color: 'var(--muted)' }}>Effective 1 November 2026 · Free web application · notelyapp.com</p>
+      <p style={{ fontSize: 12, color: 'var(--muted)' }}>Effective 1 November 2026 · Version 2026-11-01 · Free web application · notelyapp.com</p>
       <p style={{ font: '19px/1.65 Georgia,serif', color: 'var(--muted)', margin: '28px 0 38px' }}>Simple terms for a free product. Notely helps you capture and revisit your thoughts; you remain in control of your content.</p>
       {sections.map(([title, body]) => <section key={title} style={{ padding: '18px 0', borderTop: '1px solid var(--line)' }}><h2 style={{ font: '500 20px Georgia,serif', margin: '0 0 9px' }}>{title}</h2><p style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--muted)', margin: 0 }}>{body}</p></section>)}
       <nav style={{ display: 'flex', gap: 20, paddingTop: 20, borderTop: '1px solid var(--line)', fontSize: 13 }}><a href="/privacy">Privacy Policy</a><a href="/">Notely home</a></nav>

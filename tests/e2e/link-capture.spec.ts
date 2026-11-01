@@ -96,6 +96,7 @@ test.describe('Notely link capture', () => {
     await page.goto(new URL('/flow', baseURL).toString())
     await page.getByRole('link', { name: /Save a webpage/ }).click()
     await expect(page).toHaveURL(/\/flow\/links$/)
+    await expect(page.locator('.link-capture-page')).toHaveAttribute('data-hydrated', 'true')
     await page.getByLabel('Webpage URL').fill(extracted.sourceUrl)
     await page.getByRole('button', { name: 'Read page' }).click()
 
@@ -128,6 +129,7 @@ test.describe('Notely link capture', () => {
       return route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Database unavailable"}' })
     })
     await page.goto(new URL('/flow/links', baseURL).toString())
+    await expect(page.locator('.link-capture-page')).toHaveAttribute('data-hydrated', 'true')
     await page.getByLabel('Webpage URL').fill(extracted.sourceUrl)
     await page.getByRole('button', { name: 'Read page' }).click()
     await expect(page.getByRole('heading', { name: extracted.title })).toBeVisible()
@@ -156,6 +158,7 @@ test.describe('Notely link capture', () => {
       status: 401, contentType: 'application/json', body: '{"error":"Unauthorized"}',
     }))
     await page.goto(new URL('/flow/links', baseURL).toString())
+    await expect(page.locator('.link-capture-page')).toHaveAttribute('data-hydrated', 'true')
     await page.getByLabel('Webpage URL').fill('example.com/blocked-article')
     await page.getByRole('button', { name: 'Read page' }).click()
     await expect(page.locator('.link-capture-error')).toContainText('blocking automated access')
@@ -170,6 +173,7 @@ test.describe('Notely link capture', () => {
   test('keeps the link capture layout usable on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(new URL('/flow/links', baseURL).toString())
+    await expect(page.locator('.link-capture-page')).toHaveAttribute('data-hydrated', 'true')
     await expect(page.getByRole('heading', { name: 'Save the useful parts.' })).toBeVisible()
     await expect(page.getByLabel('Webpage URL')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
