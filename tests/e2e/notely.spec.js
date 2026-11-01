@@ -178,16 +178,25 @@ test('private APIs reject anonymous access and link previews block local targets
   expect(serviceWorker.status()).toBe(200)
 })
 
-test('sign-in and sign-up modal modes return cleanly to guest mode', async ({ page }) => {
+test('sign-in and sign-up modal modes enforce legal acknowledgement before account creation', async ({ page }) => {
   await page.locator('.sidebar-footer .auth-btn').click()
   await expect(page.locator('.modal-title')).toHaveText('Welcome back.')
   await expect(page.getByPlaceholder('you@example.com')).toBeVisible()
   await expect(page.getByPlaceholder('••••••••')).toBeVisible()
 
   await page.getByRole('button', { name: 'Sign up' }).click()
-  await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible()
+  const createAccount = page.getByRole('button', { name: 'Create account' })
+  const legalCheckbox = page.getByRole('checkbox')
+  await expect(legalCheckbox).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms')
+  await expect(page.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy')
+  await expect(createAccount).toBeDisabled()
+  await legalCheckbox.check()
+  await expect(createAccount).toBeEnabled()
+
   await page.locator('.modal-tabs .modal-tab').filter({ hasText: 'Sign in' }).click()
   await expect(page.getByRole('button', { name: 'Sign in' }).last()).toBeVisible()
+  await expect(page.getByRole('checkbox')).toHaveCount(0)
 
   await page.getByRole('button', { name: /Continue as guest/ }).click()
   await expect(page.locator('.modal')).toHaveCount(0)
