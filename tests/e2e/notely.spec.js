@@ -179,7 +179,7 @@ test('private APIs reject anonymous access and link previews block local targets
 })
 
 test('sign-in and sign-up modal modes enforce and transmit legal acknowledgement', async ({ page }) => {
-  let signupPayload: Record<string, unknown> | undefined
+  let signupPayload
   await page.route('**/auth/v1/signup*', async route => {
     signupPayload = route.request().postDataJSON()
     await route.fulfill({
