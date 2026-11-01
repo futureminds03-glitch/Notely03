@@ -347,6 +347,7 @@ export default function NotelyApp() {
   const [aiStatus, setAiStatus] = useState('')
   const [search, setSearch] = useState('')
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -914,16 +915,33 @@ export default function NotelyApp() {
   function handleExport() { exportTxt(title, body, startedAt) }
 
   async function handleAuth() {
-    setAuthError(''); setAuthLoading(true)
+    setAuthError('')
+    if (authMode === 'signup' && !termsAccepted) {
+      setAuthError('Please accept the Terms of Service and acknowledge the Privacy Policy to create an account.')
+      return
+    }
+    setAuthLoading(true)
     let error
     if (authMode === 'signup') {
-      ;({ error } = await supabase.auth.signUp({ email, password }))
+      const acceptedAt = new Date().toISOString()
+      ;({ error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            legal_terms_accepted: true,
+            legal_terms_version: '2026-11-01',
+            privacy_policy_version: '2026-11-01',
+            legal_accepted_at: acceptedAt,
+          },
+        },
+      }))
     } else {
       ;({ error } = await supabase.auth.signInWithPassword({ email, password }))
     }
     setAuthLoading(false)
     if (error) { setAuthError(error.message); return }
-    setShowModal(false); setEmail(''); setPassword('')
+    setShowModal(false); setEmail(''); setPassword(''); setTermsAccepted(false)
   }
 
   async function signOut() {
@@ -1119,9 +1137,9 @@ export default function NotelyApp() {
             <div className="modal-sub">Your notes, wherever you are.</div>
             <div className="modal-tabs">
               <button className={`modal-tab ${authMode === 'signin' ? 'active' : ''}`}
-                onClick={() => { setAuthMode('signin'); setAuthError('') }}>Sign in</button>
+                onClick={() => { setAuthMode('signin'); setAuthError(''); setTermsAccepted(false) }}>Sign in</button>
               <button className={`modal-tab ${authMode === 'signup' ? 'active' : ''}`}
-                onClick={() => { setAuthMode('signup'); setAuthError('') }}>Sign up</button>
+                onClick={() => { setAuthMode('signup'); setAuthError(''); setTermsAccepted(false) }}>Sign up</button>
             </div>
             <div className="field">
               <label>EMAIL</label>
@@ -1135,8 +1153,19 @@ export default function NotelyApp() {
                 autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
                 onKeyDown={e => e.key === 'Enter' && handleAuth()} />
             </div>
-            {authError && <div className="auth-error">{authError}</div>}
-            <button className="modal-submit" onClick={handleAuth} disabled={authLoading}>
+            {authMode === 'signup' && (
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, margin: '14px 0', color: 'var(--muted)', fontSize: 12, lineHeight: 1.5, textAlign: 'left' }}>
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={event => setTermsAccepted(event.target.checked)}
+                  style={{ marginTop: 2, flex: '0 0 auto' }}
+                />
+                <span>I agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms of Service</a> and acknowledge the <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.</span>
+              </label>
+            )}
+            {authError && <div className="auth-error" role="alert">{authError}</div>}
+            <button className="modal-submit" onClick={handleAuth} disabled={authLoading || (authMode === 'signup' && !termsAccepted)}>
               {authLoading ? 'Loading…' : authMode === 'signin' ? 'Sign in' : 'Create account'}
             </button>
             <div className="modal-divider">or continue without an account</div>

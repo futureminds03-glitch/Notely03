@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 }
 
 const sections = [
-  ['1. About Notely', 'Notely is a web-based note-taking and personal thinking workspace intended to be available at notelyapp.com. These terms apply when you access or use the service. If you do not agree, do not use Notely.'],
+  ['1. About Notely', 'Notely is a web-based note-taking and personal thinking workspace intended to be available at notelyapp.com. Notely is a product of FutureMinds Co. (“we”, “us” or the “operator”). These terms apply when you access or use the service. If you do not agree, do not use Notely.'],
   ['2. Free service', 'Notely is currently free to use. There are no paid plans, subscriptions, in-app purchases or payment obligations at this time. If this changes, we will present the applicable price and terms before asking you to pay.'],
   ['3. Your account', 'You are responsible for keeping your sign-in credentials secure and for activity under your account. Provide an email address you control. You can export your account data and request account deletion from Account & Privacy.'],
   ['4. Your content', 'You retain your rights to the notes, links and other content you submit. You give Notely a limited permission to store, process, back up and display that content only as needed to operate, secure and provide the features you choose to use. This permission ends when the content is deleted, subject to limited backup and security-log retention by infrastructure providers.'],
