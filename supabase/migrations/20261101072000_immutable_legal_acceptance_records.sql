@@ -67,7 +67,7 @@ returns trigger
 language plpgsql
 security invoker
 set search_path = ''
-as $
+as $func$
 begin
   if new.terms_version is distinct from '2026-11-01'
      or new.privacy_policy_version is distinct from '2026-11-01-r2'
@@ -82,7 +82,7 @@ begin
   new.source_commit_sha := '88bd72bfee4aca6e17651f7236b99ba303c0f050';
   return new;
 end;
-$;
+$func$;
 
 create trigger legal_acceptances_normalize_before_insert
 before insert on public.legal_acceptances
