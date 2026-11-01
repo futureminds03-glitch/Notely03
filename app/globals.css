@@ -10,9 +10,9 @@
   --paper-deep: #e5dfd0;
   --ink: #2c2416;
   --ink-light: #5a5040;
-  --ink-faint: #9a9080;
-  --accent: #b5541c;
-  --accent-warm: #d4742a;
+  --ink-faint: #6a5e4e;
+  --accent: #a94a17;
+  --accent-warm: #9e4718;
   --accent-faint: #f5e8dc;
   --line: rgba(44,36,22,0.10);
   --shadow: 0 2px 12px rgba(44,36,22,0.10);
@@ -83,7 +83,7 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
 
 .word-count { font-size: 10.5px; color: var(--ink-faint); }
 .save-status { font-size: 10px; color: var(--ink-faint); transition: color 0.3s; white-space: nowrap; }
-.save-status.saved { color: #7a9a5a; }
+.save-status.saved { color: #526b3a; }
 
 /* ── AI STATUS ── */
 .ai-status-bar { padding: 7px 32px; font-size: 11.5px; color: var(--accent); font-style: italic; background: var(--accent-faint); border-bottom: 1px solid var(--line); flex-shrink: 0; }
@@ -489,7 +489,7 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
 .flow-parking-item small{display:block;margin-top:5px;color:var(--ink-faint);font-size:10px}
 .flow-item-actions{display:flex;align-items:center;gap:7px;flex:none}
 .flow-icon-button{width:31px;height:31px;border:1px solid var(--line);border-radius:50%;background:transparent;color:var(--ink-faint);font-size:19px;cursor:pointer}
-.flow-icon-button:hover{border-color:#b45c54;color:#b45c54}
+.flow-icon-button:hover{border-color:#a84d43;color:#a84d43}
 .flow-empty{display:grid;justify-items:center;gap:9px;padding:60px 20px;text-align:center;color:var(--ink-light)}
 .flow-empty>span{font-size:27px;color:var(--accent)}
 .flow-empty strong{font:500 19px Georgia,serif}
