@@ -123,6 +123,8 @@ test('key interface text colors meet WCAG AA contrast against their surfaces', a
       accentOnPaper: contrast(accent, paper),
       accentOnAccentSurface: contrast(accent, accentFaint),
       whiteOnAccentHover: contrast('#ffffff', accentWarm),
+      savedStatusOnPaper: contrast('#526b3a', paper),
+      flowErrorOnPaper: contrast('#a84d43', paper),
     }
   })
   for (const [name, ratio] of Object.entries(ratios)) {
