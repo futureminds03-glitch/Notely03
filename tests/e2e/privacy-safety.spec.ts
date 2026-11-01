@@ -91,3 +91,41 @@ test.describe('Notely external AI consent boundaries', () => {
     expect([428, 503]).toContain(organize.status())
   })
 })
+
+
+test('key interface text colors meet WCAG AA contrast against their surfaces', async ({ page }) => {
+  await page.goto(baseURL)
+  const ratios = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement)
+    const parse = (value: string) => {
+      const hex = value.trim().match(/^#([0-9a-f]{6})$/i)?.[1]
+      if (!hex) throw new Error('Expected a six-digit hex color: ' + value)
+      return [0, 2, 4].map(index => parseInt(hex.slice(index, index + 2), 16) / 255)
+    }
+    const luminance = (value: string) => {
+      const channels = parse(value).map(channel => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+      return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+    }
+    const contrast = (foreground: string, background: string) => {
+      const a = luminance(foreground)
+      const b = luminance(background)
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+    }
+    const paper = root.getPropertyValue('--paper').trim()
+    const paperDeep = root.getPropertyValue('--paper-deep').trim()
+    const accent = root.getPropertyValue('--accent').trim()
+    const accentWarm = root.getPropertyValue('--accent-warm').trim()
+    const accentFaint = root.getPropertyValue('--accent-faint').trim()
+    const inkFaint = root.getPropertyValue('--ink-faint').trim()
+    return {
+      mutedOnPaper: contrast(inkFaint, paper),
+      mutedOnSidebar: contrast(inkFaint, paperDeep),
+      accentOnPaper: contrast(accent, paper),
+      accentOnAccentSurface: contrast(accent, accentFaint),
+      whiteOnAccentHover: contrast('#ffffff', accentWarm),
+    }
+  })
+  for (const [name, ratio] of Object.entries(ratios)) {
+    expect(ratio, name + ' contrast ratio').toBeGreaterThanOrEqual(4.5)
+  }
+})
