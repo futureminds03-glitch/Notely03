@@ -28,6 +28,9 @@ export async function GET() {
     const sources = await readAll((from, to) => supabase
       .from('sources').select('*').eq('user_id', user.id)
       .order('created_at', { ascending: true }).range(from, to))
+    const legalAcceptances = await readAll((from, to) => supabase
+      .from('legal_acceptances').select('*').eq('user_id', user.id)
+      .order('accepted_at', { ascending: true }).range(from, to))
 
     const documentIds = documents.map((document: { id: string }) => document.id)
     const versions: unknown[] = []
@@ -54,7 +57,7 @@ export async function GET() {
       formatVersion: 1,
       exportedAt,
       account: { id: user.id, email: user.email ?? null, createdAt: user.created_at ?? null },
-      data: { documents, documentVersions: versions, sources, documentSources, documentInsights: insights },
+      data: { documents, documentVersions: versions, sources, documentSources, documentInsights: insights, legalAcceptances },
       exclusions: ['Authentication credentials and active session tokens are never exported.', 'Derived vector embeddings are omitted because they can be regenerated from your notes.'],
     }
     const date = exportedAt.slice(0, 10)
