@@ -20,6 +20,7 @@ Notely is a lightweight personal note-taking web app focused on getting ideas do
 - **Notely Flow:** one-step brain dumps, browser voice transcription, an app-wide quick-capture overlay (`Ctrl/Cmd+Shift+Space`), a synced Parking Lot for signed-in users, AI De-Clutter, contextual resurfacing, focus timer, low-friction reading layouts, and source-linked webpage capture at `/flow/links`.
 - **Export:** download a note as a plain-text TXT file.
 - **Smart Recall:** ranked natural-language retrieval, related-memory recommendations, and source-linked Ask My Memory; cloud search is enforced by the authenticated Supabase session.
+- **Notely MCP:** an authenticated Streamable HTTP MCP endpoint for notes, Parking Lot and Smart Recall tools. See [MCP integration and current auth boundary](docs/NOTELY_MCP.md).
 - **Accounts and sync:** Supabase Auth and cloud-backed notes for signed-in users.
 - **Mobile/PWA support:** responsive mobile views, web app manifest, service worker registration, and app icon.
 
@@ -39,7 +40,7 @@ Feature availability depends on environment configuration. AI summaries, AI De-C
 | Browser regression tests | Playwright and GitHub Actions |
 | Package manager | pnpm, lockfile: pnpm-lock.yaml |
 
-See [architecture](docs/ARCHITECTURE.md), [product brief](docs/PRODUCT_BRIEF.md), and [memory engine](docs/MEMORY_ENGINE.md).
+See [architecture](docs/ARCHITECTURE.md), [Notely MCP](docs/NOTELY_MCP.md), [product brief](docs/PRODUCT_BRIEF.md), and [memory engine](docs/MEMORY_ENGINE.md).
 
 ## Quick start
 
