@@ -22,7 +22,7 @@ interface StoredNote {
 }
 
 const DB_NAME = 'notely-local'
-const DB_VERSION = 3
+const DB_VERSION = 4
 const STORE_NAME = 'notes'
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -36,6 +36,7 @@ function openDatabase(): Promise<IDBDatabase> {
       const db = request.result
       if (!db.objectStoreNames.contains('workspace')) { const workspace = db.createObjectStore('workspace', { keyPath: 'key' }); workspace.createIndex('ownerId', 'ownerId', { unique: false }) }
       if (!db.objectStoreNames.contains('tagUpdates')) { const tags = db.createObjectStore('tagUpdates', { keyPath: 'key' }); tags.createIndex('ownerId', 'ownerId', { unique: false }) }
+      if (!db.objectStoreNames.contains('imageBlobs')) db.createObjectStore('imageBlobs', { keyPath: 'id' })
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' })
         store.createIndex('ownerId', 'ownerId', { unique: false })
