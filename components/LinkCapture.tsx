@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase-client'
+import { saveOfflineNote } from '@/lib/offline-notes'
 
 type LinkResult = {
   sourceUrl: string
@@ -53,8 +55,9 @@ function noteText(result: LinkResult) {
 export default function LinkCapture() {
   const [hydrated, setHydrated] = useState(false)
   const [url, setUrl] = useState('')
+  const [offline, setOffline] = useState(false)
 
-  useEffect(() => setHydrated(true), [])
+  useEffect(() => { const update = () => setOffline(!navigator.onLine); setHydrated(true); update(); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) } }, [])
   const [useAI, setUseAI] = useState(false)
   const [result, setResult] = useState<LinkResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -136,6 +139,30 @@ export default function LinkCapture() {
     const now = new Date().toISOString()
     const sourceUrl = url.trim()
     const body = 'Source URL: ' + sourceUrl + '\n\nThis link was saved without webpage extraction. You can retry extraction later.\n\nCaptured with Notely on ' + now
+    const saveLocally = async () => {
+      const id = 'local-link-' + crypto.randomUUID()
+      const note = { id, title: 'Saved link', body, created_at: now, updated_at: now, started_at: now, tags: ['Links'], synced: false }
+      try {
+        const { data: { session } } = await createClient().auth.getSession()
+        if (session?.user.id) {
+          await saveOfflineNote(session.user.id, note, { pendingCreate: true })
+        } else {
+          let existing: unknown[] = []
+          try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); if (Array.isArray(parsed)) existing = parsed } catch { /* Start a fresh guest collection. */ }
+          localStorage.setItem('notely_notes', JSON.stringify([note, ...existing]))
+        }
+        setPlainSaved(true)
+        return true
+      } catch {
+        setError('Could not save this URL on this device. Keep the link here and try again.')
+        return false
+      }
+    }
+    if (!navigator.onLine) {
+      await saveLocally()
+      setSaving(false)
+      return
+    }
     try {
       const remote = await fetch('/api/notes', { cache: 'no-store' })
       if (remote.ok) {
@@ -148,22 +175,16 @@ export default function LinkCapture() {
         if (!response.ok) throw new Error('Could not save this link to your account. ' + (typeof data.error === 'string' ? data.error : 'Your URL is still here.'))
       } else if (remote.status === 401) {
         let existing: unknown[] = []
-        try {
-          const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]')
-          if (Array.isArray(parsed)) existing = parsed
-        } catch { /* recover with a fresh guest collection */ }
-        const note = {
-          id: 'local-link-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-          title: 'Saved link', body, created_at: now, updated_at: now, started_at: now,
-          tags: ['Links'], synced: false,
-        }
+        try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); if (Array.isArray(parsed)) existing = parsed } catch { /* Start a fresh guest collection. */ }
+        const note = { id: 'local-link-' + crypto.randomUUID(), title: 'Saved link', body, created_at: now, updated_at: now, started_at: now, tags: ['Links'], synced: false }
         localStorage.setItem('notely_notes', JSON.stringify([note, ...existing]))
       } else {
         throw new Error('Could not check your Notely account. Your URL is still here.')
       }
       setPlainSaved(true)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save this URL. Your link is still here.')
+      if (!navigator.onLine) await saveLocally()
+      else setError(cause instanceof Error ? cause.message : 'Could not save this URL. Your link is still here.')
     } finally {
       setSaving(false)
     }
@@ -180,7 +201,7 @@ export default function LinkCapture() {
           <label htmlFor="link-capture-url">Webpage URL</label>
           <div className="link-capture-input-row">
             <input id="link-capture-url" type="text" inputMode="url" spellCheck={false} autoCapitalize="off" autoComplete="url" placeholder="https://example.com/article" value={url} onChange={event => setUrl(event.target.value)} required />
-            <button type="submit" disabled={!url.trim() || loading}>{loading ? 'Reading…' : 'Read page →'}</button>
+            <button type="submit" disabled={!url.trim() || loading || offline} aria-busy={loading}>{loading ? 'Reading…' : offline ? 'Reading requires internet' : 'Read page →'}</button>
           </div>
           <small>Public webpages only. Private pages and sign-in protected content are not accessed.</small>
           <label className="link-capture-ai-consent"><input type="checkbox" checked={useAI} onChange={event => setUseAI(event.target.checked)} /> Use AI to analyze page text (sends extracted text to Groq). Off by default.</label>
