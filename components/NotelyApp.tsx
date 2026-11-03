@@ -487,6 +487,8 @@ export default function NotelyApp() {
           }
 
           if (localWritesRef.current.has(row.id)) return
+          const locallyPending = notesRef.current.find(note => note.id === row.id)
+          if (locallyPending?.synced === false) return
 
           setNotes(prev => {
             const exists = prev.some(note => note.id === row.id)
