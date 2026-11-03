@@ -18,6 +18,7 @@ interface Note {
   history?: NoteVersion[]
   tags?: string[]
   synced?: boolean
+  syncBaseUpdatedAt?: string
 }
 
 function fmtDate(iso: string) {
@@ -489,6 +490,7 @@ export default function NotelyApp() {
             created_at: row.created_at ?? new Date().toISOString(),
             updated_at: row.updated_at ?? new Date().toISOString(),
             started_at: row.started_at ?? undefined,
+            syncBaseUpdatedAt: row.updated_at ?? undefined,
           }
 
           if (localWritesRef.current.has(row.id) || notesRef.current.some(note => note.id === row.id && note.synced === false)) return
@@ -558,8 +560,8 @@ export default function NotelyApp() {
       const localById = new Map(local.notes.map(note => [note.id, note]))
       const merged = cloud.map(remote => {
         const cached = localById.get(remote.id)
-        if (cached && cached.synced === false) return cached
-        return { ...remote, synced: true }
+        if (cached && cached.synced === false) return { ...cached, syncBaseUpdatedAt: cached.syncBaseUpdatedAt ?? cached.updated_at }
+        return { ...remote, synced: true, syncBaseUpdatedAt: remote.updated_at }
       })
       const cloudIds = new Set(cloud.map(note => note.id))
       for (const cached of local.notes) {
@@ -598,24 +600,70 @@ export default function NotelyApp() {
             body: queued.body,
             started_at: queued.started_at ?? null,
             tags: queued.tags ?? [],
+            ...(!isNew && queued.syncBaseUpdatedAt ? { base_updated_at: queued.syncBaseUpdatedAt } : {}),
           }),
         })
+        if (response.status === 409 && !isNew) {
+          const conflictPayload = await response.json().catch(() => ({}))
+          const remote = conflictPayload.conflict as Note | undefined
+          if (!remote?.id) {
+            setSaveStatus('error')
+            return
+          }
+          const latestLocal = notesRef.current.find(note => note.id === queued.id) ?? queued
+          const now = new Date().toISOString()
+          const conflictCopy: Note = {
+            ...latestLocal,
+            id: `temp-${Date.now()}-conflict`,
+            title: `Conflict copy — ${latestLocal.title.trim() || 'Untitled'}`,
+            created_at: now,
+            updated_at: now,
+            started_at: now,
+            synced: false,
+            syncBaseUpdatedAt: undefined,
+            history: [...(latestLocal.history ?? []), { content: latestLocal.body, timestamp: Date.now() }],
+          }
+          const next = notesRef.current.map(note => note.id === queued.id
+            ? { ...remote, synced: true, syncBaseUpdatedAt: remote.updated_at }
+            : note)
+          next.unshift(conflictCopy)
+          notesRef.current = next
+          setNotes(next)
+          if (activeIdRef.current === queued.id) {
+            activeIdRef.current = conflictCopy.id
+            setActiveId(conflictCopy.id)
+            setTitle(conflictCopy.title)
+            setBody(conflictCopy.body)
+            activeDraftRef.current = { title: conflictCopy.title, body: conflictCopy.body }
+            setStartedAt(conflictCopy.started_at ?? null)
+          }
+          await writeOfflineState(ownerId, { notes: next, pendingDeletes: pendingDeletesRef.current })
+          continue
+        }
         if (!response.ok) {
           if (response.status >= 500 || response.status === 408 || response.status === 429) setSaveStatus('offline')
           else setSaveStatus('error')
           return
         }
         const syncedNote: Note = await response.json()
-        const latestLocal = notesRef.current.find(note => note.id === queued.id) ?? queued
-        const unchangedDuringRequest = latestLocal.title === queued.title && latestLocal.body === queued.body
+        const latestLocal = notesRef.current.find(note => note.id === queued.id)
+        if (isNew && !latestLocal) {
+          const cleanup = await fetch('/api/notes/' + syncedNote.id, { method: 'DELETE' }).catch(() => null)
+          if (!cleanup?.ok) pendingDeletesRef.current = [...pendingDeletesRef.current, syncedNote.id]
+          await writeOfflineState(ownerId, { notes: notesRef.current, pendingDeletes: pendingDeletesRef.current })
+          continue
+        }
+        const safeLocal = latestLocal ?? queued
+        const unchangedDuringRequest = safeLocal.title === queued.title && safeLocal.body === queued.body
         const replacement: Note = {
           ...syncedNote,
-          title: latestLocal.title,
-          body: latestLocal.body,
-          started_at: latestLocal.started_at ?? syncedNote.started_at,
-          tags: latestLocal.tags ?? syncedNote.tags,
-          history: latestLocal.history ?? queued.history ?? syncedNote.history,
+          title: safeLocal.title,
+          body: safeLocal.body,
+          started_at: safeLocal.started_at ?? syncedNote.started_at,
+          tags: safeLocal.tags ?? syncedNote.tags,
+          history: safeLocal.history ?? queued.history ?? syncedNote.history,
           synced: unchangedDuringRequest,
+          syncBaseUpdatedAt: syncedNote.updated_at,
         }
         const next = notesRef.current.filter(note => note.id !== syncedNote.id).map(note => note.id === queued.id ? replacement : note)
         notesRef.current = next
@@ -746,7 +794,7 @@ export default function NotelyApp() {
       const now = new Date().toISOString()
       const ownerId = userRef.current?.id
       const updated = notesRef.current.map(note => note.id === id
-        ? { ...note, title: t, body: b, started_at: sa ?? undefined, updated_at: now, synced: ownerId ? false : true }
+        ? { ...note, title: t, body: b, started_at: sa ?? undefined, updated_at: now, synced: ownerId ? false : true, syncBaseUpdatedAt: ownerId ? (note.syncBaseUpdatedAt ?? note.updated_at) : note.syncBaseUpdatedAt }
         : note)
       notesRef.current = updated
       setNotes(updated)
@@ -810,7 +858,7 @@ export default function NotelyApp() {
     if (!id) return
     const ownerId = userRef.current?.id
     const updated = notesRef.current.map(note => note.id === id
-      ? { ...note, title: t, body: b, started_at: sa ?? undefined, updated_at: new Date().toISOString(), synced: ownerId ? false : true }
+      ? { ...note, title: t, body: b, started_at: sa ?? undefined, updated_at: new Date().toISOString(), synced: ownerId ? false : true, syncBaseUpdatedAt: ownerId ? (note.syncBaseUpdatedAt ?? note.updated_at) : note.syncBaseUpdatedAt }
       : note)
     notesRef.current = updated
     setNotes(updated)
