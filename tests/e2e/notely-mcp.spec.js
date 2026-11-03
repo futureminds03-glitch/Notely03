@@ -1,7 +1,6 @@
 const { test, expect } = require('@playwright/test')
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
-const ORIGIN = new URL(BASE_URL).origin
 
 test.describe('Notely MCP discovery and authentication', () => {
   test('rejects unauthenticated MCP requests with OAuth discovery challenge', async ({ request }) => {
