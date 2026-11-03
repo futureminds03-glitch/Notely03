@@ -4,6 +4,7 @@ import { indexDocumentMemory } from '@/lib/memory-engine'
 import { exceedsNoteFieldLimits, readJsonBody } from '@/lib/request-body'
 
 interface NoteRequest {
+  id?: unknown
   title?: unknown
   body?: unknown
   started_at?: unknown
@@ -30,6 +31,7 @@ interface VersionRow {
 }
 
 function parseNoteInput(value: unknown): {
+  id?: string
   title: string
   body: string
   startedAt: string | null
@@ -38,6 +40,7 @@ function parseNoteInput(value: unknown): {
   if (typeof value !== 'object' || value === null) return null
 
   const input = value as NoteRequest
+  const id = typeof input.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.id) ? input.id : undefined
   const title = typeof input.title === 'string' ? input.title : ''
   const body = typeof input.body === 'string' ? input.body : ''
   const startedAt =
@@ -150,9 +153,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Note title, body, or tags exceed the allowed size' }, { status: 413 })
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('documents')
     .insert({
+      ...(parsed.id ? { id: parsed.id } : {}),
       user_id: user.id,
       title: parsed.title,
       body: parsed.body,
@@ -162,24 +166,41 @@ export async function POST(request: Request) {
     .select('id,user_id,title,body,started_at,status,created_at,updated_at,tags')
     .single()
 
+  let created = true
+  if (error?.code === '23505' && parsed.id) {
+    const existing = await supabase
+      .from('documents')
+      .select('id,user_id,title,body,started_at,status,created_at,updated_at,tags')
+      .eq('id', parsed.id)
+      .eq('user_id', user.id)
+      .single()
+    if (existing.data) {
+      data = existing.data
+      error = null
+      created = false
+    }
+  }
+
   if (error || !data) {
     console.error('Failed to create note:', error)
     return NextResponse.json({ error: 'Failed to create note' }, { status: 500 })
   }
 
   const document = data as DocumentRow
-  await indexDocumentMemory(supabase, document).catch(() => 'failed')
-  const { error: versionError } = await supabase
-    .from('document_versions')
-    .insert({
-      document_id: document.id,
-      version_number: 1,
-      title: document.title,
-      body: document.body,
-    })
+  if (created) {
+    await indexDocumentMemory(supabase, document).catch(() => 'failed')
+    const { error: versionError } = await supabase
+      .from('document_versions')
+      .insert({
+        document_id: document.id,
+        version_number: 1,
+        title: document.title,
+        body: document.body,
+      })
 
-  if (versionError) {
-    console.error('Failed to create initial note version:', versionError)
+    if (versionError) {
+      console.error('Failed to create initial note version:', versionError)
+    }
   }
 
   return NextResponse.json({
