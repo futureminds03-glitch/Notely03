@@ -657,6 +657,41 @@ export default function NotelyApp() {
           const ids = [...new Set([...note.body.matchAll(/!\[image\]\(notely-local:([0-9a-f-]+)\)/gi)].map(match => match[1]))]
           await Promise.all(ids.map(removeOfflineImage))
         }
+        const finalizeSyncedImages = async (bodyValue: string) => {
+          const latest = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id)
+          const activeDraftUnchanged = activeIdRef.current !== note.id ||
+            (activeDraftRef.current.title === note.title && activeDraftRef.current.body === note.body)
+          const unchanged = Boolean(latest &&
+            latest.title === note.title &&
+            latest.body === note.body &&
+            latest.updated_at === note.updated_at &&
+            JSON.stringify(latest.tags ?? []) === JSON.stringify(note.tags ?? []) &&
+            activeDraftUnchanged)
+          if (!unchanged || !latest) return
+
+          const previousMarkers = [...note.body.matchAll(/!\[image\]\(notely-(image|local):([^)]+)\)/g)]
+          const resolvedMarkers = [...bodyValue.matchAll(/!\[image\]\(notely-image:([^)]+)\)/g)]
+          const replacements = new Map<string, string>()
+          previousMarkers.forEach((marker, index) => {
+            if (marker[1] === 'local' && resolvedMarkers[index]?.[1]) replacements.set(marker[2], resolvedMarkers[index][1])
+          })
+          const replaceHistoryMarkers = (content: string) => {
+            let updated = content
+            for (const [localId, path] of replacements) {
+              updated = updated.replaceAll('![image](notely-local:' + localId + ')', '![image](notely-image:' + path + ')')
+            }
+            return updated
+          }
+          const updatedHistory = latest.history?.map(version => ({ ...version, content: replaceHistoryMarkers(version.content) }))
+          await updateCachedOfflineNote(ownerId, { ...note, body: bodyValue, ...(updatedHistory ? { history: updatedHistory } : {}) })
+          await cleanupUploadedImages()
+          if (activeIdRef.current === note.id) {
+            setBody(bodyValue)
+            activeDraftRef.current = { ...activeDraftRef.current, body: bodyValue }
+            draftByIdRef.current[note.id] = { ...activeDraftRef.current }
+            setHistory(previous => previous.map(version => ({ ...version, content: replaceHistoryMarkers(version.content) })))
+          }
+        }
         let syncedBody = note.body
         let response: Response
         const payloadFor = (bodyValue: string) => JSON.stringify({
@@ -690,16 +725,7 @@ export default function NotelyApp() {
             })
             if (!response.ok) { completedAll = false; break }
           }
-          const latestBeforeFinalize = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id)
-          const unchangedDuringUpload = Boolean(latestBeforeFinalize &&
-            latestBeforeFinalize.title === note.title &&
-            latestBeforeFinalize.body === note.body &&
-            latestBeforeFinalize.updated_at === note.updated_at &&
-            JSON.stringify(latestBeforeFinalize.tags ?? []) === JSON.stringify(note.tags ?? []))
-          if (unchangedDuringUpload) {
-            await updateCachedOfflineNote(ownerId, { ...note, body: syncedBody })
-            await cleanupUploadedImages()
-          }
+          await finalizeSyncedImages(syncedBody)
           const syncedNote: Note = { ...note, body: syncedBody, synced: true, pendingCreate: false }
           await markOfflineNoteSynced(ownerId, syncedNote)
           const latestLocal = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id) ?? syncedNote
@@ -718,16 +744,7 @@ export default function NotelyApp() {
           })
         }
         if (!response.ok) { completedAll = false; break }
-        const latestBeforeFinalize = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id)
-        const unchangedDuringUpload = Boolean(latestBeforeFinalize &&
-          latestBeforeFinalize.title === note.title &&
-          latestBeforeFinalize.body === note.body &&
-          latestBeforeFinalize.updated_at === note.updated_at &&
-          JSON.stringify(latestBeforeFinalize.tags ?? []) === JSON.stringify(note.tags ?? []))
-        if (unchangedDuringUpload) {
-          await updateCachedOfflineNote(ownerId, { ...note, body: syncedBody })
-          await cleanupUploadedImages()
-        }
+        await finalizeSyncedImages(syncedBody)
         const syncedNote: Note = { ...note, body: syncedBody, synced: true, pendingCreate: false }
         await markOfflineNoteSynced(ownerId, syncedNote)
         const latestLocal = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id) ?? syncedNote
