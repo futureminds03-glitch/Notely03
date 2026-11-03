@@ -176,3 +176,75 @@ revoke all on function public.mcp_delete_parking_item_idempotent(uuid,text,uuid,
 grant execute on function public.mcp_search_memories(uuid,text,integer,uuid) to service_role;
 grant execute on function public.mcp_create_parking_item_idempotent(uuid,text,text,text,text) to service_role;
 grant execute on function public.mcp_delete_parking_item_idempotent(uuid,text,uuid,text,text) to service_role;
+
+
+create or replace function public.mcp_restore_note_version(
+  p_user_id uuid,
+  p_client_id text,
+  p_note_id uuid,
+  p_version_number integer,
+  p_expected_updated_at timestamptz,
+  p_idempotency_key text,
+  p_request_hash text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing public.mcp_idempotency%rowtype;
+  current_note public.documents%rowtype;
+  selected_version public.document_versions%rowtype;
+  updated_note public.documents%rowtype;
+  next_version integer;
+begin
+  if p_version_number < 1 then raise exception 'VALIDATION_ERROR'; end if;
+
+  insert into public.mcp_idempotency(user_id,client_id,tool_name,idempotency_key,request_hash)
+  values(p_user_id,p_client_id,'restore_note_version',p_idempotency_key,p_request_hash)
+  on conflict do nothing;
+
+  select * into existing from public.mcp_idempotency
+  where user_id=p_user_id and client_id=p_client_id and tool_name='restore_note_version' and idempotency_key=p_idempotency_key
+  for update;
+
+  if existing.request_hash <> p_request_hash then raise exception 'IDEMPOTENCY_CONFLICT'; end if;
+  if existing.result_json is not null then return existing.result_json || jsonb_build_object('replay',true); end if;
+
+  select * into current_note from public.documents
+  where id=p_note_id and user_id=p_user_id and status='active'
+  for update;
+  if not found then raise exception 'NOT_FOUND'; end if;
+  if current_note.updated_at <> p_expected_updated_at then raise exception 'CONFLICT'; end if;
+
+  select * into selected_version from public.document_versions
+  where document_id=p_note_id and version_number=p_version_number;
+  if not found then raise exception 'NOT_FOUND'; end if;
+
+  if current_note.title = selected_version.title and current_note.body = selected_version.body then
+    update public.mcp_idempotency
+    set result_json=jsonb_build_object('ok',true,'restored',false,'note',jsonb_build_object('id',current_note.id,'title',current_note.title,'updated_at',current_note.updated_at))
+    where user_id=p_user_id and client_id=p_client_id and tool_name='restore_note_version' and idempotency_key=p_idempotency_key;
+  else
+    update public.documents set title=selected_version.title,body=selected_version.body
+    where id=p_note_id and user_id=p_user_id returning * into updated_note;
+
+    select coalesce(max(version_number),0)+1 into next_version
+    from public.document_versions where document_id=p_note_id;
+
+    insert into public.document_versions(document_id,version_number,title,body)
+    values(p_note_id,next_version,updated_note.title,updated_note.body);
+
+    update public.mcp_idempotency
+    set result_json=jsonb_build_object('ok',true,'restored',true,'restored_from_version',p_version_number,'new_version_number',next_version,
+      'note',jsonb_build_object('id',updated_note.id,'title',updated_note.title,'updated_at',updated_note.updated_at))
+    where user_id=p_user_id and client_id=p_client_id and tool_name='restore_note_version' and idempotency_key=p_idempotency_key;
+  end if;
+
+  return (select result_json from public.mcp_idempotency
+    where user_id=p_user_id and client_id=p_client_id and tool_name='restore_note_version' and idempotency_key=p_idempotency_key);
+end;
+$$;
+
+revoke all on function public.mcp_restore_note_version(uuid,text,uuid,integer,timestamptz,text,text) from public, anon, authenticated;
+grant execute on function public.mcp_restore_note_version(uuid,text,uuid,integer,timestamptz,text,text) to service_role;
