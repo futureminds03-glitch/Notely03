@@ -1138,6 +1138,7 @@ export default function NotelyApp() {
       </div>
 
       <div
+        className="offline-status"
         role="status"
         aria-live="polite"
         style={{
