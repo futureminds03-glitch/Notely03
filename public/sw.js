@@ -22,6 +22,23 @@ self.addEventListener('install', event => {
   self.skipWaiting()
 })
 
+self.addEventListener('message', event => {
+  if (event.data?.type !== 'CACHE_APP_ASSETS' || !Array.isArray(event.data.urls)) return
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE)
+    const urls = event.data.urls.slice(0, 200)
+    await Promise.all(urls.map(async value => {
+      try {
+        const url = new URL(value, self.location.origin)
+        if (url.origin !== self.location.origin || !url.pathname.startsWith('/_next/static/')) return
+        const request = new Request(url.href, { credentials: 'same-origin' })
+        const response = await fetch(request)
+        if (response.ok && response.type === 'basic') await cache.put(request, response)
+      } catch { /* A failed optional asset can be fetched again when online. */ }
+    }))
+  })())
+})
+
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
