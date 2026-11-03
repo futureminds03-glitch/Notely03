@@ -27,7 +27,7 @@ self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE)
     await cache.addAll(STATIC)
-    await Promise.all(['/', '/flow', '/memory'].map(path => cacheRouteShell(cache, path)))
+    await Promise.all(['/', '/flow', '/flow/links', '/memory', '/account', '/privacy', '/terms'].map(path => cacheRouteShell(cache, path)))
   })())
   self.skipWaiting()
 })
