@@ -8,6 +8,7 @@ interface NoteUpdateRequest {
   body?: unknown
   started_at?: unknown
   tags?: unknown
+  base_updated_at?: unknown
 }
 
 interface DocumentRow {
@@ -36,11 +37,12 @@ function parseUpdate(value: unknown): {
   body?: string
   startedAt?: string | null
   tags?: string[]
+  baseUpdatedAt?: string
 } | null {
   if (typeof value !== 'object' || value === null) return null
 
   const input = value as NoteUpdateRequest
-  const result: { title?: string; body?: string; startedAt?: string | null; tags?: string[] } = {}
+  const result: { title?: string; body?: string; startedAt?: string | null; tags?: string[]; baseUpdatedAt?: string } = {}
 
   if (input.title !== undefined) {
     if (typeof input.title !== 'string') return null
@@ -60,6 +62,10 @@ function parseUpdate(value: unknown): {
   if (input.tags !== undefined) {
     if (!Array.isArray(input.tags) || input.tags.some(tag => typeof tag !== 'string')) return null
     result.tags = input.tags.map(tag => tag.trim()).filter(Boolean).slice(0, 20)
+  }
+  if (input.base_updated_at !== undefined) {
+    if (typeof input.base_updated_at !== 'string') return null
+    result.baseUpdatedAt = input.base_updated_at
   }
 
   return result
@@ -119,6 +125,9 @@ export async function PATCH(
 
   if (beforeError || !before) {
     return NextResponse.json({ error: 'Note not found' }, { status: 404 })
+  }
+  if (parsed.baseUpdatedAt && parsed.baseUpdatedAt !== (before as DocumentRow).updated_at) {
+    return NextResponse.json({ error: 'Note changed on another device', conflict: before }, { status: 409 })
   }
 
   const updates: Record<string, unknown> = {}
