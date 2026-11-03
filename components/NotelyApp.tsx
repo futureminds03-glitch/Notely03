@@ -903,25 +903,11 @@ export default function NotelyApp() {
     if (!userRef.current || id.startsWith('temp-')) return
 
     try {
-      const response = await fetch(`/api/notes/${id}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) throw new Error('Delete failed')
+      await markOfflineNoteDeleted(userRef.current.id, id)
+      if (navigator.onLine) void syncPendingNotes(userRef.current.id)
     } catch (error) {
-      console.error('Failed to delete note:', error)
-
-      // Roll back only if the note was not replaced by a newer local state.
-      setNotes(current => {
-        const restored = current.some(note => note.id === id)
-          ? current
-          : [...current, deletedNote]
-        notesRef.current = restored
-        return restored
-      })
-
-      if (wasActive && activeIdRef.current !== id) {
-        openNote(deletedNote)
-      }
+      console.error('Could not queue note deletion:', error)
+      setSaveStatus('error')
     }
   }, [])
 
