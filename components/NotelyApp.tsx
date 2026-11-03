@@ -761,10 +761,15 @@ export default function NotelyApp() {
               return
             }
             const saved = await response.json() as Note
-            const latest = notesRef.current.map(note => note.id === id ? { ...note, ...saved, synced: true } : note)
+            const currentLocal = notesRef.current.find(note => note.id === id)
+            const unchangedDuringRequest = currentLocal?.title === t && currentLocal?.body === b
+            const latest = notesRef.current.map(note => note.id === id
+              ? { ...note, ...saved, title: currentLocal?.title ?? saved.title, body: currentLocal?.body ?? saved.body, synced: unchangedDuringRequest }
+              : note)
             notesRef.current = latest
             setNotes(latest)
             await writeOfflineState(ownerId, { notes: latest, pendingDeletes: pendingDeletesRef.current })
+            if (!unchangedDuringRequest) void syncPendingChanges()
           } catch {
             setSaveStatus('offline')
             return
@@ -1017,9 +1022,13 @@ export default function NotelyApp() {
       setAuthError(error.message)
       return
     }
-    setNotes(loadGuest())
-    notesRef.current = loadGuest()
+    const guestState = await readOfflineState<Note>('guest')
+    pendingDeletesRef.current = guestState.pendingDeletes
+    notesRef.current = guestState.notes
+    setNotes(guestState.notes)
+    storageReadyRef.current = true
     clearEditor()
+    if (guestState.notes.length > 0) openNote(guestState.notes[0])
     setMobileView('list')
   }
 
