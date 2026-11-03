@@ -414,11 +414,11 @@ export default function NotelyApp() {
 
   useEffect(() => {
     const initialAuthGeneration = authGenerationRef.current
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       // The auth event listener wins if auth changed while getUser was pending.
       if (authGenerationRef.current !== initialAuthGeneration) return
-      userRef.current = data.user
-      setUser(data.user)
+      userRef.current = data.session?.user ?? null
+      setUser(data.session?.user ?? null)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       authGenerationRef.current += 1
