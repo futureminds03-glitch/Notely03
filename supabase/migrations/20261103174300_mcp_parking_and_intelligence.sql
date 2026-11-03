@@ -248,3 +248,140 @@ $$;
 
 revoke all on function public.mcp_restore_note_version(uuid,text,uuid,integer,timestamptz,text,text) from public, anon, authenticated;
 grant execute on function public.mcp_restore_note_version(uuid,text,uuid,integer,timestamptz,text,text) to service_role;
+
+
+create or replace function public.mcp_create_note_idempotent_v2(
+  p_user_id uuid,
+  p_client_id text,
+  p_title text,
+  p_body text,
+  p_tags text[],
+  p_started_at timestamptz,
+  p_idempotency_key text,
+  p_request_hash text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing public.mcp_idempotency%rowtype;
+  created public.documents%rowtype;
+  safe_tags text[] := coalesce(p_tags, '{}'::text[]);
+begin
+  if p_user_id is null or p_body is null or length(p_body) > 20000 or length(coalesce(p_title,'')) > 500
+    or cardinality(safe_tags) > 20 or exists(select 1 from unnest(safe_tags) t where length(t) > 80) then
+    raise exception 'VALIDATION_ERROR';
+  end if;
+
+  insert into public.mcp_idempotency(user_id,client_id,tool_name,idempotency_key,request_hash)
+  values(p_user_id,p_client_id,'create_note',p_idempotency_key,p_request_hash)
+  on conflict do nothing;
+
+  select * into existing from public.mcp_idempotency
+  where user_id=p_user_id and client_id=p_client_id and tool_name='create_note' and idempotency_key=p_idempotency_key
+  for update;
+
+  if existing.request_hash <> p_request_hash then raise exception 'IDEMPOTENCY_CONFLICT'; end if;
+  if existing.result_json is not null then return existing.result_json || jsonb_build_object('replay',true); end if;
+
+  insert into public.documents(user_id,title,body,started_at,tags,provenance)
+  values(p_user_id,coalesce(p_title,''),p_body,coalesce(p_started_at,now()),safe_tags,'user_created')
+  returning * into created;
+
+  insert into public.document_versions(document_id,version_number,title,body)
+  values(created.id,1,created.title,created.body);
+
+  update public.mcp_idempotency
+  set result_json=jsonb_build_object('ok',true,'note',jsonb_build_object(
+    'id',created.id,'user_id',created.user_id,'title',created.title,'body',created.body,'tags',created.tags,
+    'started_at',created.started_at,'status',created.status,'created_at',created.created_at,'updated_at',created.updated_at,
+    'archived_at',created.archived_at,'provenance',created.provenance
+  ))
+  where user_id=p_user_id and client_id=p_client_id and tool_name='create_note' and idempotency_key=p_idempotency_key;
+
+  return (select result_json from public.mcp_idempotency
+    where user_id=p_user_id and client_id=p_client_id and tool_name='create_note' and idempotency_key=p_idempotency_key);
+end;
+$$;
+
+create or replace function public.mcp_update_note_v2(
+  p_user_id uuid,
+  p_client_id text,
+  p_note_id uuid,
+  p_expected_updated_at timestamptz,
+  p_title text,
+  p_has_title boolean,
+  p_body text,
+  p_has_body boolean,
+  p_tags text[],
+  p_has_tags boolean,
+  p_idempotency_key text,
+  p_request_hash text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing public.mcp_idempotency%rowtype;
+  current_note public.documents%rowtype;
+  updated_note public.documents%rowtype;
+  next_version integer;
+  safe_tags text[] := coalesce(p_tags, '{}'::text[]);
+begin
+  if p_user_id is null or (not p_has_title and not p_has_body and not p_has_tags)
+    or (p_has_title and length(coalesce(p_title,'')) > 500)
+    or (p_has_body and (p_body is null or length(p_body) > 20000))
+    or (p_has_tags and (cardinality(safe_tags) > 20 or exists(select 1 from unnest(safe_tags) t where length(t) > 80))) then
+    raise exception 'VALIDATION_ERROR';
+  end if;
+
+  insert into public.mcp_idempotency(user_id,client_id,tool_name,idempotency_key,request_hash)
+  values(p_user_id,p_client_id,'update_note',p_idempotency_key,p_request_hash)
+  on conflict do nothing;
+
+  select * into existing from public.mcp_idempotency
+  where user_id=p_user_id and client_id=p_client_id and tool_name='update_note' and idempotency_key=p_idempotency_key
+  for update;
+
+  if existing.request_hash <> p_request_hash then raise exception 'IDEMPOTENCY_CONFLICT'; end if;
+  if existing.result_json is not null then return existing.result_json || jsonb_build_object('replay',true); end if;
+
+  select * into current_note from public.documents
+  where id=p_note_id and user_id=p_user_id and status='active'
+  for update;
+  if not found then raise exception 'NOT_FOUND'; end if;
+  if current_note.updated_at <> p_expected_updated_at then raise exception 'CONFLICT'; end if;
+
+  update public.documents set
+    title=case when p_has_title then p_title else title end,
+    body=case when p_has_body then p_body else body end,
+    tags=case when p_has_tags then safe_tags else tags end
+  where id=p_note_id and user_id=p_user_id
+  returning * into updated_note;
+
+  if updated_note.title <> current_note.title or updated_note.body <> current_note.body then
+    select coalesce(max(version_number),0)+1 into next_version
+    from public.document_versions where document_id=p_note_id;
+    insert into public.document_versions(document_id,version_number,title,body)
+    values(p_note_id,next_version,updated_note.title,updated_note.body);
+  end if;
+
+  update public.mcp_idempotency
+  set result_json=jsonb_build_object('ok',true,'note',jsonb_build_object(
+    'id',updated_note.id,'user_id',updated_note.user_id,'title',updated_note.title,'body',updated_note.body,'tags',updated_note.tags,
+    'started_at',updated_note.started_at,'status',updated_note.status,'created_at',updated_note.created_at,
+    'updated_at',updated_note.updated_at,'archived_at',updated_note.archived_at,'provenance',updated_note.provenance
+  ))
+  where user_id=p_user_id and client_id=p_client_id and tool_name='update_note' and idempotency_key=p_idempotency_key;
+
+  return (select result_json from public.mcp_idempotency
+    where user_id=p_user_id and client_id=p_client_id and tool_name='update_note' and idempotency_key=p_idempotency_key);
+end;
+$$;
+
+revoke all on function public.mcp_create_note_idempotent_v2(uuid,text,text,text,text[],timestamptz,text,text) from public, anon, authenticated;
+revoke all on function public.mcp_update_note_v2(uuid,text,uuid,timestamptz,text,boolean,text,boolean,text[],boolean,text,text) from public, anon, authenticated;
+grant execute on function public.mcp_create_note_idempotent_v2(uuid,text,text,text,text[],timestamptz,text,text) to service_role;
+grant execute on function public.mcp_update_note_v2(uuid,text,uuid,timestamptz,text,boolean,text,boolean,text[],boolean,text,text) to service_role;
