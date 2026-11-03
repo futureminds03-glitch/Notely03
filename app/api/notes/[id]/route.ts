@@ -136,15 +136,28 @@ export async function PATCH(
   if (parsed.startedAt !== undefined) updates.started_at = parsed.startedAt
   if (parsed.tags !== undefined) updates.tags = parsed.tags
 
-  const { data, error } = await supabase
+  let updateQuery = supabase
     .from('documents')
     .update(updates)
     .eq('id', id)
     .eq('user_id', user.id)
+  if (parsed.baseUpdatedAt) updateQuery = updateQuery.eq('updated_at', parsed.baseUpdatedAt)
+  const { data, error } = await updateQuery
     .select('id,user_id,title,body,started_at,created_at,updated_at,tags')
     .single()
 
   if (error || !data) {
+    if (parsed.baseUpdatedAt) {
+      const { data: latest } = await supabase
+        .from('documents')
+        .select('id,user_id,title,body,started_at,created_at,updated_at,tags')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (latest) {
+        return NextResponse.json({ error: 'Note changed on another device', conflict: latest }, { status: 409 })
+      }
+    }
     console.error('Failed to update note:', error)
     return NextResponse.json({ error: 'Failed to update note' }, { status: 500 })
   }
