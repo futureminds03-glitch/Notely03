@@ -169,7 +169,10 @@ async function callTool(name: string, args: Record<string, unknown>, supabase: R
 
 export async function POST(request: Request) {
   const auth = await authenticate(request)
-  if ('error' in auth) {\n    const metadataUrl = new URL('/.well-known/oauth-protected-resource/api/mcp', new URL(request.url).origin).toString()\n    return Response.json({ error: auth.error }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*', 'WWW-Authenticate': 'Bearer resource_metadata=\\\"' + metadataUrl + '\\\"' } })\n  }
+  if ('error' in auth) {
+    const metadataUrl = new URL('/.well-known/oauth-protected-resource/api/mcp', new URL(request.url).origin).toString()
+    return Response.json({ error: auth.error }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*', 'WWW-Authenticate': `Bearer resource_metadata="${metadataUrl}"` } })
+  }
 
   const raw = await request.text()
   if (raw.length > MAX_REQUEST_BYTES) return Response.json({ error: 'Request too large.' }, { status: 413, headers: { 'Access-Control-Allow-Origin': '*' } })
