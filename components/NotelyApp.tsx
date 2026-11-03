@@ -686,7 +686,7 @@ export default function NotelyApp() {
     setShowTimeMachine(false)
     creationInFlightRef.current = true
     const now = new Date().toISOString()
-    const tempId = `temp-${Date.now()}`
+    const tempId = userRef.current ? crypto.randomUUID() : `temp-${Date.now()}`
     const captureTimestamp = Date.now()
     // Let openNote flush the previous note's pending autosave before switching IDs.
     const tempNote: Note = {
@@ -698,12 +698,14 @@ export default function NotelyApp() {
       started_at: now,
       history: [{ content: '', timestamp: captureTimestamp }],
       synced: false,
+      pendingCreate: Boolean(userRef.current),
     }
     draftByIdRef.current[tempId] = { title: '', body: '' }
     const updated = [tempNote, ...notesRef.current]
     notesRef.current = updated
     setNotes(updated)
     if (!userRef.current) saveGuest(updated)
+    else void saveOfflineNote(userRef.current.id, tempNote, { pendingCreate: true }).then(() => syncPendingNotes(userRef.current!.id)).catch(error => console.error('Could not queue new note:', error))
     openNote(tempNote)
     setTimeout(() => {
       // The editor may already be focused by the time this deferred focus runs.
@@ -721,49 +723,7 @@ export default function NotelyApp() {
       titleField?.focus()
     }, 50)
 
-    if (userRef.current) {
-      try {
-        const res = await fetch('/api/notes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: '', body: '', started_at: now })
-        })
-        if (res.ok) {
-          const cloud: Note = await res.json()
-          const draft = draftByIdRef.current[tempId] ?? { title: '', body: '' }
-          const draftTitle = draft.title
-          const draftBody = draft.body
-          const draftStartedAt = tempNote.started_at ?? cloud.started_at ?? now
-
-          setNotes(prev => prev.map(n =>
-            n.id === tempId
-              ? { ...cloud, title: draftTitle, body: draftBody, started_at: draftStartedAt, history: tempNote.history, synced: true }
-              : n
-          ))
-          delete draftByIdRef.current[tempId]
-          draftByIdRef.current[cloud.id] = { title: draftTitle, body: draftBody }
-          if (activeIdRef.current === tempId) {
-            activeIdRef.current = cloud.id
-            startedAtRef.current = draftStartedAt
-            setActiveId(cloud.id)
-            setTitle(draftTitle)
-            setBody(draftBody)
-            activeDraftRef.current = { title: draftTitle, body: draftBody }
-            setStartedAt(draftStartedAt)
-          }
-
-          if (draftTitle || draftBody) {
-            await doSave(cloud.id, draftTitle, draftBody, draftStartedAt)
-          }
-        }
-      } catch {
-        setSaveStatus('error')
-      } finally {
-        creationInFlightRef.current = false
-      }
-    } else {
-      creationInFlightRef.current = false
-    }
+    creationInFlightRef.current = false
   }
 
   const doSave = useCallback(async (id: string, t: string, b: string, sa: string | null) => {
