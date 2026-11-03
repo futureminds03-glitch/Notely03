@@ -3,7 +3,8 @@
 ## System overview
 
     Browser / PWA
-      └─ Next.js client UI (React)
+      ├─ Next.js client UI (React)
+      └─ MCP clients → /api/mcp → Supabase Auth + owner-scoped Postgres/RLS
           ├─ Guest notes ───────────── browser localStorage
           ├─ Auth ──────────────────── Supabase Auth
           ├─ Note CRUD ─────────────── Next.js route handlers
