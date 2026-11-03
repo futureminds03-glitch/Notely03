@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { getPendingParking, remapOfflineParking, removeOfflineParking, saveOfflineParking } from '@/lib/offline-workspace'
+import { getPendingOfflineTagUpdates, getPendingParking, remapOfflineParking, removeOfflineParking, removeOfflineTagUpdate, saveOfflineParking } from '@/lib/offline-workspace'
 
 const PARKING_KEY = 'notely_parking_lot_v1'
 
@@ -35,6 +35,9 @@ export default function GlobalParkingCapture() {
     if (!ownerId) return
     const sync = async () => {
       if (!navigator.onLine) return
+      for (const update of await getPendingOfflineTagUpdates(ownerId).catch(() => [])) {
+        try { const response = await fetch('/api/notes/' + encodeURIComponent(update.noteId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tags: update.tags }) }); if (!response.ok) break; await removeOfflineTagUpdate(ownerId, update.noteId) } catch { break }
+      }
       for (const record of await getPendingParking(ownerId).catch(() => [])) {
         if (record.pendingDelete) { try { if (!record.item.id.startsWith('local-')) { const response = await fetch('/api/parking-lot?id=' + encodeURIComponent(record.item.id), { method: 'DELETE' }); if (!response.ok && response.status !== 404) break } await removeOfflineParking(ownerId, record.item.id); continue } catch { break } }
         try { const response = await fetch('/api/parking-lot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: record.item.text, client_id: record.item.id }) }); if (!response.ok) break; const saved = await response.json() as ParkingItem; await remapOfflineParking(ownerId, record.item.id, saved); window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: saved })) } catch { break }
@@ -42,7 +45,8 @@ export default function GlobalParkingCapture() {
     }
     sync()
     window.addEventListener('online', sync)
-    return () => window.removeEventListener('online', sync)
+    window.addEventListener('notely:sync-requested', sync)
+    return () => { window.removeEventListener('online', sync); window.removeEventListener('notely:sync-requested', sync) }
   }, [ownerId])
 
   useEffect(() => {
