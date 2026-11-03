@@ -1,6 +1,9 @@
 const { test, expect } = require('@playwright/test')
 
-const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'\nconst ORIGIN = new URL(BASE_URL).origin\n\ntest.describe('Notely MCP discovery and authentication', () => {
+const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
+const ORIGIN = new URL(BASE_URL).origin
+
+test.describe('Notely MCP discovery and authentication', () => {
   test('rejects unauthenticated MCP requests with OAuth discovery challenge', async ({ request }) => {
     const response = await request.post(`${BASE_URL}/api/mcp`, {
       data: { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } },
@@ -10,7 +13,7 @@ const BASE_URL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'\nconst ORIG
   })
 
   test('rejects malformed bearer credentials', async ({ request }) => {
-    const response = await request.post('/api/mcp', {
+    const response = await request.post(`${BASE_URL}/api/mcp`, {
       headers: { authorization: 'Basic not-a-token' },
       data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
     })
