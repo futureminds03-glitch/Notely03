@@ -57,7 +57,7 @@ jobs:
       - name: Install application and Playwright dependencies
         run: npm install --no-save --package-lock=false @playwright/test
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Build application
         run: npm run build
       - name: Start local production server
