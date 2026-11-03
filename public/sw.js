@@ -66,7 +66,7 @@ self.addEventListener('fetch', event => {
         }
         return response
       } catch {
-        const cached = await caches.match('/')
+        const cached = await caches.match(url.pathname) || await caches.match('/')
         return cached || new Response('Notely is offline. Reconnect once to load the app, then your notes will be available offline.', {
           status: 503,
           headers: { 'Content-Type': 'text/plain; charset=utf-8' },
