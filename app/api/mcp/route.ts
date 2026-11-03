@@ -24,10 +24,10 @@ const tools = [
 ] as const
 
 function response(id: string | number | null | undefined, result: unknown, status = 200) {
-  return Response.json({ jsonrpc: '2.0', id: id ?? null, result }, { status, headers: { 'MCP-Protocol-Version': PROTOCOL_VERSION } })
+  return Response.json({ jsonrpc: '2.0', id: id ?? null, result }, { status, headers: { 'MCP-Protocol-Version': PROTOCOL_VERSION, 'Access-Control-Allow-Origin': '*' } })
 }
 function rpcError(id: string | number | null | undefined, code: number, message: string, status = 200) {
-  return Response.json({ jsonrpc: '2.0', id: id ?? null, error: { code, message } }, { status, headers: { 'MCP-Protocol-Version': PROTOCOL_VERSION } })
+  return Response.json({ jsonrpc: '2.0', id: id ?? null, error: { code, message } }, { status, headers: { 'MCP-Protocol-Version': PROTOCOL_VERSION, 'Access-Control-Allow-Origin': '*' } })
 }
 function toolResult(value: unknown): ToolResult {
   const text = JSON.stringify(value, null, 2)
@@ -137,10 +137,10 @@ async function callTool(name: string, args: Record<string, unknown>, supabase: R
 
 export async function POST(request: Request) {
   const auth = await authenticate(request)
-  if ('error' in auth) return Response.json({ error: auth.error }, { status: 401 })
+  if ('error' in auth) return Response.json({ error: auth.error }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } })
 
   const raw = await request.text()
-  if (raw.length > MAX_REQUEST_BYTES) return Response.json({ error: 'Request too large.' }, { status: 413 })
+  if (raw.length > MAX_REQUEST_BYTES) return Response.json({ error: 'Request too large.' }, { status: 413, headers: { 'Access-Control-Allow-Origin': '*' } })
   let message: JsonRpcRequest
   try { message = JSON.parse(raw) as JsonRpcRequest } catch { return rpcError(null, -32700, 'Parse error.') }
   if (message.jsonrpc !== '2.0' || typeof message.method !== 'string') return rpcError(message.id, -32600, 'Invalid Request.')
