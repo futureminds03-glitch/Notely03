@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 
-export const OAUTH_SCOPES = ['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read'] as const
+export const OAUTH_SCOPES = ['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read','parking:read','parking:write'] as const
 export type OAuthScope = (typeof OAUTH_SCOPES)[number]
 
 export type OAuthClient = {
