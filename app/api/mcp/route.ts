@@ -169,7 +169,7 @@ async function callTool(name: string, args: Record<string, unknown>, supabase: R
 
 export async function POST(request: Request) {
   const auth = await authenticate(request)
-  if ('error' in auth) return Response.json({ error: auth.error }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*' } })
+  if ('error' in auth) {\n    const metadataUrl = new URL('/.well-known/oauth-protected-resource/api/mcp', new URL(request.url).origin).toString()\n    return Response.json({ error: auth.error }, { status: 401, headers: { 'Access-Control-Allow-Origin': '*', 'WWW-Authenticate': 'Bearer resource_metadata=\\\"' + metadataUrl + '\\\"' } })\n  }
 
   const raw = await request.text()
   if (raw.length > MAX_REQUEST_BYTES) return Response.json({ error: 'Request too large.' }, { status: 413, headers: { 'Access-Control-Allow-Origin': '*' } })
@@ -199,5 +199,5 @@ export async function GET() {
 }
 
 export async function OPTIONS() {
-  return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, content-type, mcp-protocol-version', 'Access-Control-Expose-Headers': 'MCP-Protocol-Version', 'Access-Control-Max-Age': '86400' } })
+  return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'authorization, content-type, mcp-protocol-version', 'Access-Control-Expose-Headers': 'MCP-Protocol-Version, WWW-Authenticate', 'Access-Control-Max-Age': '86400' } })
 }
