@@ -115,13 +115,24 @@ export async function cacheSyncedOfflineNote(ownerId: string, note: OfflineNote)
 
 export async function markOfflineNoteSynced(ownerId: string, note: OfflineNote): Promise<void> {
   const key = storageKey(ownerId, note.id)
+  const existing = await withStore<StoredNote | undefined>('readonly', store => store.get(key))
+  const latest = existing?.note
+  const changedDuringSync = Boolean(latest && (
+    latest.title !== note.title ||
+    latest.body !== note.body ||
+    latest.updated_at !== note.updated_at ||
+    JSON.stringify(latest.tags ?? []) !== JSON.stringify(note.tags ?? [])
+  ))
+  const nextNote = changedDuringSync
+    ? { ...latest!, synced: false, pendingCreate: false }
+    : { ...note, synced: true, pendingCreate: false }
   await withStore<IDBValidKey>('readwrite', store => store.put({
     key,
     ownerId,
-    note: { ...note, synced: true, pendingCreate: false },
+    note: nextNote,
     pendingCreate: false,
-    pendingUpdate: false,
-    pendingDelete: false,
+    pendingUpdate: changedDuringSync,
+    pendingDelete: existing?.pendingDelete ?? false,
   } satisfies StoredNote))
 }
 
