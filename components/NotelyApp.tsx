@@ -495,7 +495,7 @@ export default function NotelyApp() {
       setWorkspaceReady(true)
     }
     return () => { active = false }
-  }, [user?.id, authReady]
+  }, [user?.id, authReady])
 
   useEffect(() => {
     if (!user) return
