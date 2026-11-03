@@ -28,7 +28,7 @@ test.describe('Notely privacy and cache boundaries', () => {
         pathname === '/icon.svg' ||
         (pathname.startsWith('/_next/static/') &&
           /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(pathname))
-      expect(pathname, 'only the generic app shell or public immutable assets may be cached').toMatch(
+      expect(pathname, 'only generic app route shells or public immutable assets may be cached').toMatch(
         /^(?:\/|\/flow|\/memory|\/manifest\.json|\/favicon\.svg|\/icon\.svg|\/_next\/static\/.*)$/
       )
       expect(isPublicStaticAsset, pathname).toBe(true)
