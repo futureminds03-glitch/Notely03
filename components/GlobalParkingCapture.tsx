@@ -67,15 +67,17 @@ export default function GlobalParkingCapture() {
     setError('')
     const item: ParkingItem = { id: 'local-' + crypto.randomUUID(), text: thought, createdAt: new Date().toISOString() }
     let queuedOffline = false
+    let effectiveOwnerId = ownerId
     try {
-      if (ownerId) {
-        await saveOfflineParking(ownerId, item)
+      if (!effectiveOwnerId) { try { const session = await createClient().auth.getSession(); effectiveOwnerId = session.data.session?.user.id ?? null; if (effectiveOwnerId) setOwnerId(effectiveOwnerId) } catch { /* Guest capture remains available without auth configuration. */ } }
+      if (effectiveOwnerId) {
+        await saveOfflineParking(effectiveOwnerId, item)
         if (navigator.onLine) {
           try {
             const response = await fetch('/api/parking-lot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: thought, client_id: item.id }) })
             if (!response.ok) throw new Error('Your thought is saved here and will sync when you reconnect.')
             const savedItem = await response.json() as ParkingItem
-            await remapOfflineParking(ownerId, item.id, savedItem)
+            await remapOfflineParking(effectiveOwnerId, item.id, savedItem)
             window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: savedItem }))
           } catch {
             window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: item }))
