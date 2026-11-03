@@ -8,7 +8,7 @@ function openDb():Promise<IDBDatabase>{
  return new Promise((resolve,reject)=>{
   if(typeof indexedDB==='undefined'){reject(new Error('IndexedDB is unavailable'));return}
   const request=indexedDB.open(DB,2)
-  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(STORE)){const store=db.createObjectStore(STORE,{keyPath:'key'});store.createIndex('ownerId','ownerId',{unique:false})}}
+  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('notes')){const notes=db.createObjectStore('notes',{keyPath:'key'});notes.createIndex('ownerId','ownerId',{unique:false})}if(!db.objectStoreNames.contains(STORE)){const store=db.createObjectStore(STORE,{keyPath:'key'});store.createIndex('ownerId','ownerId',{unique:false})}}
   request.onsuccess=()=>resolve(request.result)
   request.onerror=()=>reject(request.error??new Error('Could not open offline workspace'))
  })
