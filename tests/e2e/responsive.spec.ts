@@ -144,3 +144,56 @@ test.describe('Responsive regression guards', () => {
     }
   });
 })
+
+
+test('Time Travel is hidden when a note has no prior version to travel to', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('notely_notes', JSON.stringify([{
+      id: 'single-version-note', title: 'No history yet', body: 'Only one saved version.',
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      history: [{ content: 'Only one saved version.', timestamp: Date.now() }],
+    }]))
+  })
+  await page.goto(new URL('/', baseURL).toString())
+  await expect(page.locator('.time-travel-bar')).toHaveCount(0)
+  await page.evaluate(() => {
+    const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
+    notes[0].history.push({ content: 'Earlier saved version.', timestamp: Date.now() - 60000 })
+    localStorage.setItem('notely_notes', JSON.stringify(notes))
+  })
+  await page.reload()
+  await expect(page.locator('.time-travel-bar')).toHaveCount(1)
+})
+
+test('all standalone workspaces and documents scroll to the end without visible scrollbars', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 568 })
+  const routes = [
+    { path: '/flow', selector: '.flow-page' },
+    { path: '/flow/links', selector: '.link-capture-page' },
+    { path: '/memory', selector: '.memory-studio-scroll' },
+    { path: '/account', selector: '.account-page' },
+    { path: '/privacy', selector: '.legal-document-page' },
+    { path: '/terms', selector: '.legal-document-page' },
+  ]
+  for (const route of routes) {
+    await page.goto(new URL(route.path, baseURL).toString())
+    const surface = page.locator(route.selector)
+    await expect(surface).toBeVisible()
+    const result = await surface.evaluate(element => {
+      const style = getComputedStyle(element)
+      const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight)
+      element.scrollTop = maxScroll
+      return {
+        overflowY: style.overflowY,
+        scrollHeight: element.scrollHeight,
+        clientHeight: element.clientHeight,
+        scrollTop: element.scrollTop,
+        maxScroll,
+        scrollbarWidth: getComputedStyle(document.documentElement).scrollbarWidth,
+      }
+    })
+    expect(result.overflowY).toMatch(/auto|scroll/)
+    expect(result.scrollTop).toBeGreaterThanOrEqual(result.maxScroll - 1)
+    expect(result.scrollbarWidth).toBe('none')
+  }
+})
