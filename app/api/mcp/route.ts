@@ -416,6 +416,101 @@ export function buildServer(request: Request, info?: AuthInfo) {
     return result(data)
   })
 
+
+  registerTool(server, request, auth, 'list_tags', 'READ', 'notes', ['notes:read'], 'List active-note tags and their usage counts.', z.object({}), async (ctx) => {
+    const { data, error } = await client.from('documents').select('tags').eq('user_id', ctx.userId).eq('status', 'active').limit(1000)
+    if (error) throw new Error('INTERNAL_ERROR')
+    const counts = new Map<string, number>()
+    for (const row of data ?? []) for (const tag of row.tags ?? []) if (typeof tag === 'string' && tag.trim()) counts.set(tag.trim(), (counts.get(tag.trim()) ?? 0) + 1)
+    return result({ tags: Array.from(counts, ([tag, note_count]) => ({ tag, note_count })).sort((a, b) => a.tag.localeCompare(b.tag)) })
+  })
+
+  registerTool(server, request, auth, 'get_note_insights', 'READ', 'intelligence', ['intelligence:read'], 'Retrieve extracted summary, topics, entities and action items for one owned note.', z.object({ note_id: z.string().uuid() }), async (ctx, input) => {
+    const owner = await client.from('documents').select('id').eq('id', input.note_id).eq('user_id', ctx.userId).maybeSingle()
+    if (owner.error) throw new Error('INTERNAL_ERROR')
+    if (!owner.data) throw new Error('NOT_FOUND')
+    const { data, error } = await client.from('document_insights').select('summary,sentiment,key_topics,entities,action_items,created_at,extracted_at,source_hash').eq('document_id', input.note_id).maybeSingle()
+    if (error) throw new Error('INTERNAL_ERROR')
+    return result({ note_id: input.note_id, insights: data ?? null })
+  })
+
+  registerTool(server, request, auth, 'search_smart_recall', 'READ', 'intelligence', ['intelligence:read'], 'Search ranked Notely memories using lexical, title, tag and extracted-insight matches. Does not call an external AI provider.', z.object({
+    query: z.string().min(2).max(500), limit: z.number().int().min(1).max(20).default(8)
+  }), async (ctx, input) => {
+    const query = safeQuery(input.query)
+    if (!query) throw new Error('VALIDATION_ERROR')
+    const { data, error } = await client.rpc('mcp_search_memories', {
+      p_user_id: ctx.userId, p_search_text: query, p_result_limit: input.limit, p_exclude_id: null
+    })
+    if (error) throw new Error('INTERNAL_ERROR')
+    const sources = (data ?? []).map((row: { id: string; title: string; body: string; created_at: string; updated_at: string; tags: string[]; score: number; key_topics: unknown; entities: unknown; action_items: unknown; match_reasons: unknown }) => ({
+      id: row.id, title: row.title || 'Untitled memory', excerpt: row.body.slice(0, 420),
+      created_at: row.created_at, updated_at: row.updated_at, tags: row.tags ?? [],
+      score: Number(row.score) || 0, key_topics: row.key_topics ?? [], entities: row.entities ?? [],
+      action_items: row.action_items ?? [], match_reasons: row.match_reasons ?? []
+    }))
+    return result({ query, count: sources.length, mode: 'ranked-search', sources })
+  })
+
+  registerTool(server, request, auth, 'get_related_memories', 'READ', 'intelligence', ['intelligence:read'], 'Find related memories for one owned note, excluding the source note itself.', z.object({
+    note_id: z.string().uuid(), limit: z.number().int().min(1).max(10).default(5)
+  }), async (ctx, input) => {
+    const { data: note, error: noteError } = await client.from('documents').select('id,title,body').eq('id', input.note_id).eq('user_id', ctx.userId).eq('status', 'active').maybeSingle()
+    if (noteError) throw new Error('INTERNAL_ERROR')
+    if (!note) throw new Error('NOT_FOUND')
+    const query = safeQuery([note.title, note.body.slice(0, 1200)].filter(Boolean).join(' '))
+    const { data, error } = await client.rpc('mcp_search_memories', {
+      p_user_id: ctx.userId, p_search_text: query, p_result_limit: input.limit, p_exclude_id: input.note_id
+    })
+    if (error) throw new Error('INTERNAL_ERROR')
+    return result({ note_id: input.note_id, related: (data ?? []).map((row: { id: string; title: string; body: string; score: number; tags: string[]; match_reasons: unknown }) => ({
+      id: row.id, title: row.title || 'Untitled memory', excerpt: row.body.slice(0, 420),
+      score: Number(row.score) || 0, tags: row.tags ?? [], match_reasons: row.match_reasons ?? []
+    })) })
+  })
+
+  registerTool(server, request, auth, 'get_parking_lot', 'READ', 'parking', ['parking:read'], 'Read the authenticated user’s synced Parking Lot thoughts.', z.object({
+    limit: z.number().int().min(1).max(100).default(50)
+  }), async (ctx, input) => {
+    const { data, error } = await client.from('documents').select('id,title,body,created_at,updated_at').eq('user_id', ctx.userId).eq('status', 'parking').order('created_at', { ascending: false }).limit(input.limit)
+    if (error) throw new Error('INTERNAL_ERROR')
+    return result({ count: data?.length ?? 0, thoughts: data ?? [] })
+  })
+
+  registerTool(server, request, auth, 'capture_to_parking_lot', 'WRITE', 'parking', ['parking:write'], 'Save a thought to the synced Parking Lot without requiring organization. Uses atomic idempotency.', z.object({
+    text: z.string().min(1).max(12000), idempotency_key: z.string().min(8).max(128)
+  }), async (ctx, input) => {
+    const text = input.text.trim()
+    if (!text) throw new Error('VALIDATION_ERROR')
+    const requestHash = await sha256(JSON.stringify({ text }))
+    const { data, error } = await client.rpc('mcp_create_parking_item_idempotent', {
+      p_user_id: ctx.userId, p_client_id: ctx.clientId, p_body: text,
+      p_idempotency_key: input.idempotency_key, p_request_hash: requestHash
+    })
+    if (error) {
+      if (error.message.includes('IDEMPOTENCY_CONFLICT')) throw new Error('IDEMPOTENCY_CONFLICT')
+      if (error.message.includes('VALIDATION_ERROR')) throw new Error('VALIDATION_ERROR')
+      throw new Error('INTERNAL_ERROR')
+    }
+    return result(data)
+  })
+
+  registerTool(server, request, auth, 'delete_parking_item', 'DELETE', 'parking', ['parking:write'], 'Permanently remove one owned Parking Lot thought. This does not delete regular notes.', z.object({
+    item_id: z.string().uuid(), idempotency_key: z.string().min(8).max(128)
+  }), async (ctx, input) => {
+    const requestHash = await sha256(JSON.stringify({ item_id: input.item_id }))
+    const { data, error } = await client.rpc('mcp_delete_parking_item_idempotent', {
+      p_user_id: ctx.userId, p_client_id: ctx.clientId, p_item_id: input.item_id,
+      p_idempotency_key: input.idempotency_key, p_request_hash: requestHash
+    })
+    if (error) {
+      if (error.message.includes('IDEMPOTENCY_CONFLICT')) throw new Error('IDEMPOTENCY_CONFLICT')
+      if (error.message.includes('NOT_FOUND')) throw new Error('NOT_FOUND')
+      throw new Error('INTERNAL_ERROR')
+    }
+    return result(data)
+  })
+
   return server
 }
 
