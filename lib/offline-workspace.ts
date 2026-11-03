@@ -7,8 +7,8 @@ const DB='notely-local', STORE='workspace'
 function openDb():Promise<IDBDatabase>{
  return new Promise((resolve,reject)=>{
   if(typeof indexedDB==='undefined'){reject(new Error('IndexedDB is unavailable'));return}
-  const request=indexedDB.open(DB,2)
-  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('notes')){const notes=db.createObjectStore('notes',{keyPath:'key'});notes.createIndex('ownerId','ownerId',{unique:false})}if(!db.objectStoreNames.contains(STORE)){const store=db.createObjectStore(STORE,{keyPath:'key'});store.createIndex('ownerId','ownerId',{unique:false})}}
+  const request=indexedDB.open(DB,3)
+  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('notes')){const notes=db.createObjectStore('notes',{keyPath:'key'});notes.createIndex('ownerId','ownerId',{unique:false})}if(!db.objectStoreNames.contains(STORE)){const store=db.createObjectStore(STORE,{keyPath:'key'});store.createIndex('ownerId','ownerId',{unique:false})}if(!db.objectStoreNames.contains('tagUpdates')){const tags=db.createObjectStore('tagUpdates',{keyPath:'key'});tags.createIndex('ownerId','ownerId',{unique:false})}}
   request.onsuccess=()=>resolve(request.result)
   request.onerror=()=>reject(request.error??new Error('Could not open offline workspace'))
  })
@@ -52,3 +52,18 @@ export async function remapOfflineParking(ownerId:string,oldId:string,item:Offli
  await put({key:ownerId+':parking:'+item.id,ownerId,item:{...item,synced:true},pendingDelete:false})
 }
 export type { OfflineNote }
+
+type StoredTagUpdate = { key:string; ownerId:string; noteId:string; tags:string[] }
+async function withTagStore<T>(mode:IDBTransactionMode,action:(store:IDBObjectStore)=>IDBRequest<T>):Promise<T>{
+ const db=await openDb()
+ return new Promise((resolve,reject)=>{const tx=db.transaction('tagUpdates',mode),request=action(tx.objectStore('tagUpdates'));request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error??new Error('Offline tag update failed'));tx.oncomplete=()=>db.close();tx.onerror=()=>{db.close();reject(tx.error)}})
+}
+export async function saveOfflineTagUpdate(ownerId:string,noteId:string,tags:string[]):Promise<void>{
+ await withTagStore<IDBValidKey>('readwrite',store=>store.put({key:ownerId+':tags:'+noteId,ownerId,noteId,tags} satisfies StoredTagUpdate))
+}
+export async function getPendingOfflineTagUpdates(ownerId:string):Promise<StoredTagUpdate[]>{
+ return withTagStore<StoredTagUpdate[]>('readonly',store=>store.index('ownerId').getAll(ownerId))
+}
+export async function removeOfflineTagUpdate(ownerId:string,noteId:string):Promise<void>{
+ await withTagStore<undefined>('readwrite',store=>store.delete(ownerId+':tags:'+noteId))
+}
