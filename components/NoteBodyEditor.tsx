@@ -59,7 +59,7 @@ function serializeNode(node: Node): string {
   }
   if (node.tagName === 'BR') return '\n'
   const content = Array.from(node.childNodes).map(serializeNode).join('')
-  return ['DIV', 'P'].includes(node.tagName) ? content + '\n' : content
+  return ['DIV', 'P'].includes(node.tagName) ? (content.endsWith('\n') ? content : content + '\n') : content
 }
 
 function serializeEditor(element: HTMLDivElement) {
