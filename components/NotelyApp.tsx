@@ -1,4 +1,5 @@
 'use client'
+import MemoryLoading from '@/components/MemoryLoading'
 
 import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase-client'
@@ -106,6 +107,7 @@ interface EditorProps {
   saveStatus: 'saved' | 'saving' | 'error'
   wordCount: number
   aiStatus: string
+  isOnline: boolean
   history: NoteVersion[]
   travelIndex: number
   onTitleChange: (v: string) => void
@@ -121,7 +123,7 @@ interface EditorProps {
 }
 
 function Editor({
-  activeId, title, body, startedAt, saveStatus, wordCount, aiStatus,
+  activeId, title, body, startedAt, saveStatus, wordCount, aiStatus, isOnline,
   history, travelIndex,
   onTitleChange, onBodyChange, onTitleKeyDown, onDelete,
   onSummarize, onExport, onTravel, onRestoreVersion,
@@ -164,12 +166,12 @@ function Editor({
           </svg>
         </button>
         <div className="tool-sep" />
-        <button className="tool-btn ai-btn" title="Summarize with AI" onClick={onSummarize} disabled={!body.trim()}>
+        <button className="tool-btn ai-btn" title={isOnline ? 'Summarize with AI' : 'AI summaries require an internet connection'} onClick={onSummarize} disabled={!body.trim() || !isOnline}>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M6.5 1.5l1 2.5h2.5l-2 1.5.8 2.5-2.3-1.5-2.3 1.5.8-2.5-2-1.5H5.5z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round"/>
             <path d="M2 10h9M3.5 12h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
           </svg>
-          <span>Summarize</span>
+          <span>{isOnline ? 'Summarize' : 'AI offline'}</span>
         </button>
         <button className="tool-btn ai-btn" title="Export as .txt" onClick={onExport}>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
@@ -185,7 +187,7 @@ function Editor({
         </span>
       </div>
 
-      {aiStatus && <div className="ai-status-bar">{aiStatus}</div>}
+      {aiStatus && <div className="ai-status-bar" role="status" aria-live="polite" aria-busy={aiStatus.toLowerCase().includes('summariz')}>{aiStatus}</div>}
       <div className="note-timestamp" aria-label="Capture timestamp">
         <span className="note-timestamp-label">Captured</span>
         <strong>{fmtTime(startedAt || new Date().toISOString())}</strong>
@@ -218,7 +220,7 @@ function Editor({
         }}
       />
 
-      {history.length > 0 && (
+      {history.length > 1 && (
         <div className="time-travel-bar">
           <span className="tt-label">Time Travel</span>
           <div className="tt-scrubber-wrap">
@@ -337,6 +339,8 @@ function TimeMachine({ notes, onOpen, onBack }: TimeMachineProps) {
 export default function NotelyApp() {
   const supabase = useMemo(() => createClient(), [])
   const [user, setUser] = useState<User | null>(null)
+  const [authReady, setAuthReady] = useState(false)
+  const [workspaceReady, setWorkspaceReady] = useState(false)
   const [notes, setNotes] = useState<Note[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
@@ -459,11 +463,13 @@ export default function NotelyApp() {
       if (authGenerationRef.current !== initialAuthGeneration) return
       userRef.current = data.user
       setUser(data.user)
-    })
+      setAuthReady(true)
+    }).catch(() => setAuthReady(true))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       authGenerationRef.current += 1
       userRef.current = session?.user ?? null
       setUser(session?.user ?? null)
+      setAuthReady(true)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -476,15 +482,20 @@ export default function NotelyApp() {
   }, [notes])
 
   useEffect(() => {
+    if (!authReady) return
+    let active = true
+    setWorkspaceReady(false)
     if (user) {
-      void fetchCloud(user.id)
+      void fetchCloud(user.id).finally(() => { if (active) setWorkspaceReady(true) })
     } else {
       const gn = loadGuest()
       setNotes(gn)
       if (gn.length > 0) openNote(gn[0])
       else clearEditor()
+      setWorkspaceReady(true)
     }
-  }, [user])
+    return () => { active = false }
+  }, [user?.id, authReady])
 
   useEffect(() => {
     if (!user) return
@@ -1070,8 +1081,10 @@ export default function NotelyApp() {
     )
   }, [notes, search])
 
+  if (!workspaceReady) return <MemoryLoading title="Opening Notely" detail={isOnline ? "Getting your notes ready" : "Restoring your offline notes"} />
+
   const editorProps = {
-    activeId, title, body, startedAt, saveStatus, wordCount, aiStatus,
+    activeId, title, body, startedAt, saveStatus, wordCount, aiStatus, isOnline,
     history, travelIndex,
     onTitleChange, onBodyChange, onTitleKeyDown, onDelete: handleDelete,
     onSummarize: handleSummarize, onExport: handleExport,

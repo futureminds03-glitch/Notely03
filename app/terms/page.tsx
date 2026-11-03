@@ -24,7 +24,7 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <main style={{ maxWidth: 780, margin: '0 auto', padding: '48px 22px 80px', color: 'var(--ink)' }}>
+    <main className="legal-document-page" style={{ maxWidth: 780, margin: '0 auto', padding: '48px 22px 80px', color: 'var(--ink)' }}>
       <a href="/">← Back to Notely</a>
       <p style={{ marginTop: 36, letterSpacing: '.16em', fontSize: 10, color: 'var(--accent)' }}>NOTELY · TERMS</p>
       <h1 style={{ font: '500 clamp(38px,7vw,58px)/1.08 Georgia,serif', letterSpacing: '-.045em' }}>Terms of Service</h1>
