@@ -16,22 +16,6 @@ on:
       - 'pnpm-lock.yaml'
       - 'tsconfig.json'
       - '.github/workflows/notely-mcp-ci.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'app/api/mcp/**'
-      - 'app/api/oauth/**'
-      - 'app/.well-known/**'
-      - 'lib/mcp/**'
-      - 'tests/mcp/**'
-      - 'tests/e2e/notely-mcp.spec.js'
-      - 'docs/mcp.md'
-      - 'supabase/migrations/*mcp*'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'tsconfig.json'
-      - '.github/workflows/notely-mcp-ci.yml'
-
 permissions:
   contents: read
 
