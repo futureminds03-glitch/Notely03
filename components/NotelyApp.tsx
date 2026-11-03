@@ -1,4 +1,5 @@
 'use client'
+import MemoryLoading from '@/components/MemoryLoading'
 
 import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase-client'
@@ -338,6 +339,8 @@ function TimeMachine({ notes, onOpen, onBack }: TimeMachineProps) {
 export default function NotelyApp() {
   const supabase = useMemo(() => createClient(), [])
   const [user, setUser] = useState<User | null>(null)
+  const [authReady, setAuthReady] = useState(false)
+  const [workspaceReady, setWorkspaceReady] = useState(false)
   const [notes, setNotes] = useState<Note[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
@@ -460,11 +463,13 @@ export default function NotelyApp() {
       if (authGenerationRef.current !== initialAuthGeneration) return
       userRef.current = data.user
       setUser(data.user)
-    })
+      setAuthReady(true)
+    }).catch(() => setAuthReady(true))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       authGenerationRef.current += 1
       userRef.current = session?.user ?? null
       setUser(session?.user ?? null)
+      setAuthReady(true)
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -477,15 +482,20 @@ export default function NotelyApp() {
   }, [notes])
 
   useEffect(() => {
+    if (!authReady) return
+    let active = true
+    setWorkspaceReady(false)
     if (user) {
-      void fetchCloud(user.id)
+      void fetchCloud(user.id).finally(() => { if (active) setWorkspaceReady(true) })
     } else {
       const gn = loadGuest()
       setNotes(gn)
       if (gn.length > 0) openNote(gn[0])
       else clearEditor()
+      setWorkspaceReady(true)
     }
-  }, [user])
+    return () => { active = false }
+  }, [user?.id, authReady]
 
   useEffect(() => {
     if (!user) return
@@ -1070,6 +1080,8 @@ export default function NotelyApp() {
       n.body.toLowerCase().includes(query)
     )
   }, [notes, search])
+
+  if (!workspaceReady) return <MemoryLoading title="Opening Notely" detail={isOnline ? "Getting your notes ready" : "Restoring your offline notes"} />
 
   const editorProps = {
     activeId, title, body, startedAt, saveStatus, wordCount, aiStatus, isOnline,
