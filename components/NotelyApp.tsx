@@ -628,10 +628,10 @@ export default function NotelyApp() {
 
         const resolveImages = async (sourceBody: string) => {
           let resolvedBody = sourceBody
-          const ids = [...new Set([...sourceBody.matchAll(/!\\[image\\]\\(notely-local:([0-9a-f-]+)\\)/gi)].map(match => match[1]))]
+          const ids = [...new Set([...sourceBody.matchAll(/!\[image\]\(notely-local:([0-9a-f-]+)\)/gi)].map(match => match[1]))]
           for (const imageId of ids) {
             const image = await getOfflineImage(imageId)
-            if (!image) continue
+            if (!image) throw new Error('A locally pasted image is missing from this device. Reconnect the original device to sync it.')
             const form = new FormData()
             form.set('noteId', note.id)
             form.set('file', image.blob, 'pasted-image')
@@ -639,9 +639,12 @@ export default function NotelyApp() {
             if (!upload.ok) throw new Error('Pasted image upload failed')
             const result = await upload.json() as { path: string }
             resolvedBody = resolvedBody.replaceAll('![image](notely-local:' + imageId + ')', '![image](notely-image:' + result.path + ')')
-            await removeOfflineImage(imageId)
           }
           return resolvedBody
+        }
+        const cleanupUploadedImages = async () => {
+          const ids = [...new Set([...note.body.matchAll(/!\\[image\\]\\(notely-local:([0-9a-f-]+)\\)/gi)].map(match => match[1]))]
+          await Promise.all(ids.map(removeOfflineImage))
         }
         let syncedBody = note.body
         let response: Response
@@ -676,6 +679,7 @@ export default function NotelyApp() {
             })
             if (!response.ok) { completedAll = false; break }
           }
+          await cleanupUploadedImages()
           const syncedNote: Note = { ...note, ...(createdNote ?? {}), body: syncedBody, synced: true, pendingCreate: false }
           await markOfflineNoteSynced(ownerId, syncedNote)
           const latestLocal = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id) ?? syncedNote
@@ -694,6 +698,7 @@ export default function NotelyApp() {
           })
         }
         if (!response.ok) { completedAll = false; break }
+        await cleanupUploadedImages()
         const syncedNote: Note = { ...note, body: syncedBody, synced: true, pendingCreate: false }
         await markOfflineNoteSynced(ownerId, syncedNote)
         const latestLocal = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id) ?? syncedNote
