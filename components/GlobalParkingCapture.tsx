@@ -36,7 +36,7 @@ export default function GlobalParkingCapture() {
     const sync = async () => {
       if (!navigator.onLine) return
       for (const record of await getPendingParking(ownerId).catch(() => [])) {
-        if (record.pendingDelete) { if (!record.item.id.startsWith('local-')) { const response = await fetch('/api/parking-lot?id=' + encodeURIComponent(record.item.id), { method: 'DELETE' }); if (!response.ok && response.status !== 404) break } await removeOfflineParking(ownerId, record.item.id); continue }
+        if (record.pendingDelete) { try { if (!record.item.id.startsWith('local-')) { const response = await fetch('/api/parking-lot?id=' + encodeURIComponent(record.item.id), { method: 'DELETE' }); if (!response.ok && response.status !== 404) break } await removeOfflineParking(ownerId, record.item.id); continue } catch { break } }
         try { const response = await fetch('/api/parking-lot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: record.item.text, client_id: record.item.id }) }); if (!response.ok) break; const saved = await response.json() as ParkingItem; await remapOfflineParking(ownerId, record.item.id, saved); window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: saved })) } catch { break }
       }
     }
@@ -66,6 +66,7 @@ export default function GlobalParkingCapture() {
     setSaving(true)
     setError('')
     const item: ParkingItem = { id: 'local-' + crypto.randomUUID(), text: thought, createdAt: new Date().toISOString() }
+    let queuedOffline = false
     try {
       if (ownerId) {
         await saveOfflineParking(ownerId, item)
@@ -78,11 +79,11 @@ export default function GlobalParkingCapture() {
             window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: savedItem }))
           } catch {
             window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: item }))
-            setNotice('Thought saved on this device. It will sync when you reconnect.')
+            queuedOffline = true
           }
         } else {
           window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: item }))
-          setNotice('Thought saved on this device. It will sync when you reconnect.')
+          queuedOffline = true
         }
       } else {
         let savedItem = item
@@ -96,7 +97,7 @@ export default function GlobalParkingCapture() {
       }
       setText('')
       setOpen(false)
-      if (!notice) setNotice('Thought parked. You can find it in Notely Flow.')
+      setNotice(queuedOffline ? 'Thought saved on this device. It will sync when you reconnect.' : 'Thought parked. You can find it in Notely Flow.')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save this thought. Please try again.')
     } finally {
