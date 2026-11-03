@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
 
 test.describe('Notely privacy and cache boundaries', () => {
-  test('service worker caches public static assets only, never pages or user data', async ({ page }) => {
+  test('service worker caches public assets and the generic app shell, never user pages or data', async ({ page }) => {
     await page.goto(baseURL)
     await page.evaluate(() => navigator.serviceWorker.ready)
     await page.reload()
@@ -21,14 +21,14 @@ test.describe('Notely privacy and cache boundaries', () => {
 
     expect(cachedUrls.length).toBeGreaterThan(0)
     for (const pathname of cachedUrls) {
-      const normalizedPathname = pathname.replace(/\/+$/, '')
+      const normalizedPathname = pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
       const isPublicStaticAsset =
         normalizedPathname === '/manifest.json' ||
         normalizedPathname === '/favicon.svg' ||
         normalizedPathname === '/icon.svg' ||
         (normalizedPathname.startsWith('/_next/static/') &&
           /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(normalizedPathname))
-      const isGenericOfflineShell = normalizedPathname === '/' || normalizedPathname === '/offline.html'
+      const isGenericOfflineShell = pathname === '/' || normalizedPathname === '/offline.html'
       expect(isPublicStaticAsset || isGenericOfflineShell, pathname).toBe(true)
       // The root is a generic client-rendered shell; no account or note data is embedded in it.
       expect(pathname).not.toBe('/memory')
