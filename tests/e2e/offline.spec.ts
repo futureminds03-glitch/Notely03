@@ -111,8 +111,10 @@ test('pasted images render inline and survive a guest offline reload', async ({ 
   const context = await browser.newContext()
   const page = await context.newPage()
   await page.goto(process.env.E2E_BASE_URL || 'http://127.0.0.1:3000')
-  const privateImageResponse = await page.request.get('/api/note-images?path=00000000-0000-4000-8000-000000000000/00000000-0000-4000-8000-000000000000/image.png')
-  expect(privateImageResponse.status()).toBe(401)
+  const privateImageStatus = await page.evaluate(async () => (
+    await fetch('/api/note-images?path=00000000-0000-4000-8000-000000000000/00000000-0000-4000-8000-000000000000/image.png')
+  ).status)
+  expect(privateImageStatus).toBe(401)
   await page.getByRole('button', { name: 'New note' }).click()
   await page.locator('.desktop-editor textarea.note-title').fill('Image paste test')
   const editor = page.locator('.desktop-editor [contenteditable="true"]')
