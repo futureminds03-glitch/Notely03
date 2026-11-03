@@ -15,7 +15,19 @@ async function cacheAppShell() {
   await cache.addAll(STATIC)
   try {
     const response = await fetch('/', { cache: 'reload' })
-    if (response.ok && response.type === 'basic') await cache.put('/', response.clone())
+    if (response.ok && response.type === 'basic') {
+      const html = await response.clone().text()
+      await cache.put('/', response)
+      const assets = [...new Set(html.match(/\\/_next\\/static\\/[^"'\\s<>]+/g) || [])]
+      await Promise.all(assets.map(async asset => {
+        try {
+          const assetResponse = await fetch(asset, { cache: 'reload' })
+          if (assetResponse.ok && assetResponse.type === 'basic') await cache.put(asset, assetResponse)
+        } catch {
+          // A failed optional asset must not prevent the shell from being installed.
+        }
+      }))
+    }
   } catch {
     // The install can still complete; the next successful navigation will seed the shell.
   }
