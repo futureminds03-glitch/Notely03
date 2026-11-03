@@ -10,14 +10,24 @@ function isCacheableStaticAsset(request) {
   return /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(url.pathname)
 }
 
+async function cacheRouteShell(cache, path) {
+  try {
+    const response = await fetch(path)
+    if (!response.ok || response.type !== 'basic') return
+    await cache.put(path, response.clone())
+    const html = await response.text()
+    const assets = [...html.matchAll(/(?:src|href)=\"(\\/_next\\/static\\/[^\"]+)\"/g)].map(match => match[1])
+    await Promise.all(assets.slice(0, 80).map(async asset => {
+      try { const file = await fetch(asset); if (file.ok && file.type === 'basic') await cache.put(asset, file) } catch { /* Retry on first use. */ }
+    }))
+  } catch { /* A route can be cached after its first successful visit. */ }
+}
+
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE)
     await cache.addAll(STATIC)
-    try {
-      const shell = await fetch('/')
-      if (shell.ok && shell.type === 'basic') await cache.put('/', shell)
-    } catch { /* The shell will be cached on the first successful visit. */ }
+    await Promise.all(['/', '/flow', '/memory'].map(path => cacheRouteShell(cache, path)))
   })())
   self.skipWaiting()
 })
