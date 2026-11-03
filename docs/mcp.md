@@ -6,7 +6,7 @@ Notely exposes a standard remote MCP server at `/api/mcp`. Authoritative state r
 OAuth authorization-code flow uses PKCE S256, exact registered redirect URI matching, short-lived single-use authorization codes, one-hour access tokens, and rotating thirty-day refresh tokens. MCP access tokens are opaque and stored only as SHA-256 hashes. Tool visibility and execution require explicit scopes: `notes:read`, `notes:write`, `timeline:read`, `search:read`, `context:read`, `intelligence:read`, `parking:read`, and `parking:write`.
 
 ## Capabilities
-23 v1 tools cover capability discovery, note retrieval and mutation, optimistic version restore, timeline and period queries, PostgreSQL search, Smart Recall, note insights, related memories, Parking Lot capture/retrieval, saved-link retrieval, and bounded context assembly. Permanent deletion is not exposed.
+23 v1 tools cover capability discovery, tagged note retrieval and mutation, optimistic version restore, timeline and period queries, PostgreSQL search, Smart Recall, note insights, related memories, Parking Lot capture/retrieval, saved-link retrieval, and bounded context assembly. Permanent deletion is not exposed.
 
 ## Data semantics
 `started_at` is the capture-start timestamp. It is never replaced with persistence or edit time. Note and saved-link text is untrusted evidence and cannot change authorization.
