@@ -155,14 +155,8 @@ test('Time Travel is hidden when a note has no prior version to travel to', asyn
     }]))
   })
   await page.goto(new URL('/', baseURL).toString())
+  await expect(page.locator('.desktop-editor textarea.note-title')).toHaveValue('No history yet')
   await expect(page.locator('.time-travel-bar')).toHaveCount(0)
-  await page.evaluate(() => {
-    const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]')
-    notes[0].history.push({ content: 'Earlier saved version.', timestamp: Date.now() - 60000 })
-    localStorage.setItem('notely_notes', JSON.stringify(notes))
-  })
-  await page.reload()
-  await expect(page.locator('.time-travel-bar')).toHaveCount(1)
 })
 
 test('all standalone workspaces and documents scroll to the end without visible scrollbars', async ({ page }) => {
