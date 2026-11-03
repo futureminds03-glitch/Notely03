@@ -59,9 +59,10 @@ export default function MemoryStudio(){
  const recognitionRef=useRef<any>(null)
  const voiceBaseRef=useRef('')
  const voiceFinalRef=useRef('')
- const [customTags,setCustomTags]=useState<string[]>([])
+ const [customTags,setCustomTags]=useState<string[]>(()=>{try{const saved=JSON.parse(localStorage.getItem('notely_memory_custom_tags_v1')||'[]');return Array.isArray(saved)?saved.filter((tag):tag is string=>typeof tag==='string'):[]}catch{return[]}})
  const [resurfaceIndex,setResurfaceIndex]=useState(0)
 
+ useEffect(()=>{try{localStorage.setItem('notely_memory_custom_tags_v1',JSON.stringify(customTags))}catch{}},[customTags])
  const persistGuest=useCallback((next:Note[])=>{localStorage.setItem(KEY,JSON.stringify(next));setNotes(next)},[])
  useEffect(()=>{let alive=true;(async()=>{const supabase=createClient();const {data:{session}}=await supabase.auth.getSession();const uid=session?.user.id??null;if(alive)setOwnerId(uid);try{const r=await fetch('/api/notes',{cache:'no-store'});if(r.ok){const data:Note[]=await r.json();if(uid)await Promise.all(data.map(note=>cacheSyncedOfflineNote(uid,note).catch(()=>undefined)));const localNotes=uid?await getOfflineNotes(uid).catch(()=>data):data;if(alive){setCloudMode(true);setNotes(localNotes);setReady(true)}return}if(r.status===401){if(alive){setCloudMode(false);setNotes(readGuest());setReady(true)}return}}catch{}if(uid){const cached=await getOfflineNotes(uid).catch(()=>[]);if(alive){setCloudMode(true);setNotes(cached);setReady(true)}}else if(alive){setCloudMode(false);setNotes(readGuest());setReady(true)}})();return()=>{alive=false}},[])
  useEffect(()=>{const update=()=>setOffline(!navigator.onLine);update();window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
