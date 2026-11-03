@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
 
 test.describe('Notely privacy and cache boundaries', () => {
-  test('service worker caches the generic app shell and public static assets, never private pages or user data', async ({ page }) => {
+  test('service worker caches only generic app route shells and public static assets, never private user data', async ({ page }) => {
     await page.goto(baseURL)
     await page.evaluate(() => navigator.serviceWorker.ready)
     await page.reload()
@@ -22,26 +22,25 @@ test.describe('Notely privacy and cache boundaries', () => {
     expect(cachedUrls.length).toBeGreaterThan(0)
     for (const pathname of cachedUrls) {
       const isPublicStaticAsset =
-        pathname === '/' ||
+        pathname === '/' || pathname === '/flow' || pathname === '/memory' ||
         pathname === '/manifest.json' ||
         pathname === '/favicon.svg' ||
         pathname === '/icon.svg' ||
         (pathname.startsWith('/_next/static/') &&
           /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(pathname))
       expect(pathname, 'only the generic app shell or public immutable assets may be cached').toMatch(
-        /^(?:\/|\/manifest\.json|\/favicon\.svg|\/icon\.svg|\/_next\/static\/.*)$/
+        /^(?:\/|\/flow|\/memory|\/manifest\.json|\/favicon\.svg|\/icon\.svg|\/_next\/static\/.*)$/
       )
       expect(isPublicStaticAsset, pathname).toBe(true)
-      if (pathname === '/') {
-        const shell = await page.evaluate(async () => {
-          const response = await caches.match('/')
+      if (pathname === '/' || pathname === '/flow' || pathname === '/memory') {
+        const shell = await page.evaluate(async (path) => {
+          const response = await caches.match(path)
           return response ? response.clone().text() : ''
-        })
+        }, pathname)
         expect(shell).toContain('Notely')
         expect(shell).not.toContain('Private note')
         expect(shell).not.toContain('Offline thought')
       }
-      expect(pathname).not.toBe('/memory')
       expect(pathname).not.toContain('/api/')
     }
   })
