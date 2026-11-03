@@ -38,7 +38,7 @@ function renderLogin(state: OAuthState, csrf: string, message = ''): Response {
     (message ? '<p class="notice">' + htmlEscape(message) + '</p>' : '') +
     '<p>This AI client is requesting access to your Notely account.</p><div class="scope"><strong>Requested scopes</strong><p>' + htmlEscape(scopeText) + '</p></div><form method="post">' + fields +
     '<label>Email<input name="email" type="email" autocomplete="username" required maxlength="320"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="4096"></label><label class="approve"><input name="approve" type="checkbox" value="yes" required><span>I authorize this AI connection to access the scopes shown above.</span></label><button type="submit">Authorize securely</button></form></main></body></html>'
-  return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } })
+  return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'" } })
 }
 
 function validateBasic(params: URLSearchParams): boolean {
@@ -49,7 +49,7 @@ function validateBasic(params: URLSearchParams): boolean {
   return params.get('response_type') === 'code' &&
     !!clientId && clientId.length <= 200 &&
     !!redirectUri && validRedirectUri(redirectUri) &&
-    !!challenge && challenge.length >= 43 && challenge.length <= 128 &&
+    !!challenge && /^[A-Za-z0-9_-]{43,128}$/.test(challenge) &&
     params.get('code_challenge_method') === 'S256' &&
     state.length <= 1024
 }
@@ -59,9 +59,15 @@ async function loadRequest(request: Request, params: URLSearchParams) {
   const clientId = params.get('client_id')!
   const redirectUri = params.get('redirect_uri')!
   const client = await getOAuthClient(clientId)
-  if (!client || !client.redirect_uris.includes(redirectUri) || client.token_endpoint_auth_method !== 'none') return null
+  if (!client || !client.redirect_uris.includes(redirectUri) || client.token_endpoint_auth_method !== 'none' ||
+      !client.grant_types.includes('authorization_code') || !client.response_types.includes('code')) return null
+  const state = params.get('state') ?? ''
+  const requestedResources = params.getAll('resource')
+  if (requestedResources.length > 1 || (requestedResources.length === 1 && requestedResources[0] !== resourceUri(request))) {
+    return { invalidResource: true, redirectUri, state }
+  }
   const requested = (params.get('scope') ?? '').split(/\s+/).filter(Boolean)
-  if (requested.some(scope => !['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read','parking:read','parking:write'].includes(scope))) return { invalidScope: true, redirectUri, state: params.get('state') ?? '' }
+  if (!requested.length || requested.some(scope => !['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read','parking:read','parking:write'].includes(scope))) return { invalidScope: true, redirectUri, state }
   return { clientId, redirectUri, client, scope: [...new Set(requested)].join(' '), state: params.get('state') ?? '', challenge: params.get('code_challenge')! }
 }
 
@@ -69,6 +75,7 @@ export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams
   const loaded = await loadRequest(request, params).catch(() => null)
   if (!loaded) return new Response('Invalid OAuth authorization request', { status: 400 })
+  if ('invalidResource' in loaded) return redirectWithError(loaded.redirectUri, 'invalid_target', loaded.state)
   if ('invalidScope' in loaded) return redirectWithError(loaded.redirectUri, 'invalid_scope', loaded.state)
   const requestId = crypto.randomUUID()
   const csrf = randomToken(24)
@@ -95,6 +102,8 @@ export async function GET(request: Request): Promise<Response> {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const origin = request.headers.get('origin')
+  if (origin && origin !== new URL(request.url).origin) return new Response('Invalid request origin', { status: 403 })
   const form = await request.formData().catch(() => null)
   if (!form) return new Response('Invalid request', { status: 400 })
   const get = (name: string): string => {
