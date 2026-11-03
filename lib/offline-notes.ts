@@ -22,7 +22,7 @@ interface StoredNote {
 }
 
 const DB_NAME = 'notely-local'
-const DB_VERSION = 1
+const DB_VERSION = 3
 const STORE_NAME = 'notes'
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -34,6 +34,8 @@ function openDatabase(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
     request.onupgradeneeded = () => {
       const db = request.result
+      if (!db.objectStoreNames.contains('workspace')) { const workspace = db.createObjectStore('workspace', { keyPath: 'key' }); workspace.createIndex('ownerId', 'ownerId', { unique: false }) }
+      if (!db.objectStoreNames.contains('tagUpdates')) { const tags = db.createObjectStore('tagUpdates', { keyPath: 'key' }); tags.createIndex('ownerId', 'ownerId', { unique: false }) }
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' })
         store.createIndex('ownerId', 'ownerId', { unique: false })
@@ -152,4 +154,14 @@ export async function markOfflineNoteDeleted(ownerId: string, noteId: string): P
 
 export async function removeOfflineNote(ownerId: string, noteId: string): Promise<void> {
   await withStore<undefined>('readwrite', store => store.delete(storageKey(ownerId, noteId)))
+}
+
+export async function updateCachedOfflineNote(ownerId: string, note: OfflineNote): Promise<void> {
+  const key = storageKey(ownerId, note.id)
+  const existing = await withStore<StoredNote | undefined>('readonly', store => store.get(key))
+  if (!existing) return
+  await withStore<IDBValidKey>('readwrite', store => store.put({
+    ...existing,
+    note: { ...existing.note, ...note, synced: existing.note.synced, pendingCreate: existing.pendingCreate },
+  } satisfies StoredNote))
 }

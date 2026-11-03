@@ -10,14 +10,24 @@ function isCacheableStaticAsset(request) {
   return /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(url.pathname)
 }
 
+async function cacheRouteShell(cache, path) {
+  try {
+    const response = await fetch(path)
+    if (!response.ok || response.type !== 'basic') return
+    await cache.put(path, response.clone())
+    const html = await response.text()
+    const assets = [...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)].map(match => match[1])
+    await Promise.all(assets.slice(0, 80).map(async asset => {
+      try { const file = await fetch(asset); if (file.ok && file.type === 'basic') await cache.put(asset, file) } catch { /* Retry on first use. */ }
+    }))
+  } catch { /* A route can be cached after its first successful visit. */ }
+}
+
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE)
     await cache.addAll(STATIC)
-    try {
-      const shell = await fetch('/')
-      if (shell.ok && shell.type === 'basic') await cache.put('/', shell)
-    } catch { /* The shell will be cached on the first successful visit. */ }
+    await Promise.all(['/', '/flow', '/memory'].map(path => cacheRouteShell(cache, path)))
   })())
   self.skipWaiting()
 })
@@ -60,13 +70,14 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       try {
         const response = await fetch(request)
-        if (response.ok && response.type === 'basic' && url.pathname === '/') {
+        if (response.ok && response.type === 'basic') {
           const cache = await caches.open(CACHE)
-          await cache.put('/', response.clone())
+          await cache.put(url.pathname, response.clone())
+          if (url.pathname === '/') await cache.put('/', response.clone())
         }
         return response
       } catch {
-        const cached = await caches.match('/')
+        const cached = await caches.match(url.pathname) || await caches.match('/')
         return cached || new Response('Notely is offline. Reconnect once to load the app, then your notes will be available offline.', {
           status: 503,
           headers: { 'Content-Type': 'text/plain; charset=utf-8' },
