@@ -74,7 +74,7 @@ test('Memory Studio can browse and search cached guest memories offline', async 
   await page.waitForSelector('.memory-studio-scroll')
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByText('Offline research idea')).toBeVisible()
+  await expect(page.getByText('Offline research idea', { exact: true })).toBeVisible()
   await page.getByPlaceholder('Search by phrase, project, person, or idea…').fill('local-first writing')
   await expect(page.getByText('Offline research idea')).toBeVisible()
   await context.close()
