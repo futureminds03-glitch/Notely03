@@ -68,13 +68,15 @@ function serializeEditor(element: HTMLDivElement) {
 
 export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: Props) {
   const lastEmitted = useRef(value)
+  const lastRenderedNoteId = useRef<string | null>(null)
   const uploading = useRef(false)
 
   useEffect(() => {
     const element = editorRef.current
-    if (!element || value === lastEmitted.current) return
+    if (!element || (value === lastEmitted.current && noteId === lastRenderedNoteId.current)) return
     renderContent(element, value)
     lastEmitted.current = value
+    lastRenderedNoteId.current = noteId
   }, [value, noteId, editorRef])
 
   function emitChange() {
@@ -82,6 +84,7 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
     if (!element) return
     const next = serializeEditor(element)
     lastEmitted.current = next
+    lastRenderedNoteId.current = noteId
     onChange(next)
   }
 
