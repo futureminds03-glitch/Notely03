@@ -86,7 +86,7 @@ export default function MemoryStudio(){
   <p>Gathering your thoughts and connections</p>
   <div className="memory-loading-track"><span/></div>
  </div>
- return <div className="memory-studio-scroll" style={styles.shell}><div style={styles.wrap}><div role="status" aria-live="polite" style={{...styles.muted,marginBottom:12}}>{offline?'Offline · your cached memories and edits stay on this device':cloudMode?'Online · your memory archive is synced':'Guest mode · memories stay in this browser'}</div>
+ return <div className="memory-studio-scroll" style={styles.shell}><div style={styles.wrap}><div role="status" aria-live="polite" style={{...styles.muted,marginBottom:12}}>{offline?'Offline · your cached memories and edits stay on this device':cloudMode?'Online · sync enabled':'Guest mode · memories stay in this browser'}</div>
   <button style={{...styles.button,marginBottom:24}} onClick={()=>router.push('/')}>← Back to notes</button>
   <div style={styles.eyebrow}>YOUR PERSONAL MEMORY</div><h1 style={styles.heading}>A little more room to think.</h1><p style={styles.muted}>Capture now. Make sense of it later. Find it when it matters.</p>
   <div style={{display:'flex',gap:8,flexWrap:'wrap',margin:'24px 0 20px'}}>{(['inbox','memory','connections'] as const).map(t=><button key={t} style={{...styles.button,background:tab===t?'var(--paper-dark)':'transparent',borderColor:tab===t?'var(--accent)':'var(--line)'}} onClick={()=>setTab(t)}>{t==='inbox'?'Thought Inbox':t==='memory'?'Ask My Memory':'Thought Connections'}</button>)}</div>
