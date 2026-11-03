@@ -750,3 +750,6 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
   .tt-scrubber-wrap { flex-basis: 64px; }
   .tt-restore { padding-inline: 6px; }
 }
+
+.offline-indicator{position:fixed;z-index:500;top:max(8px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);padding:8px 12px;border:1px solid #c8a77d;border-radius:999px;background:#fff8eb;color:#684b2b;box-shadow:0 4px 18px rgba(45,35,22,.12);font:650 11px/1.35 Inter,ui-sans-serif,system-ui,sans-serif;text-align:center;pointer-events:none}
+@media(max-width:640px){.offline-indicator{top:max(6px,env(safe-area-inset-top));max-width:calc(100vw - 18px);font-size:10px}}
