@@ -61,7 +61,7 @@ async function loadRequest(request: Request, params: URLSearchParams) {
   const client = await getOAuthClient(clientId)
   if (!client || !client.redirect_uris.includes(redirectUri) || client.token_endpoint_auth_method !== 'none') return null
   const requested = (params.get('scope') ?? '').split(/\s+/).filter(Boolean)
-  if (requested.some(scope => !['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read'].includes(scope))) return { invalidScope: true, redirectUri, state: params.get('state') ?? '' }
+  if (requested.some(scope => !['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read','parking:read','parking:write'].includes(scope))) return { invalidScope: true, redirectUri, state: params.get('state') ?? '' }
   return { clientId, redirectUri, client, scope: [...new Set(requested)].join(' '), state: params.get('state') ?? '', challenge: params.get('code_challenge')! }
 }
 
