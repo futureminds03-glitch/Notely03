@@ -491,7 +491,7 @@ export default function NotelyApp() {
             started_at: row.started_at ?? undefined,
           }
 
-          if (localWritesRef.current.has(row.id)) return
+          if (localWritesRef.current.has(row.id) || notesRef.current.some(note => note.id === row.id && note.synced === false)) return
 
           setNotes(prev => {
             const exists = prev.some(note => note.id === row.id)
@@ -617,7 +617,7 @@ export default function NotelyApp() {
           history: latestLocal.history ?? queued.history ?? syncedNote.history,
           synced: unchangedDuringRequest,
         }
-        const next = notesRef.current.map(note => note.id === queued.id ? replacement : note)
+        const next = notesRef.current.filter(note => note.id !== syncedNote.id).map(note => note.id === queued.id ? replacement : note)
         notesRef.current = next
         setNotes(next)
         if (activeIdRef.current === queued.id) {
@@ -755,40 +755,7 @@ export default function NotelyApp() {
       if (sequence !== saveSequenceRef.current[id]) return
 
       if (ownerId && navigator.onLine) {
-        if (id.startsWith('temp-')) {
-          await syncPendingChanges()
-        } else {
-          const pendingWrites = localWritesRef.current.get(id) ?? 0
-          localWritesRef.current.set(id, pendingWrites + 1)
-          try {
-            const response = await fetch('/api/notes/' + id, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ title: t, body: b, started_at: sa }),
-            })
-            if (!response.ok) {
-              setSaveStatus(response.status >= 500 || response.status === 408 || response.status === 429 ? 'offline' : 'error')
-              return
-            }
-            const saved = await response.json() as Note
-            const currentLocal = notesRef.current.find(note => note.id === id)
-            const unchangedDuringRequest = currentLocal?.title === t && currentLocal?.body === b
-            const latest = notesRef.current.map(note => note.id === id
-              ? { ...note, ...saved, title: currentLocal?.title ?? saved.title, body: currentLocal?.body ?? saved.body, synced: unchangedDuringRequest }
-              : note)
-            notesRef.current = latest
-            setNotes(latest)
-            await writeOfflineState(ownerId, { notes: latest, pendingDeletes: pendingDeletesRef.current })
-            if (!unchangedDuringRequest) void syncPendingChanges()
-          } catch {
-            setSaveStatus('offline')
-            return
-          } finally {
-            const remaining = (localWritesRef.current.get(id) ?? 1) - 1
-            if (remaining > 0) localWritesRef.current.set(id, remaining)
-            else localWritesRef.current.delete(id)
-          }
-        }
+        await syncPendingChanges()
       } else if (ownerId) {
         setSaveStatus('offline')
       }
