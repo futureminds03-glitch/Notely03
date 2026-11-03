@@ -88,8 +88,8 @@ create or replace function public.mcp_create_parking_item_idempotent(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
-as $$
+set search_path = public, pg_temp
+as $
 declare
   existing public.mcp_idempotency%rowtype;
   created public.documents%rowtype;
@@ -137,8 +137,8 @@ create or replace function public.mcp_delete_parking_item_idempotent(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
-as $$
+set search_path = public, pg_temp
+as $
 declare
   existing public.mcp_idempotency%rowtype;
   current_item public.documents%rowtype;
@@ -189,8 +189,8 @@ create or replace function public.mcp_restore_note_version(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
-as $$
+set search_path = public, pg_temp
+as $
 declare
   existing public.mcp_idempotency%rowtype;
   current_note public.documents%rowtype;
@@ -262,8 +262,8 @@ create or replace function public.mcp_create_note_idempotent_v2(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
-as $$
+set search_path = public, pg_temp
+as $
 declare
   existing public.mcp_idempotency%rowtype;
   created public.documents%rowtype;
@@ -321,8 +321,8 @@ create or replace function public.mcp_update_note_v2(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
-as $$
+set search_path = public, pg_temp
+as $
 declare
   existing public.mcp_idempotency%rowtype;
   current_note public.documents%rowtype;
