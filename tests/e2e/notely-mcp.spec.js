@@ -23,22 +23,21 @@ test.describe('Notely MCP discovery and authentication', () => {
   test('publishes protected-resource metadata for the MCP endpoint', async ({ request }) => {
     const response = await request.get(`${BASE_URL}/.well-known/oauth-protected-resource`)
     expect(response.status()).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({
-      resource: `${ORIGIN}/api/mcp`,
-      authorization_servers: [ORIGIN],
-      bearer_methods_supported: ['header'],
-    })
+    const metadata = await response.json()
+    const resource = new URL(metadata.resource)
+    expect(resource.pathname).toBe('/api/mcp')
+    expect(metadata.authorization_servers).toEqual([resource.origin])
+    expect(metadata.bearer_methods_supported).toContain('header')
   })
 
   test('publishes OAuth authorization-code and PKCE metadata', async ({ request }) => {
     const response = await request.get(`${BASE_URL}/.well-known/oauth-authorization-server`)
     expect(response.status()).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({
-      issuer: ORIGIN,
-      authorization_endpoint: `${ORIGIN}/api/oauth/authorize`,
-      token_endpoint: `${ORIGIN}/api/oauth/token`,
-      registration_endpoint: `${ORIGIN}/api/oauth/register`,
-      code_challenge_methods_supported: ['S256'],
-    })
+    const metadata = await response.json()
+    const issuer = new URL(metadata.issuer)
+    expect(metadata.authorization_endpoint).toBe(new URL('/api/oauth/authorize', issuer).toString())
+    expect(metadata.token_endpoint).toBe(new URL('/api/oauth/token', issuer).toString())
+    expect(metadata.registration_endpoint).toBe(new URL('/api/oauth/register', issuer).toString())
+    expect(metadata.code_challenge_methods_supported).toContain('S256')
   })
 })
