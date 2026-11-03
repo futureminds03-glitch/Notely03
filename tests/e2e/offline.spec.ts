@@ -79,3 +79,24 @@ test('Memory Studio can browse and search cached guest memories offline', async 
   await expect(page.getByText('Offline research idea', { exact: true })).toBeVisible()
   await context.close()
 })
+
+
+test('Link Capture route and URL-only saving work offline after first visit', async ({ browser }) => {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  await page.goto(new URL('/flow/links', process.env.E2E_BASE_URL || 'http://127.0.0.1:3000').toString())
+  await expect(page.getByRole('heading', { name: 'Save the useful parts.' })).toBeVisible()
+  await page.waitForFunction(() => 'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller))
+  await page.waitForFunction(async () => {
+    const cache = await caches.open('notely-v4-local-first')
+    return Boolean(await cache.match('/flow/links'))
+  })
+  await page.getByLabel('Webpage URL').fill('https://example.com/offline-article')
+  await context.setOffline(true)
+  await expect(page.getByRole('button', { name: 'Reading requires internet' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Save URL on this device' }).click()
+  await expect(page.getByText('URL saved to your Notely notes.')).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Save the useful parts.' })).toBeVisible()
+  await context.close()
+})
