@@ -4,7 +4,7 @@ Notely MCP exposes the signed-in user's Notely data to compatible MCP clients th
 
 - Endpoint: `https://notely03.vercel.app/api/mcp`
 - Transport: Streamable HTTP, stateless JSON-RPC POST
-- Protocol version: `2025-03-26`
+- Protocol version: `2025-06-18`
 - Authentication: Supabase user access token in `Authorization: Bearer <access-token>`
 - Storage: existing Supabase `documents` and `document_versions` tables; no second data store
 
@@ -14,6 +14,9 @@ Notely MCP exposes the signed-in user's Notely data to compatible MCP clients th
 | --- | --- | --- |
 | `list_notes` | Paginated active notes, optional tag filter | Read |
 | `get_note` | Full note by ID | Read |
+| `list_tags` | Tag inventory and note counts | Read |
+| `list_note_versions` | Read note body history | Read |
+| `restore_note_version` | Restore an earlier body as a new version | Write |
 | `create_note` | Create note and initial version | Write |
 | `update_note` | Partial update; body edits add a version | Write |
 | `archive_note` | Archive an active note | Destructive |
