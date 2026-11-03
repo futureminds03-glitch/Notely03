@@ -670,7 +670,7 @@ export default function NotelyApp() {
           response = await fetch('/api/notes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: payloadFor(note.body.replace(/!\\[image\\]\\(notely-local:[0-9a-f-]+\\)/gi, '')),
+            body: payloadFor(note.body.replace(/!\[image\]\(notely-local:[0-9a-f-]+\)/gi, '')),
           })
           if (response.status === 409) {
             response = await fetch('/api/notes/' + note.id, {
