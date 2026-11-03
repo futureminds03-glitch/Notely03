@@ -21,13 +21,14 @@ test.describe('Notely privacy and cache boundaries', () => {
 
     expect(cachedUrls.length).toBeGreaterThan(0)
     for (const pathname of cachedUrls) {
+      const normalizedPathname = pathname.replace(/\/+$/, '')
       const isPublicStaticAsset =
-        pathname === '/manifest.json' ||
-        pathname === '/favicon.svg' ||
-        pathname === '/icon.svg' ||
-        (pathname.startsWith('/_next/static/') &&
-          /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(pathname))
-      const isGenericOfflineShell = pathname === '/' || pathname === '/offline.html'
+        normalizedPathname === '/manifest.json' ||
+        normalizedPathname === '/favicon.svg' ||
+        normalizedPathname === '/icon.svg' ||
+        (normalizedPathname.startsWith('/_next/static/') &&
+          /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(normalizedPathname))
+      const isGenericOfflineShell = normalizedPathname === '/' || normalizedPathname === '/offline.html'
       expect(isPublicStaticAsset || isGenericOfflineShell, pathname).toBe(true)
       // The root is a generic client-rendered shell; no account or note data is embedded in it.
       expect(pathname).not.toBe('/memory')
