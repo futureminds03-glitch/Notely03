@@ -69,7 +69,7 @@ Create a local .env.local file. Never commit real credentials.
 | NEXT_PUBLIC_SUPABASE_ANON_KEY | Legacy-compatible fallback | Public/anonymous key |
 | GROQ_API_KEY | AI summaries and Flow AI De-Clutter | **Server-only secret** |
 | OPENAI_API_KEY | Optional 1,536-dimensional memory embeddings; not required for lexical recall | **Server-only secret; provider usage may incur charges** |
-| SUPABASE_SERVICE_ROLE_KEY | MCP OAuth control plane, token validation, and audited server-side MCP operations | **Server-only secret; never expose to browser code** |
+| SUPABASE_SECRET_KEY | MCP OAuth control plane, token validation, and audited server-side MCP operations | **Server-only secret; never expose to browser code** |
 
 Supabase's database schema and row-level security policies must be configured for the tables used by the application, including documents and version history. Review the API routes before configuring a new database. Do not expose service-role keys in NEXT_PUBLIC variables.
 
