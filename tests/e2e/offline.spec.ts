@@ -7,9 +7,9 @@ test('the app shell and guest notes remain usable after going offline', async ({
   await page.goto(process.env.E2E_BASE_URL || 'http://127.0.0.1:3000')
   await page.waitForFunction(() => 'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller), null, { timeout: 10000 })
   await page.getByRole('button', { name: 'New note' }).click()
-  await page.locator('textarea.note-title').fill('Offline thought')
-  await page.locator('textarea.note-body').fill('This note must survive a disconnected reload.')
-  await expect(page.locator('.save-status')).toContainText('saved')
+  await page.locator('.desktop-editor textarea.note-title').fill('Offline thought')
+  await page.locator('.desktop-editor textarea.note-body').fill('This note must survive a disconnected reload.')
+  await expect(page.locator('.desktop-editor .save-status')).toContainText('saved')
   await page.waitForTimeout(500)
 
   await context.setOffline(true)
