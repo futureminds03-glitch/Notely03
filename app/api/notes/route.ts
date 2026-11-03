@@ -48,7 +48,7 @@ function parseNoteInput(value: unknown): {
         : null
 
   const tags = Array.isArray(input.tags) ? input.tags.filter((tag): tag is string => typeof tag === 'string').map(tag => tag.trim()).filter(Boolean).slice(0, 20) : []
-  return { title, body, startedAt, tags }
+  return { id, title, body, startedAt, tags }
 }
 
 function toHistory(versions: VersionRow[]): { content: string; timestamp: number }[] {
