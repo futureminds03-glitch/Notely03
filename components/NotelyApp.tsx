@@ -870,9 +870,14 @@ export default function NotelyApp() {
       : note)
     notesRef.current = updated
     setNotes(updated)
+    setSaveStatus('saving')
     void writeOfflineState(ownerId ?? 'guest', { notes: updated, pendingDeletes: pendingDeletesRef.current })
+      .then(() => {
+        if (activeIdRef.current !== id) return
+        if (!ownerId) setSaveStatus('saved')
+        else if (!navigator.onLine) setSaveStatus('offline')
+      })
       .catch(error => { console.error('Immediate offline save failed:', error); setSaveStatus('error') })
-    if (ownerId && !navigator.onLine) setSaveStatus('offline')
   }
   function onTitleChange(v: string) {
     let sa = startedAtRef.current
