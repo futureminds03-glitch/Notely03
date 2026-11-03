@@ -16,7 +16,7 @@ async function cacheRouteShell(cache, path) {
     if (!response.ok || response.type !== 'basic') return
     await cache.put(path, response.clone())
     const html = await response.text()
-    const assets = [...html.matchAll(/(?:src|href)=\"(\\/_next\\/static\\/[^\"]+)\"/g)].map(match => match[1])
+    const assets = [...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)].map(match => match[1])
     await Promise.all(assets.slice(0, 80).map(async asset => {
       try { const file = await fetch(asset); if (file.ok && file.type === 'basic') await cache.put(asset, file) } catch { /* Retry on first use. */ }
     }))
@@ -70,9 +70,10 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       try {
         const response = await fetch(request)
-        if (response.ok && response.type === 'basic' && url.pathname === '/') {
+        if (response.ok && response.type === 'basic') {
           const cache = await caches.open(CACHE)
-          await cache.put('/', response.clone())
+          await cache.put(url.pathname, response.clone())
+          if (url.pathname === '/') await cache.put('/', response.clone())
         }
         return response
       } catch {
