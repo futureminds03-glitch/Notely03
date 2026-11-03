@@ -761,7 +761,8 @@ export default function NotelyApp() {
       }
 
       if (sequence === saveSequenceRef.current[id] && activeIdRef.current === id) {
-        setSaveStatus(ownerId && !navigator.onLine ? 'offline' : 'saved')
+        if (ownerId && !navigator.onLine) setSaveStatus('offline')
+        else if (!ownerId) setSaveStatus('saved')
         if (activeDraftRef.current.title === t && activeDraftRef.current.body === b) {
           dirtyFieldsRef.current = { title: false, body: false }
         }
