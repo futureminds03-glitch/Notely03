@@ -37,7 +37,8 @@ export async function POST(request: Request): Promise<Response> {
     const refreshHash = hashToken(refresh)
     const { data: refreshRecord, error: refreshLookupError } = await supabase.from('mcp_oauth_refresh_tokens')
       .select('client_id,resource,expires_at,revoked_at').eq('token_hash', refreshHash).eq('client_id', form.client_id).maybeSingle()
-    if (refreshLookupError || !refreshRecord || refreshRecord.resource !== resource || refreshRecord.revoked_at || new Date(refreshRecord.expires_at).getTime() <= Date.now()) {
+    if (refreshLookupError) return json({ error:'server_error' }, { status:500 })
+    if (!refreshRecord || refreshRecord.resource !== resource || refreshRecord.revoked_at || new Date(refreshRecord.expires_at).getTime() <= Date.now()) {
       return json({ error:'invalid_grant' }, { status:400 })
     }
     const accessToken = randomToken(32)
