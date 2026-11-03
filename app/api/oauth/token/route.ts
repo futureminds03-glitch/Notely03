@@ -27,14 +27,23 @@ export async function POST(request: Request): Promise<Response> {
 
   const client = await getOAuthClient(form.client_id).catch(() => null)
   if (!client || client.token_endpoint_auth_method !== 'none') return json({ error:'invalid_client' }, { status:401 })
+  const resource = resourceUri(request)
+  if (form.resource && form.resource !== resource) return json({ error:'invalid_target' }, { status:400 })
 
   if (form.grant_type === 'refresh_token') {
+    if (!client.grant_types.includes('refresh_token')) return json({ error:'unauthorized_client' }, { status:400 })
     const refresh = form.refresh_token
     if (!refresh) return json({ error:'invalid_request' }, { status:400 })
+    const refreshHash = hashToken(refresh)
+    const { data: refreshRecord, error: refreshLookupError } = await supabase.from('mcp_oauth_refresh_tokens')
+      .select('client_id,resource,expires_at,revoked_at').eq('token_hash', refreshHash).eq('client_id', form.client_id).maybeSingle()
+    if (refreshLookupError || !refreshRecord || refreshRecord.resource !== resource || refreshRecord.revoked_at || new Date(refreshRecord.expires_at).getTime() <= Date.now()) {
+      return json({ error:'invalid_grant' }, { status:400 })
+    }
     const accessToken = randomToken(32)
     const nextRefresh = randomToken(32)
     const { data, error } = await supabase.rpc('mcp_rotate_refresh_token', {
-      p_refresh_token_hash: hashToken(refresh),
+      p_refresh_token_hash: refreshHash,
       p_client_id: form.client_id,
       p_new_access_token_hash: hashToken(accessToken),
       p_new_refresh_token_hash: hashToken(nextRefresh),
@@ -47,11 +56,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (form.grant_type !== 'authorization_code') return json({ error:'unsupported_grant_type' }, { status:400 })
+  if (!client.grant_types.includes('authorization_code')) return json({ error:'unauthorized_client' }, { status:400 })
 
   const code = form.code
   const redirectUri = form.redirect_uri
   const verifier = form.code_verifier
-  if (!code || !redirectUri || !verifier || verifier.length > 512) return json({ error:'invalid_request' }, { status:400 })
+  if (!code || !redirectUri || !verifier || !/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) return json({ error:'invalid_request' }, { status:400 })
   if (!client.redirect_uris.includes(redirectUri)) return json({ error:'invalid_grant' }, { status:400 })
 
   const codeHash = hashToken(code)
@@ -62,7 +72,7 @@ export async function POST(request: Request): Promise<Response> {
     .maybeSingle()
   if (error || !authCode) return json({ error:'invalid_grant' }, { status:400 })
   if (authCode.used_at || new Date(authCode.expires_at).getTime() <= Date.now()) return json({ error:'invalid_grant' }, { status:400 })
-  if (authCode.client_id !== form.client_id || authCode.redirect_uri !== redirectUri || authCode.resource !== resourceUri(request)) return json({ error:'invalid_grant' }, { status:400 })
+  if (authCode.client_id !== form.client_id || authCode.redirect_uri !== redirectUri || authCode.resource !== resource) return json({ error:'invalid_grant' }, { status:400 })
   if (pkceChallenge(verifier) !== authCode.code_challenge) return json({ error:'invalid_grant' }, { status:400 })
 
   const accessToken = randomToken(32)
