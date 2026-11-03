@@ -736,37 +736,32 @@ export default function NotelyApp() {
       const now = new Date().toISOString()
 
       if (userRef.current) {
-        const pendingWrites = localWritesRef.current.get(id) ?? 0
-        localWritesRef.current.set(id, pendingWrites + 1)
-        let response: Response
-        try {
-          response = await fetch('/api/notes/' + id, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: t, body: b, started_at: sa })
-          })
-        } catch (error) {
-          if (sequence === saveSequenceRef.current[id] && activeIdRef.current === id) setSaveStatus('error')
-          console.error('Failed to save note:', error)
-          return
-        } finally {
-          const remaining = (localWritesRef.current.get(id) ?? 1) - 1
-          if (remaining > 0) localWritesRef.current.set(id, remaining)
-          else localWritesRef.current.delete(id)
+        const ownerId = userRef.current.id
+        const existing = notesRef.current.find(note => note.id === id)
+        const pendingCreate = Boolean(existing?.pendingCreate)
+        const localNote: Note = {
+          ...(existing ?? { id, created_at: now, tags: [], history: [] }),
+          title: t,
+          body: b,
+          started_at: sa ?? undefined,
+          updated_at: now,
+          synced: false,
+          pendingCreate,
         }
-
-        if (!response.ok) {
-          if (sequence === saveSequenceRef.current[id] && activeIdRef.current === id) setSaveStatus('error')
-          return
-        }
+        await saveOfflineNote(ownerId, localNote, { pendingCreate })
+        setNotes(prev => {
+          const updated = prev.map(note => note.id === id ? localNote : note)
+          notesRef.current = updated
+          return updated
+        })
+        if (navigator.onLine) void syncPendingNotes(ownerId)
       }
-
       // Serialize writes per note so an older request can never finish after and overwrite a newer draft.
       if (sequence !== saveSequenceRef.current[id]) return
       setNotes(prev => {
         const updated = prev.map(n =>
           n.id === id
-            ? { ...n, title: t, body: b, started_at: sa ?? undefined, updated_at: now, synced: Boolean(userRef.current) }
+            ? { ...n, title: t, body: b, started_at: sa ?? undefined, updated_at: now, synced: !userRef.current }
             : n
         )
         notesRef.current = updated
