@@ -11,7 +11,14 @@ function isCacheableStaticAsset(request) {
 }
 
 self.addEventListener('install', event => {
-  event.waitUntil((async () => {\n    const cache = await caches.open(CACHE)\n    await cache.addAll(STATIC)\n    try {\n      const shell = await fetch('/')\n      if (shell.ok && shell.type === 'basic') await cache.put('/', shell)\n    } catch { /* The shell will be cached on the first successful visit. */ }\n  })())
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE)
+    await cache.addAll(STATIC)
+    try {
+      const shell = await fetch('/')
+      if (shell.ok && shell.type === 'basic') await cache.put('/', shell)
+    } catch { /* The shell will be cached on the first successful visit. */ }
+  })())
   self.skipWaiting()
 })
 
