@@ -20,6 +20,7 @@ Notely is a lightweight personal note-taking web app focused on getting ideas do
 - **Notely Flow:** one-step brain dumps, browser voice transcription, an app-wide quick-capture overlay (`Ctrl/Cmd+Shift+Space`), a synced Parking Lot for signed-in users, AI De-Clutter, contextual resurfacing, focus timer, low-friction reading layouts, and source-linked webpage capture at `/flow/links`.
 - **Export:** download a note as a plain-text TXT file.
 - **Smart Recall:** ranked natural-language retrieval, related-memory recommendations, and source-linked Ask My Memory; cloud search is enforced by the authenticated Supabase session.
+- **Notely MCP:** a remote Streamable HTTP MCP server with OAuth 2.1 authorization-code + PKCE, scope-filtered tools, note history, timeline, saved-link context, audited calls, rate limits, and idempotent mutations. See [MCP architecture and integration](docs/mcp.md).
 - **Accounts and sync:** Supabase Auth and cloud-backed notes for signed-in users.
 - **Mobile/PWA support:** responsive mobile views, web app manifest, service worker registration, and app icon.
 
@@ -39,12 +40,12 @@ Feature availability depends on environment configuration. AI summaries, AI De-C
 | Browser regression tests | Playwright and GitHub Actions |
 | Package manager | pnpm, lockfile: pnpm-lock.yaml |
 
-See [architecture](docs/ARCHITECTURE.md), [product brief](docs/PRODUCT_BRIEF.md), and [memory engine](docs/MEMORY_ENGINE.md).
+See [architecture](docs/ARCHITECTURE.md), [Notely MCP](docs/mcp.md), [product brief](docs/PRODUCT_BRIEF.md), and [memory engine](docs/MEMORY_ENGINE.md).
 
 ## Quick start
 
 ### Requirements
-- Node.js 20 or later
+- Node.js 24.19 or later (Vercel runtime: Node 24.x)
 - pnpm compatible with the repository lockfile
 - A Supabase project for authentication and cloud-backed notes
 - A Groq API key only if AI summaries and Flow's AI De-Clutter are to be enabled
@@ -68,6 +69,7 @@ Create a local .env.local file. Never commit real credentials.
 | NEXT_PUBLIC_SUPABASE_ANON_KEY | Legacy-compatible fallback | Public/anonymous key |
 | GROQ_API_KEY | AI summaries and Flow AI De-Clutter | **Server-only secret** |
 | OPENAI_API_KEY | Optional 1,536-dimensional memory embeddings; not required for lexical recall | **Server-only secret; provider usage may incur charges** |
+| SUPABASE_SECRET_KEY | MCP OAuth control plane, token validation, and audited server-side MCP operations | **Server-only secret; never expose to browser code** |
 
 Supabase's database schema and row-level security policies must be configured for the tables used by the application, including documents and version history. Review the API routes before configuring a new database. Do not expose service-role keys in NEXT_PUBLIC variables.
 
@@ -91,6 +93,8 @@ Check the Actions run for the actual outcome; the existence of a workflow file d
       api/notes/          Authenticated note CRUD and version history
       api/organize/       Groq-backed brain-dump organization
       api/parking-lot/   Authenticated Parking Lot read/write/delete
+      api/mcp/           Scope-aware remote MCP server
+      api/oauth/         OAuth 2.1 registration, authorization, token, and revocation
       api/memory/        Owner-scoped ranked search, related memories, and source-grounded Q&A
       api/summarize/      Groq-backed summary endpoint
       api/link-preview/   Server-side page metadata extraction
@@ -106,6 +110,7 @@ Check the Actions run for the actual outcome; the existence of a workflow file d
     lib/
       supabase-client.ts
       supabase-server.ts
+      mcp/                MCP tool registry and OAuth primitives
       safe-url-fetch.ts
     public/               Static assets, manifest, service worker, icons
     tests/e2e/            Playwright regression tests
