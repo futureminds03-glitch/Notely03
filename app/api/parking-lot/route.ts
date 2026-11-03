@@ -66,7 +66,6 @@ export async function POST(request: Request) {
     console.error('Failed to save Parking Lot thought:', error)
     return NextResponse.json({ error: 'Could not sync this thought. Please try again.' }, { status: 500 })
   }
-  if (marker) await supabase.from('documents').update({ tags: ['Parking Lot'] }).eq('id', data.id).eq('user_id', user.id).eq('status', 'parking')
   return NextResponse.json(toItem(data), { status: 201 })
 }
 
