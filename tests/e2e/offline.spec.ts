@@ -26,6 +26,7 @@ test('the app shell and guest notes remain usable after going offline', async ({
   await expect(page.locator('.desktop-editor .save-status')).toContainText('saved')
   await page.waitForTimeout(500)
 
+  await page.waitForFunction(() => 'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller))
   await context.setOffline(true)
   await page.reload()
   await expect(page.locator('.brand')).toContainText('Notely')
@@ -131,6 +132,14 @@ test('pasted images render inline and survive a guest offline reload', async ({ 
   })
   await expect(editor.locator('img.note-inline-image')).toHaveCount(1)
   await expect(editor).toContainText('Text before the image')
+  await editor.evaluate(element => {
+    const encoded = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/K3sAAAAASUVORK5CYII='
+    const bytes = Uint8Array.from(atob(encoded), character => character.charCodeAt(0))
+    const transfer = new DataTransfer()
+    transfer.items.add(new File([bytes], 'dropped.png', { type: 'image/png' }))
+    element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }))
+  })
+  await expect(editor.locator('img.note-inline-image')).toHaveCount(2)
   await page.waitForTimeout(500)
   await page.reload()
   await page.locator('.note-item').filter({ hasText: 'Image paste test' }).click()
