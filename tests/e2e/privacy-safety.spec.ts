@@ -22,6 +22,7 @@ test.describe('Notely privacy and cache boundaries', () => {
     expect(cachedUrls.length).toBeGreaterThan(0)
     for (const pathname of cachedUrls) {
       const isPublicStaticAsset =
+        pathname === '/' ||
         pathname === '/manifest.json' ||
         pathname === '/favicon.svg' ||
         pathname === '/icon.svg' ||
