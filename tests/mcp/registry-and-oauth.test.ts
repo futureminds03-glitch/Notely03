@@ -43,3 +43,24 @@ test('redirect validation rejects network and script hazards', () => {
 test('scope parsing is allowlisted', () => {
   assert.deepEqual(parseScope('notes:read admin:* context:read'), ['notes:read','context:read'])
 })
+test('Parking Lot read and write permissions are independently scoped', () => {
+  const readOnly = visibleTools(['parking:read'])
+  assert.deepEqual(readOnly.map(tool => tool.name), ['get_parking_lot'])
+  const writeOnly = visibleTools(['parking:write'])
+  assert.ok(writeOnly.some(tool => tool.name === 'capture_to_parking_lot'))
+  assert.ok(writeOnly.some(tool => tool.name === 'delete_parking_item'))
+  assert.equal(writeOnly.some(tool => tool.name === 'get_parking_lot'), false)
+})
+
+test('intelligence access does not grant note mutation', () => {
+  const visible = visibleTools(['intelligence:read'])
+  assert.ok(visible.some(tool => tool.name === 'search_smart_recall'))
+  assert.ok(visible.some(tool => tool.name === 'get_note_insights'))
+  assert.equal(visible.some(tool => tool.action !== 'READ'), false)
+})
+
+test('version restore is registered as a scoped write', () => {
+  const visible = visibleTools(['notes:write'])
+  assert.ok(visible.some(tool => tool.name === 'restore_note_version'))
+  assert.equal(visible.some(tool => tool.name === 'delete_note'), true)
+})
