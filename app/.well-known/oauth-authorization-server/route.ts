@@ -19,6 +19,6 @@ export async function GET(request: Request): Promise<Response> {
     grant_types_supported: ['authorization_code','refresh_token'],
     code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['none'],
-    scopes_supported: ['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read'],
+    scopes_supported: ['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read','parking:read','parking:write'],
   }, {headers:{'cache-control':'public,max-age=300,s-maxage=300'}})
 }
