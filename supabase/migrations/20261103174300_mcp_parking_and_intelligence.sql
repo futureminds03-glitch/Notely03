@@ -270,7 +270,7 @@ declare
   safe_tags text[] := coalesce(p_tags, '{}'::text[]);
 begin
   if p_user_id is null or p_body is null or length(p_body) > 20000 or length(coalesce(p_title,'')) > 500
-    or cardinality(safe_tags) > 20 or exists(select 1 from unnest(safe_tags) t where length(t) > 80) then
+    or cardinality(safe_tags) > 20 or exists(select 1 from unnest(safe_tags) as tag(value) where length(value) > 80) then
     raise exception 'VALIDATION_ERROR';
   end if;
 
@@ -333,7 +333,7 @@ begin
   if p_user_id is null or (not p_has_title and not p_has_body and not p_has_tags)
     or (p_has_title and length(coalesce(p_title,'')) > 500)
     or (p_has_body and (p_body is null or length(p_body) > 20000))
-    or (p_has_tags and (cardinality(safe_tags) > 20 or exists(select 1 from unnest(safe_tags) t where length(t) > 80))) then
+    or (p_has_tags and (cardinality(safe_tags) > 20 or exists(select 1 from unnest(safe_tags) as tag(value) where length(value) > 80))) then
     raise exception 'VALIDATION_ERROR';
   end if;
 
