@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
 
 test.describe('Notely privacy and cache boundaries', () => {
-  test('service worker caches public static assets only, never pages or user data', async ({ page }) => {
+  test('service worker caches the generic app shell and public static assets, never private pages or user data', async ({ page }) => {
     await page.goto(baseURL)
     await page.evaluate(() => navigator.serviceWorker.ready)
     await page.reload()
@@ -22,16 +22,25 @@ test.describe('Notely privacy and cache boundaries', () => {
     expect(cachedUrls.length).toBeGreaterThan(0)
     for (const pathname of cachedUrls) {
       const isPublicStaticAsset =
+        pathname === '/' ||
         pathname === '/manifest.json' ||
         pathname === '/favicon.svg' ||
         pathname === '/icon.svg' ||
         (pathname.startsWith('/_next/static/') &&
           /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(pathname))
-      expect(pathname, 'only public immutable assets may be cached').toMatch(
-        /^(?:\/manifest\.json|\/favicon\.svg|\/icon\.svg|\/_next\/static\/.*)$/
+      expect(pathname, 'only the generic app shell or public immutable assets may be cached').toMatch(
+        /^(?:\/|\/manifest\.json|\/favicon\.svg|\/icon\.svg|\/_next\/static\/.*)$/
       )
       expect(isPublicStaticAsset, pathname).toBe(true)
-      expect(pathname).not.toBe('/')
+      if (pathname === '/') {
+        const shell = await page.evaluate(async () => {
+          const response = await caches.match('/')
+          return response ? response.clone().text() : ''
+        })
+        expect(shell).toContain('Notely')
+        expect(shell).not.toContain('Private note')
+        expect(shell).not.toContain('Offline thought')
+      }
       expect(pathname).not.toBe('/memory')
       expect(pathname).not.toContain('/api/')
     }
