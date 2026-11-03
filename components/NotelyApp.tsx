@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase-client'
+import { readOfflineState, writeOfflineState } from '@/lib/offline-store'
 import type { User } from '@supabase/supabase-js'
 
 interface NoteVersion { content: string; timestamp: number }
@@ -101,7 +102,8 @@ interface EditorProps {
   title: string
   body: string
   startedAt: string | null
-  saveStatus: 'saved' | 'saving' | 'error'
+  saveStatus: 'saved' | 'saving' | 'error' | 'offline'
+  isOnline: boolean
   wordCount: number
   aiStatus: string
   history: NoteVersion[]
@@ -119,7 +121,7 @@ interface EditorProps {
 }
 
 function Editor({
-  activeId, title, body, startedAt, saveStatus, wordCount, aiStatus,
+  activeId, title, body, startedAt, saveStatus, isOnline, wordCount, aiStatus,
   history, travelIndex,
   onTitleChange, onBodyChange, onTitleKeyDown, onDelete,
   onSummarize, onExport, onTravel, onRestoreVersion,
@@ -179,7 +181,7 @@ function Editor({
         <div className="tool-sep" />
         <span className="word-count" style={{ marginLeft: 'auto' }}>{wordCount}w</span>
         <span className={`save-status ${saveStatus}`} aria-live="polite">
-          {saveStatus === 'saved' ? '● saved' : saveStatus === 'error' ? '● save failed' : '○ saving…'}
+          {!isOnline ? '● offline · saved on this device' : saveStatus === 'offline' ? '● waiting to sync' : saveStatus === 'saved' ? '● synced' : saveStatus === 'error' ? '● sync issue' : '○ saving…'}
         </span>
       </div>
 
@@ -342,7 +344,8 @@ export default function NotelyApp() {
   const [startedAt, setStartedAt] = useState<string | null>(null)
   const [history, setHistory] = useState<NoteVersion[]>([])
   const [travelIndex, setTravelIndex] = useState(-1)
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved')
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'offline'>('saved')
+  const [isOnline, setIsOnline] = useState(true)
   const [wordCount, setWordCount] = useState(0)
   const [aiStatus, setAiStatus] = useState('')
   const [search, setSearch] = useState('')
@@ -376,11 +379,27 @@ export default function NotelyApp() {
   const authGenerationRef = useRef(0)
   const dirtyFieldsRef = useRef({ title: false, body: false })
   const deepLinkOpenedRef = useRef(false)
+  const pendingDeletesRef = useRef<string[]>([])
+  const storageReadyRef = useRef(false)
 
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
   useEffect(() => { userRef.current = user }, [user])
   useEffect(() => { startedAtRef.current = startedAt }, [startedAt])
   useEffect(() => { notesRef.current = notes }, [notes])
+  useEffect(() => {
+    setIsOnline(typeof navigator === 'undefined' ? true : navigator.onLine)
+    const handleOnline = () => { setIsOnline(true); void syncPendingChanges() }
+    const handleOffline = () => { setIsOnline(false); if (activeIdRef.current) setSaveStatus('offline') }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline) }
+  }, [])
+  useEffect(() => {
+    if (!storageReadyRef.current) return
+    const ownerKey = userRef.current?.id ?? 'guest'
+    void writeOfflineState(ownerKey, { notes, pendingDeletes: pendingDeletesRef.current })
+      .catch(error => { console.error('Offline persistence failed:', error); if (activeIdRef.current) setSaveStatus('error') })
+  }, [notes])
 
   useEffect(() => {
     if (deepLinkOpenedRef.current) return
@@ -417,14 +436,21 @@ export default function NotelyApp() {
   }, [notes])
 
   useEffect(() => {
+    let cancelled = false
     if (user) {
       void fetchCloud(user.id)
     } else {
-      const gn = loadGuest()
-      setNotes(gn)
-      if (gn.length > 0) openNote(gn[0])
-      else clearEditor()
+      void readOfflineState<Note>('guest').then(state => {
+        if (cancelled) return
+        pendingDeletesRef.current = []
+        notesRef.current = state.notes
+        setNotes(state.notes)
+        storageReadyRef.current = true
+        if (state.notes.length > 0) openNote(state.notes[0])
+        else clearEditor()
+      })
     }
+    return () => { cancelled = true }
   }, [user])
 
   useEffect(() => {
@@ -507,23 +533,104 @@ export default function NotelyApp() {
 
   async function fetchCloud(requestedUserId: string) {
     const generation = authGenerationRef.current
+    const local = await readOfflineState<Note>(requestedUserId)
+    if (generation !== authGenerationRef.current || userRef.current?.id !== requestedUserId) return
+    pendingDeletesRef.current = local.pendingDeletes
+    notesRef.current = local.notes
+    setNotes(local.notes)
+    storageReadyRef.current = true
+    if (local.notes.length > 0) openNote(local.notes[0])
+    else clearEditor()
+
+    if (!navigator.onLine) {
+      setSaveStatus(local.notes.some(note => !note.synced) ? 'offline' : 'saved')
+      return
+    }
+
     try {
       const res = await fetch('/api/notes', { cache: 'no-store' })
       if (!res.ok) return
-      const data: Note[] = await res.json()
+      const cloud: Note[] = await res.json()
+      if (generation !== authGenerationRef.current || userRef.current?.id !== requestedUserId) return
 
-      // Ignore stale cloud responses after account changes or sign-out.
-      if (
-        generation !== authGenerationRef.current ||
-        userRef.current?.id !== requestedUserId
-      ) return
-
-      setNotes(data.map(note => ({ ...note, synced: true })))
-      if (data.length > 0) openNote(data[0])
-      else clearEditor()
+      const localById = new Map(local.notes.map(note => [note.id, note]))
+      const merged = cloud.map(remote => {
+        const cached = localById.get(remote.id)
+        if (cached && cached.synced === false) return cached
+        return { ...remote, synced: true }
+      })
+      const cloudIds = new Set(cloud.map(note => note.id))
+      for (const cached of local.notes) {
+        if (cached.id.startsWith('temp-') || (!cloudIds.has(cached.id) && cached.synced === false)) {
+          merged.unshift(cached)
+        }
+      }
+      notesRef.current = merged
+      setNotes(merged)
+      await writeOfflineState(requestedUserId, { notes: merged, pendingDeletes: pendingDeletesRef.current })
+      if (merged.length > 0 && !activeIdRef.current) openNote(merged[0])
+      await syncPendingChanges()
     } catch (error) {
-      console.error('Failed to load cloud notes:', error)
+      console.error('Failed to load cloud notes; keeping local copy:', error)
+      setSaveStatus('offline')
     }
+  }
+
+  async function syncPendingChanges() {
+    const ownerId = userRef.current?.id
+    if (!ownerId || !navigator.onLine) return
+
+    for (const queued of [...notesRef.current]) {
+      if (queued.synced !== false) continue
+      try {
+        const isNew = queued.id.startsWith('temp-')
+        const response = await fetch(isNew ? '/api/notes' : '/api/notes/' + queued.id, {
+          method: isNew ? 'POST' : 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: queued.title,
+            body: queued.body,
+            started_at: queued.started_at ?? null,
+            tags: queued.tags ?? [],
+          }),
+        })
+        if (!response.ok) {
+          if (response.status >= 500 || response.status === 408 || response.status === 429) setSaveStatus('offline')
+          else setSaveStatus('error')
+          return
+        }
+        const syncedNote: Note = await response.json()
+        const replacement = { ...syncedNote, history: queued.history ?? syncedNote.history, synced: true }
+        const next = notesRef.current.map(note => note.id === queued.id ? replacement : note)
+        notesRef.current = next
+        setNotes(next)
+        if (activeIdRef.current === queued.id) {
+          activeIdRef.current = replacement.id
+          setActiveId(replacement.id)
+        }
+        await writeOfflineState(ownerId, { notes: next, pendingDeletes: pendingDeletesRef.current })
+      } catch {
+        setSaveStatus('offline')
+        return
+      }
+    }
+
+    for (const id of [...pendingDeletesRef.current]) {
+      try {
+        const response = await fetch('/api/notes/' + id, { method: 'DELETE' })
+        if (!response.ok && response.status !== 404) {
+          setSaveStatus(response.status >= 500 || response.status === 408 ? 'offline' : 'error')
+          return
+        }
+        pendingDeletesRef.current = pendingDeletesRef.current.filter(value => value !== id)
+        await writeOfflineState(ownerId, { notes: notesRef.current, pendingDeletes: pendingDeletesRef.current })
+      } catch {
+        setSaveStatus('offline')
+        return
+      }
+    }
+
+    if (activeIdRef.current) setSaveStatus('saved')
   }
 
   function flushGuestDraft(id: string) {
@@ -578,135 +685,86 @@ export default function NotelyApp() {
     setShowTimeMachine(false)
     creationInFlightRef.current = true
     const now = new Date().toISOString()
-    const tempId = `temp-${Date.now()}`
-    const captureTimestamp = Date.now()
-    // Let openNote flush the previous note's pending autosave before switching IDs.
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
     const tempNote: Note = {
-      id: tempId,
-      title: '',
-      body: '',
-      created_at: now,
-      updated_at: now,
-      started_at: now,
-      history: [{ content: '', timestamp: captureTimestamp }],
-      synced: false,
+      id: tempId, title: '', body: '', created_at: now, updated_at: now,
+      started_at: now, history: [{ content: '', timestamp: Date.now() }], synced: false,
     }
     draftByIdRef.current[tempId] = { title: '', body: '' }
     const updated = [tempNote, ...notesRef.current]
     notesRef.current = updated
     setNotes(updated)
-    if (!userRef.current) saveGuest(updated)
+    storageReadyRef.current = true
+    const ownerKey = userRef.current?.id ?? 'guest'
+    await writeOfflineState(ownerKey, { notes: updated, pendingDeletes: pendingDeletesRef.current }).catch(error => console.error('Could not save new note locally:', error))
     openNote(tempNote)
+    creationInFlightRef.current = false
+
     setTimeout(() => {
-      // The editor may already be focused by the time this deferred focus runs.
-      // Never steal focus from a field the user has started typing into.
       if (activeIdRef.current !== tempId) return
       const activeElement = document.activeElement
-      const userIsEditing = activeElement instanceof HTMLInputElement ||
-        activeElement instanceof HTMLTextAreaElement ||
+      const userIsEditing = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement ||
         Boolean(activeElement && (activeElement as HTMLElement).isContentEditable)
       if (userIsEditing) return
-
-      const titleField = window.matchMedia('(max-width: 640px)').matches
-        ? mobileTitleRef.current
-        : titleRef.current
+      const titleField = window.matchMedia('(max-width: 640px)').matches ? mobileTitleRef.current : titleRef.current
       titleField?.focus()
     }, 50)
 
-    if (userRef.current) {
-      try {
-        const res = await fetch('/api/notes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: '', body: '', started_at: now })
-        })
-        if (res.ok) {
-          const cloud: Note = await res.json()
-          const draft = draftByIdRef.current[tempId] ?? { title: '', body: '' }
-          const draftTitle = draft.title
-          const draftBody = draft.body
-          const draftStartedAt = tempNote.started_at ?? cloud.started_at ?? now
-
-          setNotes(prev => prev.map(n =>
-            n.id === tempId
-              ? { ...cloud, title: draftTitle, body: draftBody, started_at: draftStartedAt, history: tempNote.history, synced: true }
-              : n
-          ))
-          delete draftByIdRef.current[tempId]
-          draftByIdRef.current[cloud.id] = { title: draftTitle, body: draftBody }
-          if (activeIdRef.current === tempId) {
-            activeIdRef.current = cloud.id
-            startedAtRef.current = draftStartedAt
-            setActiveId(cloud.id)
-            setTitle(draftTitle)
-            setBody(draftBody)
-            activeDraftRef.current = { title: draftTitle, body: draftBody }
-            setStartedAt(draftStartedAt)
-          }
-
-          if (draftTitle || draftBody) {
-            await doSave(cloud.id, draftTitle, draftBody, draftStartedAt)
-          }
-        }
-      } catch {
-        setSaveStatus('error')
-      } finally {
-        creationInFlightRef.current = false
-      }
-    } else {
-      creationInFlightRef.current = false
-    }
+    if (userRef.current && navigator.onLine) void syncPendingChanges()
   }
 
   const doSave = useCallback(async (id: string, t: string, b: string, sa: string | null) => {
-    if (!id || (id.startsWith('temp-') && userRef.current)) return
-
+    if (!id) return
     const sequence = (saveSequenceRef.current[id] ?? 0) + 1
     saveSequenceRef.current[id] = sequence
-
     const runSave = async () => {
       const now = new Date().toISOString()
+      const ownerId = userRef.current?.id
+      const updated = notesRef.current.map(note => note.id === id
+        ? { ...note, title: t, body: b, started_at: sa ?? undefined, updated_at: now, synced: ownerId ? false : true }
+        : note)
+      notesRef.current = updated
+      setNotes(updated)
+      const ownerKey = ownerId ?? 'guest'
+      await writeOfflineState(ownerKey, { notes: updated, pendingDeletes: pendingDeletesRef.current })
+      if (sequence !== saveSequenceRef.current[id]) return
 
-      if (userRef.current) {
-        const pendingWrites = localWritesRef.current.get(id) ?? 0
-        localWritesRef.current.set(id, pendingWrites + 1)
-        let response: Response
-        try {
-          response = await fetch('/api/notes/' + id, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: t, body: b, started_at: sa })
-          })
-        } catch (error) {
-          if (sequence === saveSequenceRef.current[id] && activeIdRef.current === id) setSaveStatus('error')
-          console.error('Failed to save note:', error)
-          return
-        } finally {
-          const remaining = (localWritesRef.current.get(id) ?? 1) - 1
-          if (remaining > 0) localWritesRef.current.set(id, remaining)
-          else localWritesRef.current.delete(id)
+      if (ownerId && navigator.onLine) {
+        if (id.startsWith('temp-')) {
+          await syncPendingChanges()
+        } else {
+          const pendingWrites = localWritesRef.current.get(id) ?? 0
+          localWritesRef.current.set(id, pendingWrites + 1)
+          try {
+            const response = await fetch('/api/notes/' + id, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: t, body: b, started_at: sa }),
+            })
+            if (!response.ok) {
+              setSaveStatus(response.status >= 500 || response.status === 408 || response.status === 429 ? 'offline' : 'error')
+              return
+            }
+            const saved = await response.json() as Note
+            const latest = notesRef.current.map(note => note.id === id ? { ...note, ...saved, synced: true } : note)
+            notesRef.current = latest
+            setNotes(latest)
+            await writeOfflineState(ownerId, { notes: latest, pendingDeletes: pendingDeletesRef.current })
+          } catch {
+            setSaveStatus('offline')
+            return
+          } finally {
+            const remaining = (localWritesRef.current.get(id) ?? 1) - 1
+            if (remaining > 0) localWritesRef.current.set(id, remaining)
+            else localWritesRef.current.delete(id)
+          }
         }
-
-        if (!response.ok) {
-          if (sequence === saveSequenceRef.current[id] && activeIdRef.current === id) setSaveStatus('error')
-          return
-        }
+      } else if (ownerId) {
+        setSaveStatus('offline')
       }
 
-      // Serialize writes per note so an older request can never finish after and overwrite a newer draft.
-      if (sequence !== saveSequenceRef.current[id]) return
-      setNotes(prev => {
-        const updated = prev.map(n =>
-          n.id === id
-            ? { ...n, title: t, body: b, started_at: sa ?? undefined, updated_at: now, synced: Boolean(userRef.current) }
-            : n
-        )
-        notesRef.current = updated
-        if (!userRef.current) saveGuest(updated)
-        return updated
-      })
-      if (activeIdRef.current === id) {
-        setSaveStatus('saved')
+      if (sequence === saveSequenceRef.current[id] && activeIdRef.current === id) {
+        setSaveStatus(ownerId && !navigator.onLine ? 'offline' : 'saved')
         if (activeDraftRef.current.title === t && activeDraftRef.current.body === b) {
           dirtyFieldsRef.current = { title: false, body: false }
         }
@@ -716,9 +774,7 @@ export default function NotelyApp() {
     const previous = saveQueueRef.current[id] ?? Promise.resolve()
     const queued = previous.catch(() => undefined).then(runSave)
     saveQueueRef.current[id] = queued
-    try {
-      await queued
-    } finally {
+    try { await queued } finally {
       if (saveQueueRef.current[id] === queued) delete saveQueueRef.current[id]
     }
   }, [])
@@ -816,49 +872,26 @@ export default function NotelyApp() {
 
   const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-
-    const wasActive = activeIdRef.current === id
-    const previousNotes = notesRef.current
-    const deletedNote = previousNotes.find(note => note.id === id)
+    const deletedNote = notesRef.current.find(note => note.id === id)
     if (!deletedNote) return
-
-    const updated = previousNotes.filter(note => note.id !== id)
-
-    // Optimistic UI: remove immediately and move the editor without waiting on the network.
+    const wasActive = activeIdRef.current === id
+    const updated = notesRef.current.filter(note => note.id !== id)
     notesRef.current = updated
     setNotes(updated)
-    if (!userRef.current) saveGuest(updated)
+
+    const ownerId = userRef.current?.id
+    if (ownerId && !id.startsWith('temp-')) {
+      if (!pendingDeletesRef.current.includes(id)) pendingDeletesRef.current = [...pendingDeletesRef.current, id]
+      await writeOfflineState(ownerId, { notes: updated, pendingDeletes: pendingDeletesRef.current })
+      if (navigator.onLine) void syncPendingChanges()
+    } else {
+      const ownerKey = ownerId ?? 'guest'
+      await writeOfflineState(ownerKey, { notes: updated, pendingDeletes: pendingDeletesRef.current })
+    }
 
     if (wasActive) {
       if (updated.length > 0) openNote(updated[0])
-      else {
-        clearEditor()
-        setMobileView('list')
-      }
-    }
-
-    if (!userRef.current || id.startsWith('temp-')) return
-
-    try {
-      const response = await fetch(`/api/notes/${id}`, {
-        method: 'DELETE',
-      })
-      if (!response.ok) throw new Error('Delete failed')
-    } catch (error) {
-      console.error('Failed to delete note:', error)
-
-      // Roll back only if the note was not replaced by a newer local state.
-      setNotes(current => {
-        const restored = current.some(note => note.id === id)
-          ? current
-          : [...current, deletedNote]
-        notesRef.current = restored
-        return restored
-      })
-
-      if (wasActive && activeIdRef.current !== id) {
-        openNote(deletedNote)
-      }
+      else { clearEditor(); setMobileView('list') }
     }
   }, [])
 
@@ -971,7 +1004,7 @@ export default function NotelyApp() {
   }, [notes, search])
 
   const editorProps = {
-    activeId, title, body, startedAt, saveStatus, wordCount, aiStatus,
+    activeId, title, body, startedAt, saveStatus, isOnline, wordCount, aiStatus,
     history, travelIndex,
     onTitleChange, onBodyChange, onTitleKeyDown, onDelete: handleDelete,
     onSummarize: handleSummarize, onExport: handleExport,
