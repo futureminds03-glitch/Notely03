@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
+import MemoryLoading from '@/components/MemoryLoading'
 
 type ArchivedNote = { id: string; title: string; body: string; archived_at: string | null; updated_at: string }
 
@@ -103,7 +104,7 @@ export default function AccountPage() {
     }
   }
 
-  if (loading) return <main className="account-page"><p role="status">Loading account…</p></main>
+  if (loading) return <MemoryLoading title="Opening Account & Privacy" detail="Loading your account settings" />
   if (!email) return <main className="account-page"><a href="/">← Back to Notely</a><h1>Sign in to manage your account</h1><p>Account export and deletion are available for signed-in accounts.</p><a className="account-action" href="/">Sign in</a></main>
 
   return (
