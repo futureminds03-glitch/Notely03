@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 
-type ParkingInput = { text?: unknown }
+type ParkingInput = { text?: unknown; client_id?: unknown }
 
 function toItem(row: { id: string; body: string; created_at: string }) {
   return { id: row.id, text: row.body, createdAt: row.created_at, synced: true }
@@ -45,6 +45,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'This thought is too long to park at once.' }, { status: 413 })
   }
 
+  const clientId = typeof (payload as ParkingInput).client_id === 'string' && /^[a-zA-Z0-9_-]{8,100}$/.test((payload as ParkingInput).client_id as string) ? (payload as ParkingInput).client_id as string : null
+  const marker = clientId ? 'offline-client:' + clientId : null
+  if (marker) { const existing = await supabase.from('documents').select('id,body,created_at').eq('user_id', user.id).eq('status', 'parking').contains('tags', [marker]).maybeSingle(); if (existing.data) return NextResponse.json(toItem(existing.data), { status: 200 }) }
   const title = text.split(/\r?\n/, 1)[0].replace(/\s+/g, ' ').slice(0, 72) || 'Parked thought'
   const { data, error } = await supabase
     .from('documents')
@@ -53,7 +56,7 @@ export async function POST(request: Request) {
       title,
       body: text,
       status: 'parking',
-      tags: ['Parking Lot'],
+      tags: marker ? ['Parking Lot', marker] : ['Parking Lot'],
       provenance: 'user_created',
     })
     .select('id,body,created_at')
@@ -63,6 +66,7 @@ export async function POST(request: Request) {
     console.error('Failed to save Parking Lot thought:', error)
     return NextResponse.json({ error: 'Could not sync this thought. Please try again.' }, { status: 500 })
   }
+  if (marker) await supabase.from('documents').update({ tags: ['Parking Lot'] }).eq('id', data.id).eq('user_id', user.id).eq('status', 'parking')
   return NextResponse.json(toItem(data), { status: 201 })
 }
 
