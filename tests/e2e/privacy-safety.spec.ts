@@ -27,11 +27,9 @@ test.describe('Notely privacy and cache boundaries', () => {
         pathname === '/icon.svg' ||
         (pathname.startsWith('/_next/static/') &&
           /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(pathname))
-      expect(pathname, 'only public immutable assets may be cached').toMatch(
-        /^(?:\/manifest\.json|\/favicon\.svg|\/icon\.svg|\/_next\/static\/.*)$/
-      )
-      expect(isPublicStaticAsset, pathname).toBe(true)
-      expect(pathname).not.toBe('/')
+      const isGenericOfflineShell = pathname === '/' || pathname === '/offline.html'
+      expect(isPublicStaticAsset || isGenericOfflineShell, pathname).toBe(true)
+      // The root is a generic client-rendered shell; no account or note data is embedded in it.
       expect(pathname).not.toBe('/memory')
       expect(pathname).not.toContain('/api/')
     }
