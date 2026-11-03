@@ -31,7 +31,7 @@ test('the app shell and guest notes remain usable after going offline', async ({
   await expect(page.locator('.brand')).toContainText('Notely')
   await expect(page.locator('.notes-list')).toContainText('Offline thought')
   await page.locator('.note-item').filter({ hasText: 'Offline thought' }).click()
-  await expect(page.locator('textarea.note-body')).toHaveValue('This note must survive a disconnected reload.')
+  await expect(page.locator('.desktop-editor textarea.note-body')).toHaveValue('This note must survive a disconnected reload.')
   await expect(page.getByRole('status')).toContainText('Offline')
 
   await context.close()
