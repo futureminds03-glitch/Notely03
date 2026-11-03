@@ -25,6 +25,7 @@ export const MCP_TOOL_REGISTRY: readonly McpToolMetadata[] = [
   {name:'get_notes_for_period',version:'v1',capability_group:'timeline',action:'READ',required_scopes:['timeline:read'],description:'Retrieve active notes inside an explicit started_at interval.',risk:'low'},
   {name:'get_note_versions',version:'v1',capability_group:'versions',action:'READ',required_scopes:['notes:read'],description:'Retrieve bounded immutable note history.',risk:'low'},
   {name:'get_note_version',version:'v1',capability_group:'versions',action:'READ',required_scopes:['notes:read'],description:'Retrieve one immutable note version.',risk:'low'},
+  {name:'restore_note_version',version:'v1',capability_group:'versions',action:'WRITE',required_scopes:['notes:write'],description:'Restore a prior note version as a new version using optimistic concurrency.',risk:'medium'},
   {name:'assemble_notely_context',version:'v1',capability_group:'context',action:'READ',required_scopes:['context:read'],description:'Assemble bounded source-backed evidence for external reasoning.',risk:'low'},
   {name:'search_saved_links',version:'v1',capability_group:'links',action:'READ',required_scopes:['search:read'],description:'Search saved links owned by the caller.',risk:'low'},
   {name:'get_link_context',version:'v1',capability_group:'links',action:'READ',required_scopes:['search:read'],description:'Retrieve a saved link with bounded linked-note context.',risk:'low'},
