@@ -28,7 +28,7 @@ type Note = {
   archived_at: string | null
 }
 
-const noteProjection = 'id,user_id,provenance,title,body,started_at,status,created_at,updated_at,archived_at'
+const noteProjection = 'id,user_id,provenance,title,body,tags,started_at,status,created_at,updated_at,archived_at'
 
 function admin() {
   const url = process.env.SUPABASE_URL
@@ -368,7 +368,7 @@ export function buildServer(request: Request, info?: AuthInfo) {
   })
 
   registerTool(server, request, auth, 'create_note', 'WRITE', 'notes', ['notes:write'], 'Create an authoritative Notely note with atomic idempotency and preserve started_at as capture time.', z.object({
-    title:z.string().max(500).default(''),body:z.string().max(20000),started_at:z.string().datetime({offset:true}).optional(),idempotency_key:z.string().min(8).max(128)
+    title:z.string().max(500).default(''),body:z.string().max(20000),tags:z.array(z.string().max(80)).max(20).default([]),started_at:z.string().datetime({offset:true}).optional(),idempotency_key:z.string().min(8).max(128)
   }), async(ctx,input)=>{
     const payload={title:input.title,body:input.body,started_at:input.started_at??null}
     const requestHash=await sha256(JSON.stringify(payload))
@@ -378,7 +378,7 @@ export function buildServer(request: Request, info?: AuthInfo) {
   })
 
   registerTool(server, request, auth, 'update_note', 'WRITE', 'notes', ['notes:write'], 'Update an owned note only when expected_updated_at still matches; capture timestamp remains unchanged.', z.object({
-    note_id:z.string().uuid(),expected_updated_at:z.string().datetime({offset:true}),title:z.string().max(500).optional(),body:z.string().max(20000).optional(),idempotency_key:z.string().min(8).max(128)
+    note_id:z.string().uuid(),expected_updated_at:z.string().datetime({offset:true}),title:z.string().max(500).optional(),body:z.string().max(20000).optional(),tags:z.array(z.string().max(80)).max(20).optional(),idempotency_key:z.string().min(8).max(128)
   }), async(ctx,input)=>{
     if(input.title===undefined&&input.body===undefined) throw new Error('VALIDATION_ERROR')
     const requestHash=await sha256(JSON.stringify({note_id:input.note_id,expected_updated_at:input.expected_updated_at,title:input.title??null,body:input.body??null}))
