@@ -8,6 +8,6 @@ export async function GET(request: Request): Promise<Response> {
     resource,
     authorization_servers: [origin],
     bearer_methods_supported: ['header'],
-    scopes_supported: ['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read'],
+    scopes_supported: ['notes:read','notes:write','timeline:read','search:read','context:read','intelligence:read','parking:read','parking:write'],
   }, { headers: { 'cache-control': 'public, max-age=300, s-maxage=300' } })
 }
