@@ -218,7 +218,7 @@ function Editor({
         }}
       />
 
-      {history.length > 0 && (
+      {history.length > 1 && (
         <div className="time-travel-bar">
           <span className="tt-label">Time Travel</span>
           <div className="tt-scrubber-wrap">
