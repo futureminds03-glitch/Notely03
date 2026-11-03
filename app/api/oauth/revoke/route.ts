@@ -8,7 +8,6 @@ export async function POST(request: Request): Promise<Response> {
   try { form = await request.formData() } catch { return json({ error: 'invalid_request' }, { status: 400 }) }
   const token = form.get('token')
   const clientId = form.get('client_id')
-  const hint = form.get('token_type_hint')
   if (typeof token !== 'string' || !token || token.length > 4096 || typeof clientId !== 'string' || !clientId) {
     return json({ error: 'invalid_request' }, { status: 400 })
   }
@@ -19,12 +18,12 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const supabase = admin()
     const tokenHash = hashToken(token)
-    if (hint !== 'access_token') {
+    {
       const { data: refresh } = await supabase.from('mcp_oauth_refresh_tokens')
         .select('user_id,client_id').eq('token_hash', tokenHash).eq('client_id', clientId).maybeSingle()
       if (refresh) {
         const revokedAt = new Date().toISOString()
-        await supabase.from('mcp_oauth_refresh_tokens').update({ revoked_at: revokedAt }).eq('token_hash', tokenHash).eq('client_id', clientId)
+        await supabase.from('mcp_oauth_refresh_tokens').update({ revoked_at: revokedAt }).eq('token_hash', tokenHash).eq('client_id', clientId).is('revoked_at', null)
         await supabase.from('mcp_oauth_grants').update({ revoked_at: revokedAt, updated_at: revokedAt })
           .eq('user_id', refresh.user_id).eq('client_id', clientId)
         await supabase.from('mcp_oauth_tokens').update({ revoked_at: revokedAt })
@@ -33,10 +32,8 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    if (hint !== 'refresh_token') {
-      await supabase.from('mcp_oauth_tokens').update({ revoked_at: new Date().toISOString() })
-        .eq('token_hash', tokenHash).eq('client_id', clientId).is('revoked_at', null)
-    }
+    await supabase.from('mcp_oauth_tokens').update({ revoked_at: new Date().toISOString() })
+      .eq('token_hash', tokenHash).eq('client_id', clientId).is('revoked_at', null)
   } catch {
     return json({ error: 'server_error' }, { status: 500 })
   }
