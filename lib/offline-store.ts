@@ -36,7 +36,24 @@ export async function readOfflineState<TNote>(ownerKey: string): Promise<Offline
         request.onerror = () => reject(request.error)
       })
       database.close()
-      if (record) return record
+      if (record) {
+        if (ownerKey !== 'guest') return record
+        const legacyRaw = localStorage.getItem(legacyKey(ownerKey))
+        const legacyNotes = legacyRaw ? JSON.parse(legacyRaw) as TNote[] : []
+        const merged = new Map<string, TNote>()
+        for (const note of record.notes) {
+          const id = (note as { id?: string }).id
+          if (id) merged.set(id, note)
+        }
+        for (const note of legacyNotes) {
+          const id = (note as { id?: string }).id
+          if (!id) continue
+          const existing = merged.get(id) as (TNote & { updated_at?: string }) | undefined
+          const incoming = note as TNote & { updated_at?: string }
+          if (!existing || Date.parse(incoming.updated_at ?? '') >= Date.parse(existing.updated_at ?? '')) merged.set(id, note)
+        }
+        return { notes: [...merged.values()], pendingDeletes: record.pendingDeletes }
+      }
     }
   } catch (error) {
     console.warn('IndexedDB read failed; using local fallback:', error)
@@ -68,6 +85,7 @@ export async function writeOfflineState<TNote>(
           transaction.onabort = () => reject(transaction.error ?? new Error('Offline save was aborted'))
         })
         database.close()
+        if (ownerKey === 'guest') localStorage.setItem(legacyKey(ownerKey), JSON.stringify(value.notes))
         return
       }
     } catch (error) {
