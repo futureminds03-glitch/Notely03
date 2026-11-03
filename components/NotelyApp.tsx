@@ -926,6 +926,12 @@ export default function NotelyApp() {
     e.stopPropagation()
 
     const wasActive = activeIdRef.current === id
+    if (wasActive) {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      saveTimer.current = null
+      if (historyTimer.current) clearTimeout(historyTimer.current)
+      historyTimer.current = null
+    }
     const previousNotes = notesRef.current
     const deletedNote = previousNotes.find(note => note.id === id)
     if (!deletedNote) return
