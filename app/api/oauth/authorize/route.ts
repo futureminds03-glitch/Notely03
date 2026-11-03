@@ -37,7 +37,7 @@ function renderLogin(state: OAuthState, csrf: string, message = ''): Response {
   const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta name="color-scheme" content="light"><title>Connect Notely</title><style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f5f7;color:#1d1d1f;display:grid;place-items:center;min-height:100vh;margin:0}.card{width:min(440px,calc(100% - 32px));background:#fff;padding:28px;border-radius:24px;box-shadow:0 16px 60px #0001}h1{font-size:30px;margin:0 0 8px}p{color:#6e6e73;line-height:1.5;font-size:14px}.scope{background:#f5f5f7;padding:14px;border-radius:12px;margin:18px 0}.notice{color:#b42318;background:#fff1f0;padding:10px;border-radius:10px}input[type=email],input[type=password]{display:block;width:100%;box-sizing:border-box;margin:8px 0 14px;padding:12px;border:1px solid #d2d2d7;border-radius:10px;font:inherit}label{font-size:13px;font-weight:600}.approve{display:flex;gap:8px;align-items:flex-start;margin:10px 0 16px;font-size:13px;font-weight:400}.approve input{margin-top:2px}button{width:100%;border:0;border-radius:10px;padding:13px;background:#0071e3;color:#fff;font-weight:600}</style></head><body><main class="card"><div>✦ Notely</div><h1>Connect your Notely context</h1>' +
     (message ? '<p class="notice">' + htmlEscape(message) + '</p>' : '') +
     '<p>This AI client is requesting access to your Notely account.</p><div class="scope"><strong>Requested scopes</strong><p>' + htmlEscape(scopeText) + '</p></div><form method="post">' + fields +
-    '<label>Email<input name="email" type="email" autocomplete="username" required maxlength="320"></label><label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="4096"></label><label class="approve"><input name="approve" type="checkbox" value="yes" required><span>I authorize this AI connection to access the scopes shown above.</span></label><button type="submit">Authorize securely</button></form></main></body></html>'
+    '<label>Email<input name="email" type="email" autocomplete="username" maxlength="320"></label><label>Password<input name="password" type="password" autocomplete="current-password" maxlength="4096"></label><label class="approve"><input name="approve" type="checkbox" value="yes" required><span>I authorize this AI connection to access the scopes shown above.</span></label><button type="submit">Authorize securely</button></form></main></body></html>'
   return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'" } })
 }
 
@@ -97,7 +97,7 @@ export async function GET(request: Request): Promise<Response> {
     scope: loaded.scope, state: loaded.state, code_challenge: loaded.challenge,
   }
   const response = renderLogin(state, csrf)
-  response.headers.append('set-cookie', 'notely_oauth_request=' + encodeURIComponent(requestId) + '; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600')
+  response.headers.append('set-cookie', 'notely_oauth_request=' + encodeURIComponent(requestId) + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=600' + (new URL(request.url).protocol === 'https:' ? '; Secure' : ''))
   return response
 }
 
@@ -121,22 +121,42 @@ export async function POST(request: Request): Promise<Response> {
     .eq('request_id', requestId)
     .maybeSingle()
   if (pendingError || !pending || new Date(pending.expires_at).getTime() <= Date.now() || hashToken(csrf) !== pending.csrf_hash) return new Response('Invalid OAuth session', { status: 400 })
-  if (get('approve') !== 'yes') return redirectWithError(pending.redirect_uri, 'access_denied', pending.state)
+  if (get('approve') !== 'yes') {
+      const denied = redirectWithError(pending.redirect_uri, 'access_denied', pending.state)
+    denied.headers.append('set-cookie', 'notely_oauth_request=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + (new URL(request.url).protocol === 'https:' ? '; Secure' : ''))
+    return denied
+  }
   const supabase = await createClient()
+  const { data: currentSession } = await supabase.auth.getUser()
+  let authenticatedUser = currentSession.user
   const email = get('email')
   const password = get('password')
-  if (!email || !password) return renderLogin({
-    request_id: pending.request_id, client_id: pending.client_id, redirect_uri: pending.redirect_uri,
-    scope: (pending.scopes as string[]).join(' '), state: pending.state ?? '', code_challenge: pending.code_challenge
-  }, csrf, 'Email and password are required.')
-  const { data: auth, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-  if (authError || !auth.user) return renderLogin({
-    request_id: pending.request_id, client_id: pending.client_id, redirect_uri: pending.redirect_uri,
-    scope: (pending.scopes as string[]).join(' '), state: pending.state ?? '', code_challenge: pending.code_challenge
-  }, csrf, 'Invalid Notely email or password.')
+  if (!authenticatedUser) {
+    if (!email || !password) return renderLogin({
+      request_id: pending.request_id, client_id: pending.client_id, redirect_uri: pending.redirect_uri,
+      scope: (pending.scopes as string[]).join(' '), state: pending.state ?? '', code_challenge: pending.code_challenge
+    }, csrf, 'Sign in to your Notely account to approve this connection.')
+    const { data: auth, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    if (authError || !auth.user || !auth.session) return renderLogin({
+      request_id: pending.request_id, client_id: pending.client_id, redirect_uri: pending.redirect_uri,
+      scope: (pending.scopes as string[]).join(' '), state: pending.state ?? '', code_challenge: pending.code_challenge
+    }, csrf, 'Invalid Notely email or password.')
+    authenticatedUser = auth.user
+  }
+  const { data: assurance, error: assuranceError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  if (assuranceError || (assurance?.nextLevel === 'aal2' && assurance.currentLevel !== 'aal2')) {
+    return renderLogin({
+      request_id: pending.request_id, client_id: pending.client_id, redirect_uri: pending.redirect_uri,
+      scope: (pending.scopes as string[]).join(' '), state: pending.state ?? '', code_challenge: pending.code_challenge
+    }, csrf, 'This account requires MFA. Complete MFA in Notely, then return and approve this connection again. You can leave credentials blank if already signed in.')
+  }
+  const { data: consumed, error: consumeError } = await admin().from('mcp_oauth_authorization_requests')
+    .delete().eq('request_id', requestId).eq('csrf_hash', hashToken(csrf)).gt('expires_at', new Date().toISOString())
+    .select('request_id').maybeSingle()
+  if (consumeError || !consumed) return new Response('This authorization request has already been used or expired.', { status: 400 })
   const code = randomToken(32)
   const { error: codeError } = await admin().from('mcp_oauth_codes').insert({
-    code_hash: hashToken(code), client_id: pending.client_id, user_id: auth.user.id,
+    code_hash: hashToken(code), client_id: pending.client_id, user_id: authenticatedUser.id,
     redirect_uri: pending.redirect_uri, code_challenge: pending.code_challenge,
     scopes: pending.scopes, resource: pending.resource, expires_at: expiresIn(300),
   })
@@ -146,6 +166,6 @@ export async function POST(request: Request): Promise<Response> {
   target.searchParams.set('code', code)
   if (pending.state) target.searchParams.set('state', pending.state)
   const response = Response.redirect(target.toString(), 302)
-  response.headers.append('set-cookie', 'notely_oauth_request=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0')
+  response.headers.append('set-cookie', 'notely_oauth_request=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + (new URL(request.url).protocol === 'https:' ? '; Secure' : ''))
   return response
 }
