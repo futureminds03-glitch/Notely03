@@ -3,7 +3,7 @@ import MemoryLoading from '@/components/MemoryLoading'
 
 import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { cacheSyncedOfflineNote, getOfflineNotes, getPendingOfflineNotes, markOfflineNoteDeleted, markOfflineNoteSynced, removeOfflineNote, saveOfflineNote } from '@/lib/offline-notes'
+import { cacheSyncedOfflineNote, getOfflineNotes, getPendingOfflineNotes, markOfflineNoteDeleted, markOfflineNoteSynced, removeOfflineNote, saveOfflineNote, updateCachedOfflineNote } from '@/lib/offline-notes'
 import type { User } from '@supabase/supabase-js'
 import NoteBodyEditor from '@/components/NoteBodyEditor'
 import { getOfflineImage, removeOfflineImage } from '@/lib/offline-images'
