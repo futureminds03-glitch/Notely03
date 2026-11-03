@@ -1,0 +1,65 @@
+name: Notely MCP CI
+
+on:
+  push:
+    branches: [feat/notely-mcp-server]
+    paths:
+      - 'app/api/mcp/**'
+      - 'docs/NOTELY_MCP.md'
+      - 'tests/e2e/notely-mcp.spec.js'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/notely-mcp-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/api/mcp/**'
+      - 'docs/NOTELY_MCP.md'
+      - 'tests/e2e/notely-mcp.spec.js'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/notely-mcp-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notely-mcp-ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mcp-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: e2e-placeholder-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save --package-lock=false @playwright/test
+          npx playwright install --with-deps chromium
+      - name: Build application
+        run: pnpm build
+      - name: Start local production server
+        run: nohup pnpm start > /tmp/notely-mcp.log 2>&1 &
+      - name: Wait for local server
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --connect-timeout 1 --max-time 2 http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/notely-mcp.log
+          exit 1
+      - name: Run MCP and application regression suite
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3000
+        run: npx playwright test tests/e2e --reporter=list
