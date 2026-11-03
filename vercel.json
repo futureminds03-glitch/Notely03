@@ -3,7 +3,8 @@
   "git": {
     "deploymentEnabled": {
       "feat/memory-engine": false,
-      "fix/notely-unified-flow-design": false
+      "fix/notely-unified-flow-design": false,
+      "feat/notely-mcp-server": false
     }
   }
 }
