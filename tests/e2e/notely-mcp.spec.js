@@ -6,6 +6,7 @@ test.describe('Notely MCP endpoint', () => {
       data: { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } },
     })
     expect(response.status()).toBe(401)
+    expect(response.headers()['www-authenticate']).toContain('/.well-known/oauth-protected-resource/api/mcp')
     await expect(response.json()).resolves.toMatchObject({ error: 'A valid Notely Supabase access token is required.' })
   })
 
@@ -21,5 +22,15 @@ test.describe('Notely MCP endpoint', () => {
     const response = await request.get('/api/mcp')
     expect(response.status()).toBe(405)
     expect(response.headers().allow).toContain('POST')
+  })
+})
+
+test('publishes OAuth protected-resource metadata', async ({ request }) => {
+  const response = await request.get('/.well-known/oauth-protected-resource/api/mcp')
+  expect(response.status()).toBe(200)
+  await expect(response.json()).resolves.toMatchObject({
+    resource: 'http://127.0.0.1:3000/api/mcp',
+    authorization_servers: ['http://127.0.0.1:54321/auth/v1'],
+    bearer_methods_supported: ['header'],
   })
 })
