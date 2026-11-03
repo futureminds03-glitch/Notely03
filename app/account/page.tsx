@@ -11,12 +11,15 @@ export default function AccountPage() {
   const [email, setEmail] = useState('')
   const [archivedNotes, setArchivedNotes] = useState<ArchivedNote[]>([])
   const [loading, setLoading] = useState(true)
+  const [offline, setOffline] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => { const update = () => setOffline(!navigator.onLine); update(); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) } }, [])
 
   useEffect(() => {
     let active = true
@@ -113,15 +116,16 @@ export default function AccountPage() {
       <div className="account-eyebrow">NOTELY · ACCOUNT & PRIVACY</div>
       <h1>Your account, your data.</h1>
       <p className="account-intro">Signed in as <strong>{email}</strong>. You can take a copy of your data or permanently delete your account.</p>
+      {offline && <p className="account-message" role="status">Offline. Account export, archived-note management and account deletion need an internet connection. Your locally saved notes remain available in Notely.</p>}
 
       <section className="account-card">
         <div className="account-card-copy"><h2>Export your data</h2><p>Download your notes, archived notes, note history, saved sources and memory insights as a JSON file.</p></div>
-        <button className="account-action" onClick={exportData} disabled={exporting}>{exporting ? 'Preparing export…' : 'Download my data'}</button>
+        <button className="account-action" onClick={exportData} disabled={exporting || offline} aria-busy={exporting}>{exporting ? 'Preparing export…' : 'Download my data'}</button>
       </section>
 
       <section className="account-card">
         <div className="account-card-copy"><h2>Archived notes ({archivedNotes.length})</h2><p>Archiving hides a note without deleting it. Restore it to your notes or permanently delete it and its version history.</p></div>
-        {archivedNotes.length ? archivedNotes.map(note => <div className="account-archive-item" key={note.id}><div><strong>{note.title || 'Untitled'}</strong><p>{note.body.slice(0, 180) || 'Empty note'}</p><small>{note.archived_at ? new Date(note.archived_at).toLocaleString() : 'Archived'}</small></div><div className="account-archive-actions"><button className="account-action" onClick={() => restoreArchived(note.id)}>Restore</button><button className="account-delete" onClick={() => permanentlyDeleteArchived(note.id)}>Delete forever</button></div></div>) : <p className="account-empty">No archived notes.</p>}
+        {archivedNotes.length ? archivedNotes.map(note => <div className="account-archive-item" key={note.id}><div><strong>{note.title || 'Untitled'}</strong><p>{note.body.slice(0, 180) || 'Empty note'}</p><small>{note.archived_at ? new Date(note.archived_at).toLocaleString() : 'Archived'}</small></div><div className="account-archive-actions"><button className="account-action" onClick={() => restoreArchived(note.id)} disabled={offline}>Restore</button><button className="account-delete" onClick={() => permanentlyDeleteArchived(note.id)} disabled={offline}>Delete forever</button></div></div>) : <p className="account-empty">No archived notes.</p>}
       </section>
 
       <section className="account-card account-danger">
@@ -130,7 +134,7 @@ export default function AccountPage() {
         <input id="account-password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Your current password" />
         <label htmlFor="account-confirm">Type DELETE to confirm</label>
         <input id="account-confirm" value={confirmation} onChange={event => setConfirmation(event.target.value)} placeholder="DELETE" autoComplete="off" />
-        <button className="account-delete" onClick={deleteAccount} disabled={deleting || !password || confirmation !== 'DELETE'}>{deleting ? 'Deleting account…' : 'Permanently delete account'}</button>
+        <button className="account-delete" onClick={deleteAccount} disabled={deleting || offline || !password || confirmation !== 'DELETE'} aria-busy={deleting}>{deleting ? 'Deleting account…' : 'Permanently delete account'}</button>
       </section>
 
       {message && <p className="account-message" role="status">{message}</p>}
