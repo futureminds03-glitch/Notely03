@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase-client'
+import { cacheSyncedOfflineNote, getOfflineNotes, getPendingOfflineNotes, markOfflineNoteDeleted, markOfflineNoteSynced, removeOfflineNote, saveOfflineNote } from '@/lib/offline-notes'
 import type { User } from '@supabase/supabase-js'
 
 interface NoteVersion { content: string; timestamp: number }
@@ -17,6 +18,7 @@ interface Note {
   history?: NoteVersion[]
   tags?: string[]
   synced?: boolean
+  pendingCreate?: boolean
 }
 
 function fmtDate(iso: string) {
@@ -356,6 +358,7 @@ export default function NotelyApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mobileView, setMobileView] = useState<'list' | 'editor'>('list')
   const [showTimeMachine, setShowTimeMachine] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
 
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
@@ -376,11 +379,31 @@ export default function NotelyApp() {
   const authGenerationRef = useRef(0)
   const dirtyFieldsRef = useRef({ title: false, body: false })
   const deepLinkOpenedRef = useRef(false)
+  const syncInFlightRef = useRef(false)
 
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
   useEffect(() => { userRef.current = user }, [user])
   useEffect(() => { startedAtRef.current = startedAt }, [startedAt])
   useEffect(() => { notesRef.current = notes }, [notes])
+
+  useEffect(() => {
+    const updateOnline = () => setIsOnline(navigator.onLine)
+    updateOnline()
+    window.addEventListener('online', updateOnline)
+    window.addEventListener('offline', updateOnline)
+    return () => {
+      window.removeEventListener('online', updateOnline)
+      window.removeEventListener('offline', updateOnline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user) return
+    const sync = () => { if (navigator.onLine) void syncPendingNotes(user.id) }
+    window.addEventListener('online', sync)
+    if (navigator.onLine) sync()
+    return () => window.removeEventListener('online', sync)
+  }, [user])
 
   useEffect(() => {
     if (deepLinkOpenedRef.current) return
@@ -508,6 +531,14 @@ export default function NotelyApp() {
   async function fetchCloud(requestedUserId: string) {
     const generation = authGenerationRef.current
     try {
+      const cached = await getOfflineNotes(requestedUserId)
+      if (generation === authGenerationRef.current && userRef.current?.id === requestedUserId && cached.length) {
+        setNotes(cached)
+        notesRef.current = cached
+        if (!activeIdRef.current) openNote(cached[0])
+      }
+    } catch (error) { console.error('Could not read local notes:', error) }
+    try {
       const res = await fetch('/api/notes', { cache: 'no-store' })
       if (!res.ok) return
       const data: Note[] = await res.json()
@@ -518,9 +549,19 @@ export default function NotelyApp() {
         userRef.current?.id !== requestedUserId
       ) return
 
-      setNotes(data.map(note => ({ ...note, synced: true })))
-      if (data.length > 0) openNote(data[0])
-      else clearEditor()
+      const pending = await getPendingOfflineNotes(requestedUserId).catch(() => [])
+      const pendingById = new Map(pending.filter(item => !item.pendingDelete).map(item => [item.note.id, item.note]))
+      const merged = data.map(note => pendingById.get(note.id) ?? { ...note, synced: true })
+      const cloudIds = new Set(merged.map(note => note.id))
+      for (const item of pending) {
+        if (!item.pendingDelete && !cloudIds.has(item.note.id)) merged.push(item.note)
+      }
+      for (const note of data) await cacheSyncedOfflineNote(requestedUserId, note).catch(() => undefined)
+      setNotes(merged)
+      notesRef.current = merged
+      if (merged.length > 0 && !activeIdRef.current) openNote(merged[0])
+      if (navigator.onLine) void syncPendingNotes(requestedUserId)
+      if (merged.length === 0) clearEditor()
     } catch (error) {
       console.error('Failed to load cloud notes:', error)
     }
