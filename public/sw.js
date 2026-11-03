@@ -1,4 +1,4 @@
-const CACHE = 'notely-v3-static-only'
+const CACHE = 'notely-v4-local-first'
 const STATIC = ['/manifest.json', '/favicon.svg', '/icon.svg']
 
 function isCacheableStaticAsset(request) {
@@ -11,7 +11,7 @@ function isCacheableStaticAsset(request) {
 }
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(STATIC)))
+  event.waitUntil((async () => {\n    const cache = await caches.open(CACHE)\n    await cache.addAll(STATIC)\n    try {\n      const shell = await fetch('/')\n      if (shell.ok && shell.type === 'basic') await cache.put('/', shell)\n    } catch { /* The shell will be cached on the first successful visit. */ }\n  })())
   self.skipWaiting()
 })
 
@@ -28,6 +28,30 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const request = event.request
+  const url = new URL(request.url)
+
+  // Keep the generic app shell available for a direct visit while offline.
+  // API requests and authenticated data are deliberately never cached here.
+  if (request.method === 'GET' && request.mode === 'navigate' && url.origin === self.location.origin) {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(request)
+        if (response.ok && response.type === 'basic' && url.pathname === '/') {
+          const cache = await caches.open(CACHE)
+          await cache.put('/', response.clone())
+        }
+        return response
+      } catch {
+        const cached = await caches.match('/')
+        return cached || new Response('Notely is offline. Reconnect once to load the app, then your notes will be available offline.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        })
+      }
+    })())
+    return
+  }
+
   if (!isCacheableStaticAsset(request)) return
 
   event.respondWith((async () => {
