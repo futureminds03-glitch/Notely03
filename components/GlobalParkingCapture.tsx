@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase-client'
+import { getPendingParking, remapOfflineParking, removeOfflineParking, saveOfflineParking } from '@/lib/offline-workspace'
 
 const PARKING_KEY = 'notely_parking_lot_v1'
 
@@ -21,6 +23,27 @@ export default function GlobalParkingCapture() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [ownerId, setOwnerId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    createClient().auth.getSession().then(({ data }) => { if (active) setOwnerId(data.session?.user.id ?? null) }).catch(() => undefined)
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!ownerId) return
+    const sync = async () => {
+      if (!navigator.onLine) return
+      for (const record of await getPendingParking(ownerId).catch(() => [])) {
+        if (record.pendingDelete) { if (!record.item.id.startsWith('local-')) { const response = await fetch('/api/parking-lot?id=' + encodeURIComponent(record.item.id), { method: 'DELETE' }); if (!response.ok && response.status !== 404) break } await removeOfflineParking(ownerId, record.item.id); continue }
+        try { const response = await fetch('/api/parking-lot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: record.item.text, client_id: record.item.id }) }); if (!response.ok) break; const saved = await response.json() as ParkingItem; await remapOfflineParking(ownerId, record.item.id, saved); window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: saved })) } catch { break }
+      }
+    }
+    sync()
+    window.addEventListener('online', sync)
+    return () => window.removeEventListener('online', sync)
+  }, [ownerId])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -42,32 +65,38 @@ export default function GlobalParkingCapture() {
     if (!thought || saving) return
     setSaving(true)
     setError('')
+    const item: ParkingItem = { id: 'local-' + crypto.randomUUID(), text: thought, createdAt: new Date().toISOString() }
     try {
-      const response = await fetch('/api/parking-lot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: thought }),
-      })
-
-      let savedItem: ParkingItem
-      if (response.status === 401) {
-        savedItem = {
-          id: 'local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
-          text: thought,
-          createdAt: new Date().toISOString(),
+      if (ownerId) {
+        await saveOfflineParking(ownerId, item)
+        if (navigator.onLine) {
+          try {
+            const response = await fetch('/api/parking-lot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: thought, client_id: item.id }) })
+            if (!response.ok) throw new Error('Your thought is saved here and will sync when you reconnect.')
+            const savedItem = await response.json() as ParkingItem
+            await remapOfflineParking(ownerId, item.id, savedItem)
+            window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: savedItem }))
+          } catch {
+            window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: item }))
+            setNotice('Thought saved on this device. It will sync when you reconnect.')
+          }
+        } else {
+          window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: item }))
+          setNotice('Thought saved on this device. It will sync when you reconnect.')
+        }
+      } else {
+        let savedItem = item
+        if (navigator.onLine) {
+          const response = await fetch('/api/parking-lot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: thought }) })
+          if (response.status !== 401 && !response.ok) throw new Error('Could not save this thought. Please try again.')
+          if (response.ok) savedItem = await response.json() as ParkingItem
         }
         localStorage.setItem(PARKING_KEY, JSON.stringify([savedItem, ...readLocalParking()]))
-      } else if (response.ok) {
-        savedItem = await response.json() as ParkingItem
-      } else {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(typeof data.error === 'string' ? data.error : 'Could not save this thought. Please try again.')
+        window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: savedItem }))
       }
-
-      window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: savedItem }))
       setText('')
       setOpen(false)
-      setNotice('Thought parked. You can find it in Notely Flow.')
+      if (!notice) setNotice('Thought parked. You can find it in Notely Flow.')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save this thought. Please try again.')
     } finally {
