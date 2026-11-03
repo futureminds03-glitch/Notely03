@@ -20,6 +20,7 @@ test.describe('Offline-first notes', () => {
     await page.locator('.note-title:visible').fill('Offline capture')
     await page.locator('.note-body:visible').fill('This draft must survive closing and reopening Notely without internet.')
     await expect(page.getByRole('status').filter({ hasText: 'Offline' })).toBeVisible()
+    await expect(page.locator('.save-status')).toContainText('offline · saved on this device')
 
     await page.reload()
     await expect(page.locator('.note-title:visible')).toHaveValue('Offline capture')
