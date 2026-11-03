@@ -608,9 +608,11 @@ export default function NotelyApp() {
           const remote = conflictPayload.conflict as Note | undefined
           if (!remote?.id) {
             setSaveStatus('error')
+            syncRequestedRef.current = false
             return
           }
-          const latestLocal = notesRef.current.find(note => note.id === queued.id) ?? queued
+          const latestLocal = notesRef.current.find(note => note.id === queued.id)
+          if (!latestLocal) continue
           const now = new Date().toISOString()
           const conflictCopy: Note = {
             ...latestLocal,
@@ -643,6 +645,7 @@ export default function NotelyApp() {
         if (!response.ok) {
           if (response.status >= 500 || response.status === 408 || response.status === 429) setSaveStatus('offline')
           else setSaveStatus('error')
+          syncRequestedRef.current = false
           return
         }
         const syncedNote: Note = await response.json()
@@ -676,6 +679,7 @@ export default function NotelyApp() {
         await writeOfflineState(ownerId, { notes: next, pendingDeletes: pendingDeletesRef.current })
       } catch {
         setSaveStatus('offline')
+        syncRequestedRef.current = false
         return
       }
     }
@@ -685,12 +689,14 @@ export default function NotelyApp() {
         const response = await fetch('/api/notes/' + id, { method: 'DELETE' })
         if (!response.ok && response.status !== 404) {
           setSaveStatus(response.status >= 500 || response.status === 408 ? 'offline' : 'error')
+          syncRequestedRef.current = false
           return
         }
         pendingDeletesRef.current = pendingDeletesRef.current.filter(value => value !== id)
         await writeOfflineState(ownerId, { notes: notesRef.current, pendingDeletes: pendingDeletesRef.current })
       } catch {
         setSaveStatus('offline')
+        syncRequestedRef.current = false
         return
       }
     }
