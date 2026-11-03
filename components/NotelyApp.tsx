@@ -570,6 +570,8 @@ export default function NotelyApp() {
   async function syncPendingNotes(ownerId: string) {
     if (!navigator.onLine || syncInFlightRef.current || userRef.current?.id !== ownerId) return
     syncInFlightRef.current = true
+    let completedAll = true
+    let shouldRunAgain = false
     try {
       const pending = await getPendingOfflineNotes(ownerId)
       for (const item of pending) {
@@ -577,7 +579,7 @@ export default function NotelyApp() {
         const note = item.note
         if (item.pendingDelete) {
           const response = await fetch('/api/notes/' + note.id, { method: 'DELETE' })
-          if (!response.ok && response.status !== 404) break
+          if (!response.ok && response.status !== 404) { completedAll = false; break }
           await removeOfflineNote(ownerId, note.id)
           setNotes(prev => {
             const next = prev.filter(existing => existing.id !== note.id)
@@ -617,7 +619,7 @@ export default function NotelyApp() {
             body: payload,
           })
         }
-        if (!response.ok) break
+        if (!response.ok) { completedAll = false; break }
         const serverNote = item.pendingCreate ? await response.json().catch(() => null) : null
         const syncedNote: Note = { ...note, ...(serverNote ?? {}), synced: true, pendingCreate: false }
         await markOfflineNoteSynced(ownerId, syncedNote)
@@ -627,10 +629,13 @@ export default function NotelyApp() {
           return next
         })
       }
+      if (completedAll) shouldRunAgain = (await getPendingOfflineNotes(ownerId)).length > 0
     } catch (error) {
+      completedAll = false
       console.error('Offline note sync paused:', error)
     } finally {
       syncInFlightRef.current = false
+      if (shouldRunAgain && navigator.onLine && userRef.current?.id === ownerId) void syncPendingNotes(ownerId)
     }
   }
 
