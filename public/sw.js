@@ -1,17 +1,45 @@
-const CACHE = 'notely-v3-static-only'
-const STATIC = ['/manifest.json', '/favicon.svg', '/icon.svg']
+const CACHE = 'notely-v4-offline-shell'
+const STATIC = ['/manifest.json', '/favicon.svg', '/icon.svg', '/offline.html']
 
 function isCacheableStaticAsset(request) {
   if (request.method !== 'GET') return false
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return false
-  if (STATIC.includes(url.pathname)) return true
-  if (!url.pathname.startsWith('/_next/static/')) return false
-  return /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(url.pathname)
+  const pathname = url.pathname.replace(/\/+$/, '')
+  if (STATIC.includes(pathname)) return true
+  if (!pathname.startsWith('/_next/static/')) return false
+  return /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(pathname)
+}
+
+async function cacheAppShell() {
+  const cache = await caches.open(CACHE)
+  await cache.addAll(STATIC)
+  try {
+    const response = await fetch('/', { cache: 'reload' })
+    if (response.ok && response.type === 'basic') {
+      const html = await response.clone().text()
+      await cache.put('/', response)
+      const assets = [...new Set(html.match(/\/_next\/static\/[^"'\s<>]+/g) || [])]
+        .filter(asset => {
+          const pathname = new URL(asset, self.location.origin).pathname.replace(/\/+$/, '')
+          return pathname.startsWith('/_next/static/') && /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(pathname)
+        })
+      await Promise.all(assets.map(async asset => {
+        try {
+          const assetResponse = await fetch(asset, { cache: 'reload' })
+          if (assetResponse.ok && assetResponse.type === 'basic') await cache.put(asset, assetResponse)
+        } catch {
+          // A failed optional asset must not prevent the shell from being installed.
+        }
+      }))
+    }
+  } catch {
+    // The install can still complete; the next successful navigation will seed the shell.
+  }
 }
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(STATIC)))
+  event.waitUntil(cacheAppShell())
   self.skipWaiting()
 })
 
@@ -28,8 +56,36 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const request = event.request
-  if (!isCacheableStaticAsset(request)) return
+  if (request.method !== 'GET') return
 
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return
+
+  if (request.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(request)
+        if (response.ok && response.type === 'basic' && url.pathname === '/') {
+          const cache = await caches.open(CACHE)
+          await cache.put('/', response.clone())
+        }
+        return response
+      } catch {
+        const cache = await caches.open(CACHE)
+        if (url.pathname === '/') {
+          const shell = await cache.match('/')
+          if (shell) return shell
+        }
+        return (await cache.match('/offline.html')) || new Response('Notely is offline. Reconnect and try again.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        })
+      }
+    })())
+    return
+  }
+
+  if (!isCacheableStaticAsset(request)) return
   event.respondWith((async () => {
     const cache = await caches.open(CACHE)
     const cached = await cache.match(request)
