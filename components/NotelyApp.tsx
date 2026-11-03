@@ -567,6 +567,73 @@ export default function NotelyApp() {
     }
   }
 
+  async function syncPendingNotes(ownerId: string) {
+    if (!navigator.onLine || syncInFlightRef.current || userRef.current?.id !== ownerId) return
+    syncInFlightRef.current = true
+    try {
+      const pending = await getPendingOfflineNotes(ownerId)
+      for (const item of pending) {
+        if (!navigator.onLine || userRef.current?.id !== ownerId) break
+        const note = item.note
+        if (item.pendingDelete) {
+          const response = await fetch('/api/notes/' + note.id, { method: 'DELETE' })
+          if (!response.ok && response.status !== 404) break
+          await removeOfflineNote(ownerId, note.id)
+          setNotes(prev => {
+            const next = prev.filter(existing => existing.id !== note.id)
+            notesRef.current = next
+            return next
+          })
+          continue
+        }
+
+        let response: Response
+        const payload = JSON.stringify({
+          id: note.id,
+          title: note.title,
+          body: note.body,
+          started_at: note.started_at ?? null,
+          tags: note.tags ?? [],
+        })
+        if (item.pendingCreate) {
+          response = await fetch('/api/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+          })
+          // A create may have reached the server even if the response was lost.
+          // A conflict is therefore reconciled as an update to the same owner-scoped ID.
+          if (response.status === 409) {
+            response = await fetch('/api/notes/' + note.id, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: payload,
+            })
+          }
+        } else {
+          response = await fetch('/api/notes/' + note.id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+          })
+        }
+        if (!response.ok) break
+        const serverNote = item.pendingCreate ? await response.json().catch(() => null) : null
+        const syncedNote: Note = { ...note, ...(serverNote ?? {}), synced: true, pendingCreate: false }
+        await markOfflineNoteSynced(ownerId, syncedNote)
+        setNotes(prev => {
+          const next = prev.map(existing => existing.id === note.id ? syncedNote : existing)
+          notesRef.current = next
+          return next
+        })
+      }
+    } catch (error) {
+      console.error('Offline note sync paused:', error)
+    } finally {
+      syncInFlightRef.current = false
+    }
+  }
+
   function flushGuestDraft(id: string) {
     const draft = activeDraftRef.current
     saveSequenceRef.current[id] = (saveSequenceRef.current[id] ?? 0) + 1
