@@ -600,13 +600,24 @@ export default function NotelyApp() {
           return
         }
         const syncedNote: Note = await response.json()
-        const replacement = { ...syncedNote, history: queued.history ?? syncedNote.history, synced: true }
+        const latestLocal = notesRef.current.find(note => note.id === queued.id) ?? queued
+        const unchangedDuringRequest = latestLocal.title === queued.title && latestLocal.body === queued.body
+        const replacement: Note = {
+          ...syncedNote,
+          title: latestLocal.title,
+          body: latestLocal.body,
+          started_at: latestLocal.started_at ?? syncedNote.started_at,
+          tags: latestLocal.tags ?? syncedNote.tags,
+          history: latestLocal.history ?? queued.history ?? syncedNote.history,
+          synced: unchangedDuringRequest,
+        }
         const next = notesRef.current.map(note => note.id === queued.id ? replacement : note)
         notesRef.current = next
         setNotes(next)
         if (activeIdRef.current === queued.id) {
           activeIdRef.current = replacement.id
           setActiveId(replacement.id)
+          activeDraftRef.current = { title: replacement.title, body: replacement.body }
         }
         await writeOfflineState(ownerId, { notes: next, pendingDeletes: pendingDeletesRef.current })
       } catch {
@@ -630,6 +641,10 @@ export default function NotelyApp() {
       }
     }
 
+    if (notesRef.current.some(note => note.synced === false) && navigator.onLine) {
+      void syncPendingChanges()
+      return
+    }
     if (activeIdRef.current) setSaveStatus('saved')
   }
 
@@ -807,6 +822,19 @@ export default function NotelyApp() {
     }, 1000)
   }
 
+  function persistDraftLocally(t: string, b: string, sa: string | null) {
+    const id = activeIdRef.current
+    if (!id) return
+    const ownerId = userRef.current?.id
+    const updated = notesRef.current.map(note => note.id === id
+      ? { ...note, title: t, body: b, started_at: sa ?? undefined, updated_at: new Date().toISOString(), synced: ownerId ? false : true }
+      : note)
+    notesRef.current = updated
+    setNotes(updated)
+    void writeOfflineState(ownerId ?? 'guest', { notes: updated, pendingDeletes: pendingDeletesRef.current })
+      .catch(error => { console.error('Immediate offline save failed:', error); setSaveStatus('error') })
+    if (ownerId && !navigator.onLine) setSaveStatus('offline')
+  }
   function onTitleChange(v: string) {
     let sa = startedAtRef.current
     if (!sa) {
@@ -819,6 +847,7 @@ export default function NotelyApp() {
     activeDraftRef.current.title = v
     const draftId = activeIdRef.current
     if (draftId) draftByIdRef.current[draftId] = { ...activeDraftRef.current }
+    persistDraftLocally(v, activeDraftRef.current.body, sa)
     scheduleSave(v, activeDraftRef.current.body, sa)
   }
 
@@ -835,6 +864,7 @@ export default function NotelyApp() {
     const draftId = activeIdRef.current
     if (draftId) draftByIdRef.current[draftId] = { ...activeDraftRef.current }
     setWordCount(v.trim() ? v.trim().split(/\s+/).length : 0)
+    persistDraftLocally(activeDraftRef.current.title, v, sa)
     scheduleSave(activeDraftRef.current.title, v, sa)
     addToHistory(v)
     setTravelIndex(-1)
@@ -1013,6 +1043,7 @@ export default function NotelyApp() {
 
   return (
     <>
+      {!isOnline && <div className="offline-indicator" role="status">Offline · notes are saved on this device and will sync when you reconnect.</div>}
       {/* MOBILE HEADER */}
       <div className="mobile-header">
         {mobileView === 'list' ? (
