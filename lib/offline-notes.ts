@@ -140,13 +140,10 @@ export async function markOfflineNoteDeleted(ownerId: string, noteId: string): P
   const key = storageKey(ownerId, noteId)
   const existing = await withStore<StoredNote | undefined>('readonly', store => store.get(key))
   if (!existing) return
-  if (existing.pendingCreate) {
-    await removeOfflineNote(ownerId, noteId)
-    return
-  }
+  // Keep a tombstone even for an in-flight create. Once the create settles,
+  // the sync loop will observe this flag and issue the delete afterward.
   await withStore<IDBValidKey>('readwrite', store => store.put({
     ...existing,
-    pendingCreate: false,
     pendingUpdate: false,
     pendingDelete: true,
   }))
