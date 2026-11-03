@@ -440,6 +440,7 @@ export default function NotelyApp() {
 
   useEffect(() => {
     let cancelled = false
+    storageReadyRef.current = false
     if (user) {
       void fetchCloud(user.id)
     } else {
@@ -1044,6 +1045,7 @@ export default function NotelyApp() {
 
   async function signOut() {
     // Invalidate any in-flight cloud-note request before changing modes.
+    storageReadyRef.current = false
     authGenerationRef.current += 1
     userRef.current = null
     const { error } = await supabase.auth.signOut()
