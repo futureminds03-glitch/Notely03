@@ -10,7 +10,7 @@ type Props = {
   editorRef: React.RefObject<HTMLDivElement | null>
 }
 
-const markerPattern = /!\\[image\\]\\(notely-(?:image|local):[^)]+\\)/g
+const markerPattern = /!\[image\]\(notely-(?:image|local):[^)]+\)/g
 
 function renderContent(element: HTMLDivElement, value: string) {
   element.replaceChildren()
@@ -18,7 +18,7 @@ function renderContent(element: HTMLDivElement, value: string) {
   const markers = value.match(markerPattern) ?? []
   parts.forEach((part, index) => {
     if (part) {
-      const lines = part.split('\\n')
+      const lines = part.split('\n')
       lines.forEach((line, lineIndex) => {
         if (line) element.append(document.createTextNode(line))
         if (lineIndex < lines.length - 1) element.append(document.createElement('br'))
@@ -26,7 +26,7 @@ function renderContent(element: HTMLDivElement, value: string) {
     }
     const marker = markers[index]
     if (!marker) return
-    const match = marker.match(/^!\\[image\\]\\(notely-(image|local):([^)]+)\\)$/)
+    const match = marker.match(/^!\[image\]\(notely-(image|local):([^)]+)\)$/)
     if (!match) return
     const image = document.createElement('img')
     image.alt = 'Pasted image'
@@ -57,13 +57,13 @@ function serializeNode(node: Node): string {
     if (node.dataset.localImageId) return '![image](notely-local:' + node.dataset.localImageId + ')'
     return ''
   }
-  if (node.tagName === 'BR') return '\\n'
+  if (node.tagName === 'BR') return '\n'
   const content = Array.from(node.childNodes).map(serializeNode).join('')
-  return ['DIV', 'P'].includes(node.tagName) ? content + '\\n' : content
+  return ['DIV', 'P'].includes(node.tagName) ? content + '\n' : content
 }
 
 function serializeEditor(element: HTMLDivElement) {
-  return Array.from(element.childNodes).map(serializeNode).join('').replace(/\\n{3,}/g, '\\n\\n').replace(/\\n$/, '')
+  return Array.from(element.childNodes).map(serializeNode).join('').replace(/\n{3,}/g, '\n\n').replace(/\n$/, '')
 }
 
 export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: Props) {
