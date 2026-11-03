@@ -559,7 +559,7 @@ export default function NotelyApp() {
       if (generation !== authGenerationRef.current || userRef.current?.id !== requestedUserId) return
 
       const localById = new Map(local.notes.map(note => [note.id, note]))
-      const merged = cloud.map(remote => {
+      const merged: Note[] = cloud.map(remote => {
         const cached = localById.get(remote.id)
         if (cached && cached.synced === false) return { ...cached, syncBaseUpdatedAt: cached.syncBaseUpdatedAt ?? cached.updated_at }
         return { ...remote, synced: true, syncBaseUpdatedAt: remote.updated_at }
