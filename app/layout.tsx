@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <GlobalParkingCapture />
-        <script dangerouslySetInnerHTML={{ __html: "if('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}) }) }" }} />
+        <script dangerouslySetInnerHTML={{ __html: "if('serviceWorker' in navigator) { window.addEventListener('load', async () => { try { await navigator.serviceWorker.register('/sw.js'); const cacheAssets = () => { const urls = performance.getEntriesByType('resource').map(entry => entry.name).filter(name => { try { const url = new URL(name); return url.origin === location.origin && url.pathname.startsWith('/_next/static/') } catch { return false } }); navigator.serviceWorker.controller?.postMessage({ type: 'CACHE_APP_ASSETS', urls }) }; if (navigator.serviceWorker.controller) cacheAssets(); else navigator.serviceWorker.addEventListener('controllerchange', cacheAssets, { once: true }) } catch {} }) }" }} />
       </body>
     </html>
   )
