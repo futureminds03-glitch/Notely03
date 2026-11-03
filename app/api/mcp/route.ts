@@ -511,6 +511,28 @@ export function buildServer(request: Request, info?: AuthInfo) {
     return result(data)
   })
 
+
+  registerTool(server, request, auth, 'restore_note_version', 'WRITE', 'versions', ['notes:write'], 'Restore a prior body/title version as a new version. Requires the latest updated_at to prevent overwriting concurrent edits.', z.object({
+    note_id: z.string().uuid(), version_number: z.number().int().min(1),
+    expected_updated_at: z.string().datetime({ offset: true }), idempotency_key: z.string().min(8).max(128)
+  }), async (ctx, input) => {
+    const requestHash = await sha256(JSON.stringify({
+      note_id: input.note_id, version_number: input.version_number, expected_updated_at: input.expected_updated_at
+    }))
+    const { data, error } = await client.rpc('mcp_restore_note_version', {
+      p_user_id: ctx.userId, p_client_id: ctx.clientId, p_note_id: input.note_id,
+      p_version_number: input.version_number, p_expected_updated_at: input.expected_updated_at,
+      p_idempotency_key: input.idempotency_key, p_request_hash: requestHash
+    })
+    if (error) {
+      if (error.message.includes('CONFLICT')) throw new Error('CONFLICT')
+      if (error.message.includes('IDEMPOTENCY_CONFLICT')) throw new Error('IDEMPOTENCY_CONFLICT')
+      if (error.message.includes('NOT_FOUND')) throw new Error('NOT_FOUND')
+      throw new Error('INTERNAL_ERROR')
+    }
+    return result(data)
+  })
+
   return server
 }
 
