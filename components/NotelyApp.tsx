@@ -105,6 +105,7 @@ interface EditorProps {
   startedAt: string | null
   saveStatus: 'saved' | 'saving' | 'error' | 'offline'
   isOnline: boolean
+  isSynced: boolean
   wordCount: number
   aiStatus: string
   history: NoteVersion[]
@@ -122,7 +123,7 @@ interface EditorProps {
 }
 
 function Editor({
-  activeId, title, body, startedAt, saveStatus, isOnline, wordCount, aiStatus,
+  activeId, title, body, startedAt, saveStatus, isOnline, isSynced, wordCount, aiStatus,
   history, travelIndex,
   onTitleChange, onBodyChange, onTitleKeyDown, onDelete,
   onSummarize, onExport, onTravel, onRestoreVersion,
@@ -182,7 +183,7 @@ function Editor({
         <div className="tool-sep" />
         <span className="word-count" style={{ marginLeft: 'auto' }}>{wordCount}w</span>
         <span className={`save-status ${saveStatus}`} aria-live="polite">
-          {!isOnline ? '● offline · saved on this device' : saveStatus === 'offline' ? '● waiting to sync' : saveStatus === 'saved' ? '● synced' : saveStatus === 'error' ? '● sync issue' : '○ saving…'}
+          {!isOnline ? '● offline · saved on this device' : !isSynced || saveStatus === 'offline' ? '● waiting to sync' : saveStatus === 'saved' ? '● synced' : saveStatus === 'error' ? '● sync issue' : '○ saving…'}
         </span>
       </div>
 
@@ -618,10 +619,10 @@ export default function NotelyApp() {
           const conflictCopy: Note = {
             ...latestLocal,
             id: `temp-${Date.now()}-conflict`,
-            title: `Conflict copy — ${latestLocal.title.trim() || 'Untitled'}`,
+            title: `Conflict copy — ${(latestLocal.title.trim() || 'Untitled').slice(0, 280)}`,
             created_at: now,
             updated_at: now,
-            started_at: now,
+            started_at: latestLocal.started_at ?? now,
             synced: false,
             syncBaseUpdatedAt: undefined,
             history: [...(latestLocal.history ?? []), { content: latestLocal.body, timestamp: Date.now() }],
@@ -1076,8 +1077,9 @@ export default function NotelyApp() {
     )
   }, [notes, search])
 
+  const isActiveNoteSynced = !user || notes.find(note => note.id === activeId)?.synced !== false
   const editorProps = {
-    activeId, title, body, startedAt, saveStatus, isOnline, wordCount, aiStatus,
+    activeId, title, body, startedAt, saveStatus, isOnline, isSynced: isActiveNoteSynced, wordCount, aiStatus,
     history, travelIndex,
     onTitleChange, onBodyChange, onTitleKeyDown, onDelete: handleDelete,
     onSummarize: handleSummarize, onExport: handleExport,
