@@ -38,7 +38,21 @@ Notely MCP exposes the signed-in user's Notely data to compatible MCP clients th
 
 ## Current integration boundary
 
-This first server slice implements authenticated tools and Streamable HTTP transport. It does **not** yet implement an OAuth 2.1 authorization server, dynamic client registration, or token issuance for third-party MCP clients. A client must already possess a Notely Supabase access token. Do not publish a connection manifest or claim one-click ChatGPT/Claude setup until the OAuth authorization flow is implemented and verified.
+The Notely endpoint now publishes RFC 9728 protected-resource metadata and returns a `WWW-Authenticate` discovery challenge. OAuth 2.1 authorization, token exchange, refresh, and dynamic client registration are delegated to Supabase Auth; Notely implements the consent UI at `/oauth/consent` and the approval/denial callback at `/api/oauth/decision`. This flow is code-complete but is not live until OAuth 2.1 is enabled in the Supabase project and its authorization path is configured. The Supabase project settings are not exposed through the connected management actions, so that configuration has not been verified or changed.
+
+## Supabase OAuth activation
+
+In Supabase Dashboard → Authentication → OAuth Server:
+
+1. Enable the OAuth 2.1 server.
+2. Set the authorization path to `/oauth/consent`.
+3. Enable dynamic client registration for compatible MCP clients, while requiring explicit user approval.
+4. Verify the authorization-server discovery endpoint at `https://wesvhiztgcvavlsviavf.supabase.co/.well-known/oauth-authorization-server/auth/v1`.
+5. Prefer asymmetric JWT signing keys for third-party token validation. Do not change the project's signing keys without a planned session-impact review.
+
+The protected-resource metadata is served from `/.well-known/oauth-protected-resource/api/mcp` and points clients to the Supabase authorization server. The MCP route validates the resulting Supabase user token and applies the existing owner-scoped RLS policies.
+
+See the [Supabase OAuth 2.1 setup guide](https://supabase.com/docs/guides/auth/oauth-server/getting-started) and [MCP authentication guide](https://supabase.com/docs/guides/auth/oauth-server/mcp-authentication).
 
 ## Protocol notes
 
