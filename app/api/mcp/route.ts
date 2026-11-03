@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const PROTOCOL_VERSION = '2025-03-26'
+const PROTOCOL_VERSION = '2025-06-18'
 const MAX_REQUEST_BYTES = 64_000
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -12,9 +12,12 @@ type ToolResult = { content: Array<{ type: 'text'; text: string }>; structuredCo
 
 const tools = [
   { name: 'list_notes', description: 'List the authenticated user’s active Notely notes. Supports pagination and optional tag filtering.', inputSchema: { type: 'object', properties: { limit: { type: 'integer', minimum: 1, maximum: 50, default: 20 }, offset: { type: 'integer', minimum: 0, maximum: 10000, default: 0 }, tag: { type: 'string', maxLength: 80 } }, additionalProperties: false }, annotations: { readOnlyHint: true, openWorldHint: false } },
+  { name: 'list_tags', description: 'List tags used by the authenticated user’s active notes, with note counts.', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true, openWorldHint: false } },
   { name: 'get_note', description: 'Retrieve one of the authenticated user’s notes, including its complete body and timestamps.', inputSchema: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } }, required: ['id'], additionalProperties: false }, annotations: { readOnlyHint: true, openWorldHint: false } },
   { name: 'create_note', description: 'Create a note in the authenticated user’s Notely account. The note is saved to the same collection used by the Notely app.', inputSchema: { type: 'object', properties: { title: { type: 'string', maxLength: 500 }, body: { type: 'string', maxLength: 100000 }, tags: { type: 'array', items: { type: 'string', maxLength: 80 }, maxItems: 20 } }, required: ['body'], additionalProperties: false }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } },
   { name: 'update_note', description: 'Update an existing active note. Only supplied fields are changed. Body changes are recorded in Notely version history.', inputSchema: { type: 'object', properties: { id: { type: 'string', format: 'uuid' }, title: { type: 'string', maxLength: 500 }, body: { type: 'string', maxLength: 100000 }, tags: { type: 'array', items: { type: 'string', maxLength: 80 }, maxItems: 20 } }, required: ['id'], additionalProperties: false }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } },
+  { name: 'list_note_versions', description: 'List the body-version history for one of the authenticated user’s notes.', inputSchema: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } }, required: ['id'], additionalProperties: false }, annotations: { readOnlyHint: true, openWorldHint: false } },
+  { name: 'restore_note_version', description: 'Restore a previous body version as a new current version. The current body is preserved in history.', inputSchema: { type: 'object', properties: { id: { type: 'string', format: 'uuid' }, version_number: { type: 'integer', minimum: 1 } }, required: ['id', 'version_number'], additionalProperties: false }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } },
   { name: 'archive_note', description: 'Archive an active note in the authenticated user’s account. This is reversible in the Notely data model but removes it from the active notes list.', inputSchema: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } }, required: ['id'], additionalProperties: false }, annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: false } },
   { name: 'search_notes', description: 'Search the authenticated user’s notes using Notely’s indexed full-text retrieval. Returns ranked, source-linked excerpts.', inputSchema: { type: 'object', properties: { query: { type: 'string', minLength: 2, maxLength: 500 }, limit: { type: 'integer', minimum: 1, maximum: 10, default: 10 } }, required: ['query'], additionalProperties: false }, annotations: { readOnlyHint: true, openWorldHint: false } },
   { name: 'list_parking_lot', description: 'List the authenticated user’s synced Parking Lot thoughts.', inputSchema: { type: 'object', properties: { limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 } }, additionalProperties: false }, annotations: { readOnlyHint: true, openWorldHint: false } },
@@ -66,6 +69,13 @@ async function callTool(name: string, args: Record<string, unknown>, supabase: R
     if (error) return toolError('Could not list notes.')
     return toolResult({ count: data?.length ?? 0, limit, offset, notes: (data ?? []).map(n => ({ ...n, excerpt: n.body.slice(0, 500), body: undefined })) })
   }
+  if (name === 'list_tags') {
+    const { data, error } = await supabase.from('documents').select('tags').eq('user_id', userId).eq('status', 'active')
+    if (error) return toolError('Could not list tags.')
+    const counts = new Map<string, number>()
+    for (const row of data ?? []) for (const tag of row.tags ?? []) if (typeof tag === 'string' && tag.trim()) counts.set(tag.trim(), (counts.get(tag.trim()) ?? 0) + 1)
+    return toolResult({ tags: Array.from(counts, ([tag, noteCount]) => ({ tag, noteCount })).sort((a, b) => a.tag.localeCompare(b.tag)) })
+  }
   if (name === 'get_note') {
     if (!validId(args.id)) return toolError('A valid note UUID is required.')
     const { data, error } = await supabase.from('documents').select('id,title,body,tags,status,created_at,updated_at,started_at').eq('id', args.id).eq('user_id', userId).eq('status', 'active').maybeSingle()
@@ -98,6 +108,28 @@ async function callTool(name: string, args: Record<string, unknown>, supabase: R
       await supabase.from('document_versions').insert({ document_id: args.id, version_number: (latest?.version_number ?? 0) + 1, body: data.body })
     }
     return toolResult(data)
+  }
+  if (name === 'list_note_versions') {
+    if (!validId(args.id)) return toolError('A valid note UUID is required.')
+    const { data: note } = await supabase.from('documents').select('id').eq('id', args.id).eq('user_id', userId).eq('status', 'active').maybeSingle()
+    if (!note) return toolError('Note not found.')
+    const { data, error } = await supabase.from('document_versions').select('version_number,title,body,created_at').eq('document_id', args.id).order('version_number', { ascending: true })
+    if (error) return toolError('Could not load note history.')
+    return toolResult({ note_id: args.id, versions: data ?? [] })
+  }
+  if (name === 'restore_note_version') {
+    if (!validId(args.id) || typeof args.version_number !== 'number' || !Number.isInteger(args.version_number) || args.version_number < 1) return toolError('A valid note ID and positive version number are required.')
+    const { data: note } = await supabase.from('documents').select('id').eq('id', args.id).eq('user_id', userId).eq('status', 'active').maybeSingle()
+    if (!note) return toolError('Note not found.')
+    const { data: selected, error: selectedError } = await supabase.from('document_versions').select('body').eq('document_id', args.id).eq('version_number', args.version_number).maybeSingle()
+    if (selectedError || !selected) return toolError('Requested note version was not found.')
+    const { data: latest } = await supabase.from('document_versions').select('version_number').eq('document_id', args.id).order('version_number', { ascending: false }).limit(1).maybeSingle()
+    const nextVersion = (latest?.version_number ?? 0) + 1
+    const { data: updated, error: updateError } = await supabase.from('documents').update({ body: selected.body }).eq('id', args.id).eq('user_id', userId).eq('status', 'active').select('id,title,body,updated_at').maybeSingle()
+    if (updateError || !updated) return toolError('Could not restore note version.')
+    const { error: historyError } = await supabase.from('document_versions').insert({ document_id: args.id, version_number: nextVersion, body: selected.body })
+    if (historyError) return toolError('The note was restored but its new history entry could not be recorded.')
+    return toolResult({ restored: true, note: updated, restored_from_version: args.version_number, new_version_number: nextVersion })
   }
   if (name === 'archive_note') {
     if (!validId(args.id)) return toolError('A valid note UUID is required.')
