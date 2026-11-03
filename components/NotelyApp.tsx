@@ -532,10 +532,11 @@ export default function NotelyApp() {
     const generation = authGenerationRef.current
     try {
       const cached = await getOfflineNotes(requestedUserId)
-      if (generation === authGenerationRef.current && userRef.current?.id === requestedUserId && cached.length) {
+      if (generation === authGenerationRef.current && userRef.current?.id === requestedUserId) {
         setNotes(cached)
         notesRef.current = cached
-        if (!activeIdRef.current) openNote(cached[0])
+        if (cached.length > 0 && !activeIdRef.current) openNote(cached[0])
+        if (cached.length === 0) clearEditor()
       }
     } catch (error) { console.error('Could not read local notes:', error) }
     try {
