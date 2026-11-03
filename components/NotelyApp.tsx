@@ -1086,6 +1086,26 @@ export default function NotelyApp() {
         )}
       </div>
 
+      <div
+        role="status"
+        aria-live="polite"
+        style={{
+          position: 'fixed',
+          right: 12,
+          bottom: 12,
+          zIndex: 9999,
+          padding: '7px 11px',
+          borderRadius: 999,
+          background: isOnline ? 'var(--paper-deep)' : 'var(--accent)',
+          color: isOnline ? 'var(--ink)' : '#fff',
+          border: '1px solid var(--line)',
+          boxShadow: 'var(--shadow)',
+          fontSize: 11,
+          pointerEvents: 'none',
+        }}
+      >
+        {isOnline ? 'Online · sync enabled' : 'Offline · saved on this device'}
+      </div>
       <div className="app">
         <div className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)} />
 
