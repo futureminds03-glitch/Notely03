@@ -7,7 +7,7 @@ function isCacheableStaticAsset(request) {
   if (url.origin !== self.location.origin) return false
   if (STATIC.includes(url.pathname)) return true
   if (!url.pathname.startsWith('/_next/static/')) return false
-  return /\\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(url.pathname)
+  return /\.(?:js|css|woff2?|ttf|otf|svg|png|webp|ico)$/i.test(url.pathname)
 }
 
 async function cacheAppShell() {
@@ -18,7 +18,7 @@ async function cacheAppShell() {
     if (response.ok && response.type === 'basic') {
       const html = await response.clone().text()
       await cache.put('/', response)
-      const assets = [...new Set(html.match(/\\/_next\\/static\\/[^"'\\s<>]+/g) || [])]
+      const assets = [...new Set(html.match(/\/_next\/static\/[^"'\s<>]+/g) || [])]
       await Promise.all(assets.map(async asset => {
         try {
           const assetResponse = await fetch(asset, { cache: 'reload' })
