@@ -154,3 +154,13 @@ export async function markOfflineNoteDeleted(ownerId: string, noteId: string): P
 export async function removeOfflineNote(ownerId: string, noteId: string): Promise<void> {
   await withStore<undefined>('readwrite', store => store.delete(storageKey(ownerId, noteId)))
 }
+
+export async function updateCachedOfflineNote(ownerId: string, note: OfflineNote): Promise<void> {
+  const key = storageKey(ownerId, note.id)
+  const existing = await withStore<StoredNote | undefined>('readonly', store => store.get(key))
+  if (!existing) return
+  await withStore<IDBValidKey>('readwrite', store => store.put({
+    ...existing,
+    note: { ...existing.note, ...note, synced: existing.note.synced, pendingCreate: existing.pendingCreate },
+  } satisfies StoredNote))
+}
