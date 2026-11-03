@@ -406,6 +406,42 @@ export default function NotelyApp() {
   }, [user])
 
   useEffect(() => {
+    const flushDraft = () => {
+      const id = activeIdRef.current
+      if (!id) return
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current)
+        saveTimer.current = null
+      }
+      if (userRef.current) {
+        const existing = notesRef.current.find(note => note.id === id)
+        if (!existing) return
+        const ownerId = userRef.current.id
+        const localNote = {
+          ...existing,
+          ...activeDraftRef.current,
+          updated_at: new Date().toISOString(),
+          synced: false,
+        }
+        void saveOfflineNote(ownerId, localNote, { pendingCreate: existing.pendingCreate })
+          .then(() => { if (navigator.onLine) void syncPendingNotes(ownerId) })
+          .catch(error => console.error('Could not flush local draft:', error))
+      } else {
+        flushGuestDraft(id)
+      }
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushDraft()
+    }
+    window.addEventListener('pagehide', flushDraft)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('pagehide', flushDraft)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
+
+  useEffect(() => {
     if (deepLinkOpenedRef.current) return
     const requestedNoteId = new URLSearchParams(window.location.search).get('note')
     if (!requestedNoteId) return
