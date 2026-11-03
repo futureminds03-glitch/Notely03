@@ -1,4 +1,5 @@
 'use client'
+import MemoryLoading from '@/components/MemoryLoading'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
@@ -45,7 +46,7 @@ export default function NotelyFlow(){
  const resurfaced=useMemo(()=>{const q=topic.trim()||parking.map(p=>p.text).join(' ');return notes.filter(n=>n.body.trim()).map(note=>({note,score:scoreFor(q,note),age:Date.now()-Date.parse(note.updated_at||note.created_at)})).filter(x=>q?x.score>0:true).sort((a,b)=>q?b.score-a.score:b.age-a.age).slice(0,8)},[notes,topic,parking])
  const clock=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0')
  const reset=(m:number)=>{setFocusActive(false);setSeconds(m*60)}
- if(!ready)return <div className="flow-loading" role="status" aria-busy="true"><span className="flow-pulse"/><strong>Making room to think</strong><small>Gathering your notes</small></div>
+ if(!ready)return <MemoryLoading title="Opening Notely Flow" detail="Gathering your notes" />
  return <main className="flow-page"><div className="flow-shell">
   <header className="flow-header"><div><button className="flow-back" onClick={()=>router.push('/')}>← Back to notes</button><div className="flow-eyebrow">NOTELY · AN ADAPTIVE WORKSPACE</div><h1>Make room to think.</h1><p>Capture first. Organize later. Let the rest wait.</p></div><div className="flow-header-mark" aria-hidden="true">✳</div></header>
   <nav className="flow-tabs" aria-label="Flow workspace">{([['capture','Capture'],['parking','Thought Inbox'+(parking.length?' · '+parking.length:'')],['focus','Focus'],['memories','Resurfaced']] as const).map(([key,label])=><button key={key} className={tab===key?'active':''} onClick={()=>setTab(key)} aria-pressed={tab===key}>{label}</button>)}</nav>
