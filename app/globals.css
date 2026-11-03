@@ -750,3 +750,11 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
   .tt-scrubber-wrap { flex-basis: 64px; }
   .tt-restore { padding-inline: 6px; }
 }
+
+
+/* Notion-style inline images in the note body. */
+.note-rich-body{white-space:pre-wrap;overflow-wrap:anywhere;cursor:text;min-height:120px;line-height:1.9;user-select:text}
+.note-rich-body:empty::before{content:attr(data-placeholder);color:var(--ink-faint);font-style:italic;pointer-events:none}
+.note-inline-image{display:block;max-width:min(100%,720px);max-height:640px;height:auto;object-fit:contain;margin:14px 0;border-radius:8px;border:1px solid var(--line);box-shadow:0 2px 12px rgba(44,36,22,.08)}
+.note-rich-body:focus{outline:none}
+@media(max-width:640px){.note-rich-body{padding:8px 20px 100px;font-size:16px}.note-inline-image{max-height:60vh;margin:12px 0}}
