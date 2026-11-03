@@ -765,3 +765,5 @@ button[aria-busy="true"]::before{content:"";display:inline-block;width:11px;heig
 .link-capture-offline-actions button{border:1px solid var(--line);border-radius:6px;padding:9px 12px;background:var(--paper-dark);color:var(--ink);font:12px Georgia,serif;cursor:pointer}
 .link-capture-offline-actions button:disabled{opacity:.6;cursor:default}
 .link-capture-offline-actions small{color:var(--ink-faint);font:11px/1.5 Georgia,serif}
+
+.flow-route .memory-loading{height:auto;min-height:0;flex:1}
