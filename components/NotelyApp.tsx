@@ -381,6 +381,8 @@ export default function NotelyApp() {
   const deepLinkOpenedRef = useRef(false)
   const pendingDeletesRef = useRef<string[]>([])
   const storageReadyRef = useRef(false)
+  const syncInFlightRef = useRef(false)
+  const syncRequestedRef = useRef(false)
 
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
   useEffect(() => { userRef.current = user }, [user])
@@ -579,8 +581,12 @@ export default function NotelyApp() {
   async function syncPendingChanges() {
     const ownerId = userRef.current?.id
     if (!ownerId || !navigator.onLine) return
-
-    for (const queued of [...notesRef.current]) {
+    if (syncInFlightRef.current) { syncRequestedRef.current = true; return }
+    syncInFlightRef.current = true
+    try {
+      do {
+        syncRequestedRef.current = false
+        for (const queued of [...notesRef.current]) {
       if (queued.synced !== false) continue
       try {
         const isNew = queued.id.startsWith('temp-')
@@ -641,11 +647,15 @@ export default function NotelyApp() {
       }
     }
 
-    if (notesRef.current.some(note => note.synced === false) && navigator.onLine) {
-      void syncPendingChanges()
-      return
+        } while (syncRequestedRef.current || notesRef.current.some(note => note.synced === false))
+        if (activeIdRef.current) setSaveStatus('saved')
+    } finally {
+      syncInFlightRef.current = false
+      if (syncRequestedRef.current && userRef.current?.id === ownerId && navigator.onLine) {
+        syncRequestedRef.current = false
+        void syncPendingChanges()
+      }
     }
-    if (activeIdRef.current) setSaveStatus('saved')
   }
 
   function flushGuestDraft(id: string) {
