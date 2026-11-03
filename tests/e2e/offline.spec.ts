@@ -22,7 +22,7 @@ test('the app shell and guest notes remain usable after going offline', async ({
   }, null, { timeout: 15000 })
   await page.getByRole('button', { name: 'New note' }).click()
   await page.locator('.desktop-editor textarea.note-title').fill('Offline thought')
-  await page.locator('.desktop-editor textarea.note-body').fill('This note must survive a disconnected reload.')
+  await page.locator('.desktop-editor [contenteditable="true"]').fill('This note must survive a disconnected reload.')
   await expect(page.locator('.desktop-editor .save-status')).toContainText('saved')
   await page.waitForTimeout(500)
 
@@ -32,7 +32,7 @@ test('the app shell and guest notes remain usable after going offline', async ({
   await expect(page.locator('.brand')).toContainText('Notely')
   await expect(page.locator('.notes-list')).toContainText('Offline thought')
   await page.locator('.note-item').filter({ hasText: 'Offline thought' }).click()
-  await expect(page.locator('.desktop-editor textarea.note-body')).toHaveValue('This note must survive a disconnected reload.')
+  await expect(page.locator('.desktop-editor [contenteditable="true"]')).toContainText('This note must survive a disconnected reload.')
   await expect(page.locator('.offline-status')).toContainText('Offline')
 
   await context.close()
