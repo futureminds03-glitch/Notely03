@@ -87,6 +87,7 @@ export async function saveOfflineNote(
 ): Promise<void> {
   const key = storageKey(ownerId, note.id)
   const existing = await withStore<StoredNote | undefined>('readonly', store => store.get(key))
+  if (existing?.pendingDelete) return
   const pendingCreate = options.pendingCreate ?? existing?.pendingCreate ?? false
   const record: StoredNote = {
     key,
