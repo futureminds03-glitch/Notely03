@@ -25,7 +25,7 @@ Release evidence is Git SHA, successful CI, Vercel READY deployment with matchin
 
 ## Runtime configuration
 
-The Next.js MCP and OAuth routes require the server-only `SUPABASE_SERVICE_ROLE_KEY` plus `NEXT_PUBLIC_SUPABASE_URL`. The service-role key is used only inside server-side routes to access the private MCP control-plane tables and service-role-only RPCs. Every note, source, insight, and Parking Lot query is additionally constrained by the `user_id` obtained from the verified opaque MCP access token. Never expose this key through a `NEXT_PUBLIC_*` variable.
+The Next.js MCP and OAuth routes require the server-only `SUPABASE_SECRET_KEY` (preferred; legacy `SUPABASE_SERVICE_ROLE_KEY` is also accepted) plus `NEXT_PUBLIC_SUPABASE_URL`. The service-role key is used only inside server-side routes to access the private MCP control-plane tables and service-role-only RPCs. Every note, source, insight, and Parking Lot query is additionally constrained by the `user_id` obtained from the verified opaque MCP access token. Never expose this key through a `NEXT_PUBLIC_*` variable.
 
 ## Capability boundaries
 
