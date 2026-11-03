@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { cacheSyncedOfflineNote, getOfflineNotes, getPendingOfflineNotes, markOfflineNoteDeleted, markOfflineNoteSynced, removeOfflineNote, saveOfflineNote } from '@/lib/offline-notes'
+import { cacheSyncedOfflineNote, getOfflineNotes, getPendingOfflineNotes, markOfflineNoteDeleted, markOfflineNoteSynced, removeOfflineNote, saveOfflineNote, updateCachedOfflineNote } from '@/lib/offline-notes'
 import type { User } from '@supabase/supabase-js'
 import NoteBodyEditor from '@/components/NoteBodyEditor'
 import { getOfflineImage, removeOfflineImage } from '@/lib/offline-images'
@@ -643,7 +643,7 @@ export default function NotelyApp() {
           return resolvedBody
         }
         const cleanupUploadedImages = async () => {
-          const ids = [...new Set([...note.body.matchAll(/!\\[image\\]\\(notely-local:([0-9a-f-]+)\\)/gi)].map(match => match[1]))]
+          const ids = [...new Set([...note.body.matchAll(/!\[image\]\(notely-local:([0-9a-f-]+)\)/gi)].map(match => match[1]))]
           await Promise.all(ids.map(removeOfflineImage))
         }
         let syncedBody = note.body
@@ -679,6 +679,7 @@ export default function NotelyApp() {
             })
             if (!response.ok) { completedAll = false; break }
           }
+          await updateCachedOfflineNote(ownerId, { ...note, body: syncedBody })
           await cleanupUploadedImages()
           const syncedNote: Note = { ...note, ...(createdNote ?? {}), body: syncedBody, synced: true, pendingCreate: false }
           await markOfflineNoteSynced(ownerId, syncedNote)
@@ -698,6 +699,7 @@ export default function NotelyApp() {
           })
         }
         if (!response.ok) { completedAll = false; break }
+        await updateCachedOfflineNote(ownerId, { ...note, body: syncedBody })
         await cleanupUploadedImages()
         const syncedNote: Note = { ...note, body: syncedBody, synced: true, pendingCreate: false }
         await markOfflineNoteSynced(ownerId, syncedNote)
