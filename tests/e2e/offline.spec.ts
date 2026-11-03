@@ -36,3 +36,38 @@ test('the app shell and guest notes remain usable after going offline', async ({
 
   await context.close()
 })
+
+
+test('Thought Inbox remains usable offline and survives a disconnected reload', async ({ browser }) => {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  await page.goto(new URL('/flow', process.env.E2E_BASE_URL || 'http://127.0.0.1:3000').toString())
+  await page.waitForFunction(() => 'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller))
+  await context.setOffline(true)
+  await page.getByRole('textbox', { name: 'Quick parking lot capture' }).fill('Offline inbox thought')
+  await page.getByRole('button', { name: '+' }).click()
+  await page.locator('.flow-tabs').getByRole('button', { name: /Thought Inbox/ }).click()
+  await expect(page.getByText('Offline inbox thought')).toBeVisible()
+  await page.reload()
+  await page.locator('.flow-tabs').getByRole('button', { name: /Thought Inbox/ }).click()
+  await expect(page.getByText('Offline inbox thought')).toBeVisible()
+  await context.close()
+})
+
+test('Memory Studio can browse and search cached guest memories offline', async ({ browser }) => {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  await page.goto(new URL('/memory', process.env.E2E_BASE_URL || 'http://127.0.0.1:3000').toString())
+  await page.evaluate(() => localStorage.setItem('notely_notes', JSON.stringify([{
+    id: 'offline-memory-1', title: 'Offline research idea', body: 'A cached thought about local-first writing and memory.',
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString(), tags: ['New Idea']
+  }])))
+  await page.reload()
+  await page.waitForSelector('.memory-studio-scroll')
+  await context.setOffline(true)
+  await page.reload()
+  await expect(page.getByText('Offline research idea')).toBeVisible()
+  await page.getByPlaceholder('Search by phrase, project, person, or idea…').fill('local-first writing')
+  await expect(page.getByText('Offline research idea')).toBeVisible()
+  await context.close()
+})
