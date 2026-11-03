@@ -535,7 +535,7 @@ export default function NotelyApp() {
       if (generation === authGenerationRef.current && userRef.current?.id === requestedUserId) {
         setNotes(cached)
         notesRef.current = cached
-        if (cached.length > 0 && !activeIdRef.current) openNote(cached[0])
+        if (cached.length > 0 && !cached.some(note => note.id === activeIdRef.current)) openNote(cached[0])
         if (cached.length === 0) clearEditor()
       }
     } catch (error) { console.error('Could not read local notes:', error) }
@@ -560,7 +560,7 @@ export default function NotelyApp() {
       for (const note of data) await cacheSyncedOfflineNote(requestedUserId, note).catch(() => undefined)
       setNotes(merged)
       notesRef.current = merged
-      if (merged.length > 0 && !activeIdRef.current) openNote(merged[0])
+      if (merged.length > 0 && !merged.some(note => note.id === activeIdRef.current)) openNote(merged[0])
       if (navigator.onLine) void syncPendingNotes(requestedUserId)
       if (merged.length === 0) clearEditor()
     } catch (error) {
@@ -624,8 +624,9 @@ export default function NotelyApp() {
         const serverNote = item.pendingCreate ? await response.json().catch(() => null) : null
         const syncedNote: Note = { ...note, ...(serverNote ?? {}), synced: true, pendingCreate: false }
         await markOfflineNoteSynced(ownerId, syncedNote)
+        const latestLocal = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id) ?? syncedNote
         setNotes(prev => {
-          const next = prev.map(existing => existing.id === note.id ? syncedNote : existing)
+          const next = prev.map(existing => existing.id === note.id ? latestLocal as Note : existing)
           notesRef.current = next
           return next
         })
