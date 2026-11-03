@@ -122,7 +122,8 @@ export async function POST(request: Request): Promise<Response> {
     .maybeSingle()
   if (pendingError || !pending || new Date(pending.expires_at).getTime() <= Date.now() || hashToken(csrf) !== pending.csrf_hash) return new Response('Invalid OAuth session', { status: 400 })
   if (get('approve') !== 'yes') {
-      const denied = redirectWithError(pending.redirect_uri, 'access_denied', pending.state)
+    await admin().from('mcp_oauth_authorization_requests').delete().eq('request_id', requestId)
+    const denied = redirectWithError(pending.redirect_uri, 'access_denied', pending.state)
     denied.headers.append('set-cookie', 'notely_oauth_request=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + (new URL(request.url).protocol === 'https:' ? '; Secure' : ''))
     return denied
   }
