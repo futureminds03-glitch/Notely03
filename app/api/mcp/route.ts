@@ -21,6 +21,7 @@ type Note = {
   provenance: 'user_created' | 'imported' | 'system_derived' | 'ai_derived'
   title: string
   body: string
+  tags: string[]
   started_at: string
   status: string
   created_at: string
@@ -367,26 +368,33 @@ export function buildServer(request: Request, info?: AuthInfo) {
     })
   })
 
-  registerTool(server, request, auth, 'create_note', 'WRITE', 'notes', ['notes:write'], 'Create an authoritative Notely note with atomic idempotency and preserve started_at as capture time.', z.object({
+  registerTool(server, request, auth, 'create_note', 'WRITE', 'notes', ['notes:write'], 'Create an authoritative Notely note with tags, atomic idempotency and preserved capture time.', z.object({
     title:z.string().max(500).default(''),body:z.string().max(20000),tags:z.array(z.string().max(80)).max(20).default([]),started_at:z.string().datetime({offset:true}).optional(),idempotency_key:z.string().min(8).max(128)
   }), async(ctx,input)=>{
-    const payload={title:input.title,body:input.body,started_at:input.started_at??null}
+    const tags=input.tags.map(tag=>safeQuery(tag).slice(0,80)).filter(Boolean)
+    const payload={title:input.title,body:input.body,tags,started_at:input.started_at??null}
     const requestHash=await sha256(JSON.stringify(payload))
-    const {data,error}=await client.rpc('mcp_create_note_idempotent',{p_user_id:ctx.userId,p_client_id:ctx.clientId,p_title:input.title,p_body:input.body,p_started_at:input.started_at??null,p_idempotency_key:input.idempotency_key,p_request_hash:requestHash})
-    if(error) throw new Error(error.message.includes('IDEMPOTENCY_CONFLICT')?'IDEMPOTENCY_CONFLICT':'INTERNAL_ERROR')
+    const {data,error}=await client.rpc('mcp_create_note_idempotent_v2',{p_user_id:ctx.userId,p_client_id:ctx.clientId,p_title:input.title,p_body:input.body,p_tags:tags,p_started_at:input.started_at??null,p_idempotency_key:input.idempotency_key,p_request_hash:requestHash})
+    if(error) {
+      if(error.message.includes('IDEMPOTENCY_CONFLICT')) throw new Error('IDEMPOTENCY_CONFLICT')
+      if(error.message.includes('VALIDATION_ERROR')) throw new Error('VALIDATION_ERROR')
+      throw new Error('INTERNAL_ERROR')
+    }
     return result(data)
   })
 
-  registerTool(server, request, auth, 'update_note', 'WRITE', 'notes', ['notes:write'], 'Update an owned note only when expected_updated_at still matches; capture timestamp remains unchanged.', z.object({
+  registerTool(server, request, auth, 'update_note', 'WRITE', 'notes', ['notes:write'], 'Update an owned note’s title, body or tags with optimistic concurrency and idempotency.', z.object({
     note_id:z.string().uuid(),expected_updated_at:z.string().datetime({offset:true}),title:z.string().max(500).optional(),body:z.string().max(20000).optional(),tags:z.array(z.string().max(80)).max(20).optional(),idempotency_key:z.string().min(8).max(128)
   }), async(ctx,input)=>{
-    if(input.title===undefined&&input.body===undefined) throw new Error('VALIDATION_ERROR')
-    const requestHash=await sha256(JSON.stringify({note_id:input.note_id,expected_updated_at:input.expected_updated_at,title:input.title??null,body:input.body??null}))
-    const {data,error}=await client.rpc('mcp_update_note',{p_user_id:ctx.userId,p_client_id:ctx.clientId,p_note_id:input.note_id,p_expected_updated_at:input.expected_updated_at,p_title:input.title??null,p_has_title:input.title!==undefined,p_body:input.body??null,p_has_body:input.body!==undefined,p_idempotency_key:input.idempotency_key,p_request_hash:requestHash})
+    if(input.title===undefined&&input.body===undefined&&input.tags===undefined) throw new Error('VALIDATION_ERROR')
+    const tags=input.tags?.map(tag=>safeQuery(tag).slice(0,80)).filter(Boolean)
+    const requestHash=await sha256(JSON.stringify({note_id:input.note_id,expected_updated_at:input.expected_updated_at,title:input.title??null,body:input.body??null,tags:tags??null}))
+    const {data,error}=await client.rpc('mcp_update_note_v2',{p_user_id:ctx.userId,p_client_id:ctx.clientId,p_note_id:input.note_id,p_expected_updated_at:input.expected_updated_at,p_title:input.title??null,p_has_title:input.title!==undefined,p_body:input.body??null,p_has_body:input.body!==undefined,p_tags:tags??null,p_has_tags:input.tags!==undefined,p_idempotency_key:input.idempotency_key,p_request_hash:requestHash})
     if(error) {
       if(error.message.includes('CONFLICT')) throw new Error('CONFLICT')
       if(error.message.includes('IDEMPOTENCY_CONFLICT')) throw new Error('IDEMPOTENCY_CONFLICT')
       if(error.message.includes('NOT_FOUND')) throw new Error('NOT_FOUND')
+      if(error.message.includes('VALIDATION_ERROR')) throw new Error('VALIDATION_ERROR')
       throw new Error('INTERNAL_ERROR')
     }
     return result(data)
