@@ -89,7 +89,7 @@ create or replace function public.mcp_create_parking_item_idempotent(
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 declare
   existing public.mcp_idempotency%rowtype;
   created public.documents%rowtype;
@@ -138,7 +138,7 @@ create or replace function public.mcp_delete_parking_item_idempotent(
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 declare
   existing public.mcp_idempotency%rowtype;
   current_item public.documents%rowtype;
@@ -190,7 +190,7 @@ create or replace function public.mcp_restore_note_version(
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 declare
   existing public.mcp_idempotency%rowtype;
   current_note public.documents%rowtype;
@@ -263,7 +263,7 @@ create or replace function public.mcp_create_note_idempotent_v2(
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 declare
   existing public.mcp_idempotency%rowtype;
   created public.documents%rowtype;
@@ -322,7 +322,7 @@ create or replace function public.mcp_update_note_v2(
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 declare
   existing public.mcp_idempotency%rowtype;
   current_note public.documents%rowtype;
