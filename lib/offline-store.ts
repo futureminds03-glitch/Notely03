@@ -6,6 +6,7 @@ export interface OfflineNoteState<TNote> {
 const DB_NAME = 'notely-offline'
 const STORE_NAME = 'states'
 const DB_VERSION = 1
+const writeQueues = new Map<string, Promise<void>>()
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -53,28 +54,37 @@ export async function writeOfflineState<TNote>(
   ownerKey: string,
   value: OfflineNoteState<TNote>
 ): Promise<void> {
-  let indexedDbError: unknown
-  try {
-    if (typeof indexedDB !== 'undefined') {
-      const database = await openDatabase()
-      await new Promise<void>((resolve, reject) => {
-        const transaction = database.transaction(STORE_NAME, 'readwrite')
-        transaction.objectStore(STORE_NAME).put({ key: ownerKey, value })
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(transaction.error)
-        transaction.onabort = () => reject(transaction.error ?? new Error('Offline save was aborted'))
-      })
-      database.close()
-      return
+  const previous = writeQueues.get(ownerKey) ?? Promise.resolve()
+  const queued = previous.catch(() => undefined).then(async () => {
+    let indexedDbError: unknown
+    try {
+      if (typeof indexedDB !== 'undefined') {
+        const database = await openDatabase()
+        await new Promise<void>((resolve, reject) => {
+          const transaction = database.transaction(STORE_NAME, 'readwrite')
+          transaction.objectStore(STORE_NAME).put({ key: ownerKey, value })
+          transaction.oncomplete = () => resolve()
+          transaction.onerror = () => reject(transaction.error)
+          transaction.onabort = () => reject(transaction.error ?? new Error('Offline save was aborted'))
+        })
+        database.close()
+        return
+      }
+    } catch (error) {
+      indexedDbError = error
     }
-  } catch (error) {
-    indexedDbError = error
-  }
 
+    try {
+      localStorage.setItem(legacyKey(ownerKey), JSON.stringify(value.notes))
+    } catch (error) {
+      console.error('Unable to persist notes locally:', indexedDbError ?? error)
+      throw new Error('Notely could not save this note on this device. Free up browser storage and try again.')
+    }
+  })
+  writeQueues.set(ownerKey, queued)
   try {
-    localStorage.setItem(legacyKey(ownerKey), JSON.stringify(value.notes))
-  } catch (error) {
-    console.error('Unable to persist notes locally:', indexedDbError ?? error)
-    throw new Error('Notely could not save this note on this device. Free up browser storage and try again.')
+    await queued
+  } finally {
+    if (writeQueues.get(ownerKey) === queued) writeQueues.delete(ownerKey)
   }
 }
