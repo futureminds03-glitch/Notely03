@@ -824,3 +824,21 @@ a:focus-visible {
 .global-parking-launcher{bottom:108px!important;z-index:30!important}
 .offline-status{position:fixed!important;right:16px!important;bottom:16px!important;z-index:20!important;max-width:calc(100vw - 32px)}
 @media(max-width:640px){.global-parking-launcher{right:12px!important;bottom:108px!important}.offline-status{right:12px!important;bottom:12px!important;max-width:calc(100vw - 24px)}}
+
+/* Editor polish: keep floating actions out of the writing area and honor theme surfaces. */
+.global-parking-launcher{bottom:92px!important}
+.offline-status{bottom:16px!important;z-index:19!important}
+.note-body.note-rich-body{padding-bottom:116px}
+.note-inline-table{display:table;width:max-content;min-width:min(100%,420px);max-width:100%;table-layout:fixed;border-collapse:collapse}
+.note-inline-table td{width:50%;min-width:0;max-width:360px;overflow-wrap:anywhere;vertical-align:top}
+.note-inline-table tr:first-child td{background:var(--paper-dark);color:var(--ink)}
+.note-task-line input[type="checkbox"]{appearance:none;-webkit-appearance:none;display:inline-grid;place-content:center;width:16px;height:16px;margin:0 1px 0 0;border:1px solid var(--ink-faint);border-radius:4px;background:var(--paper-dark);color:var(--paper);cursor:pointer}
+.note-task-line input[type="checkbox"]:checked{border-color:var(--accent);background:var(--accent)}
+.note-task-line input[type="checkbox"]:checked:after{content:"";width:7px;height:4px;border:solid currentColor;border-width:0 0 2px 2px;transform:translateY(-1px) rotate(-45deg)}
+.note-page-sidebar{gap:0}
+.note-page-content-shell{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none}
+.note-page-content-shell::-webkit-scrollbar{display:none}
+.note-page-content-shell>.note-editor-shell{min-height:100%;height:auto}
+.note-page-content-shell .note-body.note-rich-body{min-height:100%;padding-bottom:36px;outline:none}
+.note-page-content-shell .note-slash-menu{position:sticky;top:0;left:0;margin-bottom:8px}
+@media(max-width:640px){.global-parking-launcher{right:12px!important;bottom:88px!important}.offline-status{right:12px!important;bottom:12px!important}.note-body.note-rich-body{padding-bottom:140px}}
