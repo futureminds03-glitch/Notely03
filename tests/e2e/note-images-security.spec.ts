@@ -17,6 +17,19 @@ test('image upload validation accepts supported file signatures and rejects MIME
   expect(matchesImageSignature('image/svg+xml', new Uint8Array([0x3c, 0x73, 0x76, 0x67]))).toBe(false)
 })
 
+test('anonymous image upload is rejected before parsing or storing file data', async ({ browser }) => {
+  const page = await browser.newPage()
+  await page.goto(process.env.E2E_BASE_URL || 'http://127.0.0.1:3000')
+  const status = await page.evaluate(async () => {
+    const form = new FormData()
+    form.set('noteId', '00000000-0000-4000-8000-000000000000')
+    form.set('file', new File(['not-an-image'], 'spoof.png', { type: 'image/png' }))
+    return (await fetch('/api/note-images', { method: 'POST', body: form })).status
+  })
+  expect(status).toBe(401)
+  await page.close()
+})
+
 test('authenticated users can sync an offline pasted image and retrieve it privately', async ({ browser }) => {
   const email = process.env.E2E_AUTH_EMAIL
   const password = process.env.E2E_AUTH_PASSWORD
@@ -44,29 +57,29 @@ test('authenticated users can sync an offline pasted image and retrieve it priva
     response.url().includes('/api/notes/' + createdNote.id) && response.request().method() === 'PATCH' && response.ok()
   )
 
-  const spoofed = new FormData()
-  spoofed.set('noteId', createdNote.id)
-  spoofed.set('file', new File(['<svg onload=alert(1)>'], 'spoof.png', { type: 'image/png' }))
-  const spoofStatus = await page.evaluate(async form => (
-    await fetch('/api/note-images', { method: 'POST', body: form })
-  ).status, spoofed)
+  const spoofStatus = await page.evaluate(async noteId => {
+    const form = new FormData()
+    form.set('noteId', noteId)
+    form.set('file', new File(['<svg onload=alert(1)>'], 'spoof.png', { type: 'image/png' }))
+    return (await fetch('/api/note-images', { method: 'POST', body: form })).status
+  }, createdNote.id)
   expect(spoofStatus).toBe(415)
 
-  const oversized = new FormData()
-  oversized.set('noteId', createdNote.id)
-  oversized.set('file', new File([new Uint8Array(8 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }))
-  const oversizedStatus = await page.evaluate(async form => (
-    await fetch('/api/note-images', { method: 'POST', body: form })
-  ).status, oversized)
+  const oversizedStatus = await page.evaluate(async noteId => {
+    const form = new FormData()
+    form.set('noteId', noteId)
+    form.set('file', new File([new Uint8Array(8 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }))
+    return (await fetch('/api/note-images', { method: 'POST', body: form })).status
+  }, createdNote.id)
   expect(oversizedStatus).toBe(413)
 
-  const unknownNote = new FormData()
-  unknownNote.set('noteId', '00000000-0000-4000-8000-000000000000')
-  const validPng = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/K3sAAAAASUVORK5CYII='), character => character.charCodeAt(0))
-  unknownNote.set('file', new File([validPng], 'valid.png', { type: 'image/png' }))
-  const unknownNoteStatus = await page.evaluate(async form => (
-    await fetch('/api/note-images', { method: 'POST', body: form })
-  ).status, unknownNote)
+  const unknownNoteStatus = await page.evaluate(async () => {
+    const form = new FormData()
+    form.set('noteId', '00000000-0000-4000-8000-000000000000')
+    const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/K3sAAAAASUVORK5CYII='), character => character.charCodeAt(0))
+    form.set('file', new File([bytes], 'valid.png', { type: 'image/png' }))
+    return (await fetch('/api/note-images', { method: 'POST', body: form })).status
+  })
   expect(unknownNoteStatus).toBe(404)
 
   await editor.evaluate(element => {
@@ -84,6 +97,7 @@ test('authenticated users can sync an offline pasted image and retrieve it priva
     element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: transfer }))
   })
   await expect(editor.locator('img.note-inline-image')).toHaveCount(1)
+  await expect(page.locator('.desktop-editor .save-status')).toContainText('saved')
 
   await context.setOffline(true)
   await page.reload()
