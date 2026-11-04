@@ -53,9 +53,7 @@ test('slash menu inserts working to-do, table, database and inline page blocks',
       await expect(table.locator('tr')).toHaveCount(2)
       if (command.query === '/database') await expect(table).toContainText('Not started')
       const firstCell = table.locator('tr').nth(1).locator('td').first()
-      await firstCell.click()
-      await firstCell.press('Control+A')
-      await firstCell.pressSequentially('Edited row')
+      await firstCell.fill('Edited row')
       await expect(firstCell).toHaveText('Edited row')
     } else {
       const pageButton = editor.getByRole('button', { name: 'Open page New page' })
