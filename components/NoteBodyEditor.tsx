@@ -10,7 +10,6 @@ type Props = {
   editorRef: React.RefObject<HTMLDivElement | null>
 }
 
-const markerPattern = /!\[image\]\(notely-(?:image|local):[^)]+\)/g
 
 type InlinePage = { id: string; title: string; body: string }
 const editorMarkerPattern = /<!--notely-page:[\s\S]*?-->|!\[image\]\(notely-(?:image|local):[^)]+\)/g
