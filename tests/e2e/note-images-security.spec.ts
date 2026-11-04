@@ -66,11 +66,12 @@ test('authenticated users can sync an offline pasted image and retrieve it priva
   const createdNote = await createResponse.json() as { id: string }
   await page.locator('.desktop-editor textarea.note-title').fill('Authenticated offline image sync E2E')
   const editor = page.locator('.desktop-editor [contenteditable="true"]')
-  await editor.fill('A signed-in note with an offline image.')
-  await expect(page.locator('.desktop-editor .save-status')).toContainText('saved')
-  await page.waitForResponse(response =>
+  const notePatch = page.waitForResponse(response =>
     response.url().includes('/api/notes/' + createdNote.id) && response.request().method() === 'PATCH' && response.ok()
   )
+  await editor.fill('A signed-in note with an offline image.')
+  await expect(page.locator('.desktop-editor .save-status')).toContainText('saved')
+  await notePatch
 
   const spoofStatus = await page.evaluate(async noteId => {
     const form = new FormData()
@@ -127,7 +128,8 @@ test('authenticated users can sync an offline pasted image and retrieve it priva
   await context.setOffline(false)
   const upload = await uploadPromise
   const uploaded = await upload.json() as { path: string }
-  expect(uploaded.path).toMatch(/^[0-9a-f-]+\/[0-9a-f-]+\/[0-9a-f-]+\.png$/i)
+  expect(uploaded.path.split('/')).toHaveLength(3)
+  expect(uploaded.path.split('/')[2]).toMatch(/^[0-9a-f-]+\.png$/i)
 
   await expect.poll(async () => offlineEditor.locator('img.note-inline-image').getAttribute('src'), { timeout: 30000 })
     .toContain('/api/note-images?path=')
