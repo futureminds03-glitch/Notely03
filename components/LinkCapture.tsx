@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { getPendingOfflineNotes, markOfflineNoteSynced, saveOfflineNote } from '@/lib/offline-notes'
+import { saveOfflineNote } from '@/lib/offline-notes'
 
 type LinkResult = {
   sourceUrl: string
@@ -59,31 +59,6 @@ export default function LinkCapture() {
 
   useEffect(() => { const update = () => setOffline(!navigator.onLine); setHydrated(true); update(); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) } }, [])
 
-  useEffect(() => {
-    let running = false
-    const syncQueuedLinks = async () => {
-      if (!navigator.onLine || running) return
-      running = true
-      try {
-        const { data: { session } } = await createClient().auth.getSession()
-        if (!session?.user.id) return
-        const pending = await getPendingOfflineNotes(session.user.id)
-        for (const record of pending) {
-          if (!record.pendingCreate || !record.note.id.startsWith('local-link-') || /notely-local:/.test(record.note.body)) continue
-          const payload = JSON.stringify({ id: record.note.id, title: record.note.title, body: record.note.body, started_at: record.note.started_at ?? null, tags: record.note.tags ?? ['Links'] })
-          let response = await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload })
-          if (response.status === 409) response = await fetch('/api/notes/' + encodeURIComponent(record.note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload })
-          if (!response.ok) break
-          await markOfflineNoteSynced(session.user.id, { ...record.note, synced: true, pendingCreate: false })
-        }
-        window.dispatchEvent(new CustomEvent('notely:sync-requested'))
-      } catch { /* Keep queued links locally and retry on the next reconnect. */ }
-      finally { running = false }
-    }
-    void syncQueuedLinks()
-    window.addEventListener('online', syncQueuedLinks)
-    return () => { window.removeEventListener('online', syncQueuedLinks) }
-  }, [])
   const [useAI, setUseAI] = useState(false)
   const [result, setResult] = useState<LinkResult | null>(null)
   const [loading, setLoading] = useState(false)
