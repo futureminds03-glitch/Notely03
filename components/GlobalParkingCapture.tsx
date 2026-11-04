@@ -67,7 +67,8 @@ export default function GlobalParkingCapture() {
                 await removeOfflineNote(ownerId, note.id)
                 continue
               }
-              const localIds = [...new Set([...note.body.matchAll(/!\[image\]\(notely-local:([0-9a-f-]+)\)/gi)].map(match => match[1]))]
+              const imageContent = [note.body, ...(note.history ?? []).map(version => version.content)].join('\\n')
+              const localIds = [...new Set([...imageContent.matchAll(/!\[image\]\(notely-local:([0-9a-f-]+)\)/gi)].map(match => match[1]))]
               const replaceImageMarkers = (content: string, replacements: Map<string, string>) => {
                 let updated = content
                 for (const [localId, path] of replacements) updated = updated.replaceAll('![image](notely-local:' + localId + ')', '![image](notely-image:' + path + ')')
