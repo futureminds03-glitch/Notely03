@@ -65,6 +65,56 @@ function parseUpdate(value: unknown): {
   return result
 }
 
+async function cleanupUnreferencedNoteImages(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  noteId: string,
+  currentBody: string
+) {
+  const { data: versions, error: versionsError } = await supabase
+    .from('document_versions')
+    .select('body')
+    .eq('document_id', noteId)
+  if (versionsError) {
+    console.error('Could not inspect note image history for cleanup:', versionsError)
+    return
+  }
+
+  const referenced = new Set<string>()
+  const collectReferences = (body: string) => {
+    for (const match of body.matchAll(/!\\[image\\]\\(notely-image:([^)]+)\\)/g)) {
+      referenced.add(match[1])
+    }
+  }
+  collectReferences(currentBody)
+  for (const version of versions ?? []) collectReferences(version.body)
+
+  const folder = userId + '/' + noteId
+  const stalePaths: string[] = []
+  const retentionMs = 24 * 60 * 60 * 1000
+  let offset = 0
+  while (true) {
+    const { data: objects, error } = await supabase.storage.from('note-images')
+      .list(folder, { limit: 1000, offset, sortBy: { column: 'name', order: 'asc' } })
+    if (error) {
+      console.error('Could not list note images for cleanup:', error)
+      return
+    }
+    for (const object of objects ?? []) {
+      if (!object.id || !object.created_at || Date.now() - Date.parse(object.created_at) < retentionMs) continue
+      const path = folder + '/' + object.name
+      if (!referenced.has(path)) stalePaths.push(path)
+    }
+    if (!objects || objects.length < 1000) break
+    offset += objects.length
+  }
+
+  if (stalePaths.length > 0) {
+    const { error } = await supabase.storage.from('note-images').remove(stalePaths)
+    if (error) console.error('Could not remove orphaned note images:', error)
+  }
+}
+
 function toHistory(versions: VersionRow[], fallback: string, fallbackTimestamp: string | null) {
   if (versions.length > 0) {
     return versions
@@ -172,6 +222,8 @@ export async function PATCH(
       console.error('Failed to read note version sequence:', versionLookupError)
     }
   }
+
+  await cleanupUnreferencedNoteImages(supabase, user.id, document.id, document.body)
 
   const { data: versions } = await supabase
     .from('document_versions')
