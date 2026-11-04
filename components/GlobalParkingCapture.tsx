@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { getPendingOfflineTagUpdates, getPendingParking, remapOfflineParking, removeOfflineParking, removeOfflineTagUpdate, saveOfflineParking } from '@/lib/offline-workspace'
-import { getPendingOfflineNotes, markOfflineNoteSynced, removeOfflineNote } from '@/lib/offline-notes'
+import { getOfflineNotes, getPendingOfflineNotes, markOfflineNoteSynced, removeOfflineNote, updateCachedOfflineNote } from '@/lib/offline-notes'
 import { getOfflineImage, removeOfflineImage } from '@/lib/offline-images'
 
 const PARKING_KEY = 'notely_parking_lot_v1'
@@ -90,7 +90,11 @@ export default function GlobalParkingCapture() {
               const response = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(resolvedBody) })
               if (!response.ok) break
             }
-            await markOfflineNoteSynced(ownerId, { ...note, body: resolvedBody, ...(updatedHistory ? { history: updatedHistory } : {}), synced: true, pendingCreate: false })
+            const latest = (await getOfflineNotes(ownerId)).find(item => item.id === note.id)
+            if (!latest || latest.title !== note.title || latest.body !== note.body || latest.updated_at !== note.updated_at) break
+            const syncedVersion = { ...note, body: resolvedBody, ...(updatedHistory ? { history: updatedHistory } : {}) }
+            await updateCachedOfflineNote(ownerId, syncedVersion)
+            await markOfflineNoteSynced(ownerId, { ...syncedVersion, synced: true, pendingCreate: false })
             await Promise.all(localIds.map(removeOfflineImage))
           } catch { break }
         }
