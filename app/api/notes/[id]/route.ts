@@ -109,9 +109,12 @@ async function cleanupUnreferencedNoteImages(
     offset += objects.length
   }
 
-  if (stalePaths.length > 0) {
-    const { error } = await supabase.storage.from('note-images').remove(stalePaths)
-    if (error) console.error('Could not remove orphaned note images:', error)
+  for (let index = 0; index < stalePaths.length; index += 1000) {
+    const { error } = await supabase.storage.from('note-images').remove(stalePaths.slice(index, index + 1000))
+    if (error) {
+      console.error('Could not remove orphaned note images:', error)
+      return
+    }
   }
 }
 
