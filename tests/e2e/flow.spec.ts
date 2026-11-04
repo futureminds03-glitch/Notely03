@@ -127,6 +127,9 @@ test.describe('Notely Flow', () => {
 
   test('global quick capture opens with the keyboard shortcut on Memory Studio', async ({ page }) => {
     await page.goto(new URL('/memory', baseURL).toString())
+    await expect(page.locator('.global-parking-launcher')).toBeVisible()
+    // Allow the global keyboard listener to attach after the route hydrates.
+    await page.waitForTimeout(150)
     await page.keyboard.press('Control+Shift+Space')
     await expect(page.getByRole('dialog', { name: 'Park it. Keep going.' })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Quick thought' })).toBeFocused()
