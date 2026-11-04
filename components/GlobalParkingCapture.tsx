@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { getPendingOfflineTagUpdates, getPendingParking, remapOfflineParking, removeOfflineParking, removeOfflineTagUpdate, saveOfflineParking } from '@/lib/offline-workspace'
 import { getOfflineNotes, getPendingOfflineNotes, markOfflineNoteSynced, removeOfflineNote, updateCachedOfflineNote } from '@/lib/offline-notes'
@@ -20,6 +21,7 @@ function readLocalParking(): ParkingItem[] {
 }
 
 export default function GlobalParkingCapture() {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -56,7 +58,7 @@ export default function GlobalParkingCapture() {
         await syncTags()
         // The home editor owns its richer sync flow while mounted. Elsewhere this global
         // manager flushes queued notes, images and deletions without requiring a route change.
-        if (window.location.pathname !== '/') {
+        if (pathname !== '/') {
           for (const record of await getPendingOfflineNotes(ownerId).catch(() => [])) {
             if (!navigator.onLine) break
             const note = record.note
@@ -138,7 +140,7 @@ export default function GlobalParkingCapture() {
     window.addEventListener('online', sync)
     window.addEventListener('notely:sync-requested', sync)
     return () => { window.removeEventListener('online', sync); window.removeEventListener('notely:sync-requested', sync) }
-  }, [ownerId])
+  }, [ownerId, pathname])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
