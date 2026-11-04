@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { indexDocumentMemory } from '@/lib/memory-engine'
 import { exceedsNoteFieldLimits, readJsonBody } from '@/lib/request-body'
+import { findStaleNoteImagePaths } from '@/lib/note-image-cleanup'
 
 interface NoteUpdateRequest {
   title?: unknown
@@ -63,6 +64,54 @@ function parseUpdate(value: unknown): {
   }
 
   return result
+}
+
+async function cleanupUnreferencedNoteImages(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  noteId: string,
+  currentBody: string
+) {
+  const { data: versions, error: versionsError } = await supabase
+    .from('document_versions')
+    .select('body')
+    .eq('document_id', noteId)
+  if (versionsError) {
+    console.error('Could not inspect note image history for cleanup:', versionsError)
+    return
+  }
+
+  const referenced = new Set<string>()
+  const collectReferences = (body: string) => {
+    for (const match of body.matchAll(/!\[image\]\(notely-image:([^)]+)\)/g)) {
+      referenced.add(match[1])
+    }
+  }
+  collectReferences(currentBody)
+  for (const version of versions ?? []) collectReferences(version.body)
+
+  const folder = userId + '/' + noteId
+  const stalePaths: string[] = []
+  let offset = 0
+  while (true) {
+    const { data: objects, error } = await supabase.storage.from('note-images')
+      .list(folder, { limit: 1000, offset, sortBy: { column: 'name', order: 'asc' } })
+    if (error) {
+      console.error('Could not list note images for cleanup:', error)
+      return
+    }
+    stalePaths.push(...findStaleNoteImagePaths(objects ?? [], folder, referenced))
+    if (!objects || objects.length < 1000) break
+    offset += objects.length
+  }
+
+  for (let index = 0; index < stalePaths.length; index += 1000) {
+    const { error } = await supabase.storage.from('note-images').remove(stalePaths.slice(index, index + 1000))
+    if (error) {
+      console.error('Could not remove orphaned note images:', error)
+      return
+    }
+  }
 }
 
 function toHistory(versions: VersionRow[], fallback: string, fallbackTimestamp: string | null) {
@@ -172,6 +221,8 @@ export async function PATCH(
       console.error('Failed to read note version sequence:', versionLookupError)
     }
   }
+
+  await cleanupUnreferencedNoteImages(supabase, user.id, document.id, document.body)
 
   const { data: versions } = await supabase
     .from('document_versions')
