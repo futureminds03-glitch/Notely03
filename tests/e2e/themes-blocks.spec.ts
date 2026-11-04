@@ -23,36 +23,39 @@ test('theme selector persists the warm and monochrome palettes', async ({ page }
 
 test('slash menu inserts working to-do, table, database and inline page blocks', async ({ page }) => {
   await page.goto(new URL('/', baseURL).toString())
-  await page.locator('.sidebar .new-btn').click()
-  const editor = page.getByRole('textbox', { name: 'Note body' })
-  await expect(editor).toBeVisible()
 
-  await editor.click()
-  await editor.pressSequentially('/')
-  await expect(page.getByRole('listbox', { name: 'Insert a block' })).toBeVisible()
-  await page.getByRole('option', { name: /To-do list/ }).click()
-  const checkbox = page.locator('.note-task-line input[type="checkbox"]:visible').first()
-  await expect(checkbox).toBeVisible()
-  await checkbox.check()
-  await expect(checkbox).toBeChecked()
+  // Exercise each insertion from a clean editor. This isolates block insertion
+  // from browser caret movement around non-editable checkbox controls.
+  const commands = [
+    { query: '/todo', option: /To-do list/ },
+    { query: '/table', option: /^Table/ },
+    { query: '/database', option: /Inline database/ },
+    { query: '/page', option: /Inline page/ },
+  ]
 
-  await editor.press('Control+End')
-  await editor.press('Enter')
-  await editor.pressSequentially('/table')
-  await page.getByRole('option', { name: /^Table/ }).click()
-  await expect(page.locator('.note-inline-table:visible').first()).toBeVisible()
+  for (const command of commands) {
+    await page.locator('.sidebar .new-btn').click()
+    const editor = page.getByRole('textbox', { name: 'Note body' })
+    await expect(editor).toBeVisible()
+    await editor.click()
+    await editor.pressSequentially(command.query)
+    await expect(page.getByRole('listbox', { name: 'Insert a block' })).toBeVisible()
+    await page.getByRole('option', { name: command.option }).click()
 
-  await editor.press('Control+End')
-  await editor.press('Enter')
-  await editor.pressSequentially('/database')
-  await page.getByRole('option', { name: /Inline database/ }).click()
-  await expect(page.locator('.note-inline-table:visible')).toHaveCount(2)
-
-  await editor.press('Control+End')
-  await editor.press('Enter')
-  await editor.pressSequentially('/page')
-  await page.getByRole('option', { name: /Inline page/ }).click()
-  await expect(page.locator('.note-inline-page:visible').first()).toContainText('New page')
+    if (command.query === '/todo') {
+      const checkbox = editor.locator('.note-task-line input[type="checkbox"]')
+      await expect(checkbox).toBeVisible()
+      await checkbox.check()
+      await expect(checkbox).toBeChecked()
+    } else if (command.query === '/table' || command.query === '/database') {
+      const table = editor.locator('.note-inline-table')
+      await expect(table).toBeVisible()
+      await expect(table.locator('tr')).toHaveCount(command.query === '/database' ? 2 : 2)
+      if (command.query === '/database') await expect(table).toContainText('Not started')
+    } else {
+      await expect(editor.locator('.note-inline-page')).toContainText('New page')
+    }
+  }
 })
 
 test('Quick Capture capsule sits above the online-sync indicator', async ({ page }) => {
