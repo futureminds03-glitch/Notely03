@@ -39,18 +39,18 @@ function renderContent(element: HTMLDivElement, value: string, parentNoteId: str
         table.className = 'note-inline-table'
         const body = document.createElement('tbody')
         table.append(body)
+        index += 2
         while (index < lines.length && lines[index].trim().startsWith('|')) {
           const rowLine = lines[index]
-          if (!separator.test(rowLine)) {
-            const row = document.createElement('tr')
-            rowLine.trim().replace(/^\||\|$/g, '').split('|').forEach(value => {
-              const cell = document.createElement('td')
-              cell.contentEditable = 'true'
-              cell.textContent = value.trim()
-              row.append(cell)
-            })
-            body.append(row)
-          }
+          if (separator.test(rowLine)) break
+          const row = document.createElement('tr')
+          rowLine.trim().replace(/^\||\|$/g, '').split('|').forEach(value => {
+            const cell = document.createElement('td')
+            cell.contentEditable = 'true'
+            cell.textContent = value.trim()
+            row.append(cell)
+          })
+          body.append(row)
           index += 1
         }
         target.append(table)
@@ -237,23 +237,23 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef, par
 
   function inspectSlashCommand(){const selection=window.getSelection(),element=editorRef.current;if(!selection?.rangeCount||!element||!selection.isCollapsed||!element.contains(selection.anchorNode)){setSlashOpen(false);return}const node=selection.anchorNode;if(!node||node.nodeType!==Node.TEXT_NODE){setSlashOpen(false);return}const before=(node.textContent??'').slice(0,selection.anchorOffset),match=before.match(/(^|\s)\/([a-z-]*)$/i);if(!match){setSlashOpen(false);slashRange.current=null;return}const range=document.createRange();range.setStart(node,selection.anchorOffset-match[2].length-1);range.setEnd(node,selection.anchorOffset);slashRange.current=range;setSlashQuery(match[2].toLowerCase());setSlashIndex(0);setSlashOpen(true)}
   const matchingCommands=slashCommands.filter(command=>(command.label+' '+command.id).toLowerCase().includes(slashQuery))
-  function saveInlinePage() {
+  function syncInlinePage(next: { title?: string; body?: string }) {
     if (!openPage) return
     const element = editorRef.current
     const page = element?.querySelector<HTMLElement>('[data-notely-page][data-page-id="' + openPage.id + '"]')
-    if (page) {
-      page.dataset.pageTitle = pageTitle.trim() || 'Untitled page'
-      page.dataset.pageBody = pageBody
-      page.dataset.parentNoteId = openPage.parentNoteId || noteId
-      if (openPage.parentPageId) page.dataset.parentPageId = openPage.parentPageId
+    if (!page) return
+    if (next.title !== undefined) {
+      page.dataset.pageTitle = next.title.trim() || 'Untitled page'
       const trigger = page.querySelector('.note-inline-page-trigger')
       if (trigger) {
         trigger.textContent = page.dataset.pageTitle
         trigger.setAttribute('aria-label', 'Open page ' + page.dataset.pageTitle)
       }
-      emitChange()
     }
-    setOpenPage(null)
+    if (next.body !== undefined) page.dataset.pageBody = next.body
+    page.dataset.parentNoteId = openPage.parentNoteId || noteId
+    if (openPage.parentPageId) page.dataset.parentPageId = openPage.parentPageId
+    emitChange()
   }
 
   function insertSlashCommand(command: typeof slashCommands[number]) {
@@ -386,9 +386,8 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef, par
     {openPage && <div className="note-page-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setOpenPage(null) }}>
       <aside className="note-page-sidebar" role="dialog" aria-label="Inline page">
         <div className="note-page-sidebar-header"><span>PAGE</span><button type="button" aria-label="Close page" onClick={() => setOpenPage(null)}>×</button></div>
-        <input className="note-page-title" aria-label="Page title" value={pageTitle} onChange={event => setPageTitle(event.target.value)} placeholder="Untitled page" />
-        <div className="note-page-content-shell"><NoteBodyEditor value={pageBody} noteId={noteId} parentPageId={openPage.id} onChange={setPageBody} editorRef={pageEditorRef} /></div>
-        <div className="note-page-sidebar-footer"><button type="button" onClick={() => setOpenPage(null)}>Cancel</button><button type="button" onClick={saveInlinePage}>Save page</button></div>
+        <input className="note-page-title" aria-label="Page title" value={pageTitle} onChange={event => { setPageTitle(event.target.value); syncInlinePage({ title: event.target.value }) }} placeholder="Untitled page" />
+        <div className="note-page-content-shell"><NoteBodyEditor value={pageBody} noteId={noteId} parentPageId={openPage.id} onChange={body => { setPageBody(body); syncInlinePage({ body }) }} editorRef={pageEditorRef} /></div>
       </aside>
     </div>}
     </div>
