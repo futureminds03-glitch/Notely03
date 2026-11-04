@@ -311,6 +311,15 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef, par
       page.append(trigger)
       block = page
     }
+    const anchor = range.startContainer
+    const precedingText = anchor.nodeType === Node.TEXT_NODE
+      ? (anchor.textContent ?? '').slice(0, range.startOffset)
+      : ''
+    if (precedingText.trim()) {
+      const leadingBreak = document.createElement('br')
+      range.insertNode(leadingBreak)
+      range.setStartAfter(leadingBreak)
+    }
     range.insertNode(block)
     const lineBreak = document.createElement('br')
     range.setStartAfter(block)
