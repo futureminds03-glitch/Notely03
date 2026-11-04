@@ -220,9 +220,8 @@ export default function LinkCapture() {
         throw new Error('Could not check your Notely account. Your URL is still here.')
       }
       setPlainSaved(true)
-    } catch (cause) {
-      if (!navigator.onLine) await saveLocally()
-      else setError(cause instanceof Error ? cause.message : 'Could not save this URL. Your link is still here.')
+    } catch {
+      await saveLocally()
     } finally {
       setSaving(false)
     }
