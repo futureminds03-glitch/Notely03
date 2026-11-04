@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 
 const BUCKET = 'note-images'
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024
+const MAX_MULTIPART_BYTES = MAX_IMAGE_BYTES + 64 * 1024
 const MIME_EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -18,23 +19,81 @@ function parseStoragePath(value: string | null) {
   return parts
 }
 
+async function readBoundedForm(request: Request): Promise<FormData | null> {
+  const declaredLength = Number(request.headers.get('content-length'))
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_MULTIPART_BYTES) return null
+  if (!request.body) return null
+
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > MAX_MULTIPART_BYTES) {
+        await reader.cancel()
+        return null
+      }
+      chunks.push(value)
+    }
+    const body = new Blob(chunks)
+    return await new Response(body, {
+      headers: { 'content-type': request.headers.get('content-type') ?? '' },
+    }).formData()
+  } catch {
+    return null
+  } finally {
+    reader.releaseLock()
+  }
+}
+
+function matchesImageSignature(mime: string, bytes: Uint8Array): boolean {
+  const startsWith = (...signature: number[]) =>
+    signature.every((byte, index) => bytes[index] === byte)
+  switch (mime) {
+    case 'image/jpeg':
+      return startsWith(0xff, 0xd8, 0xff)
+    case 'image/png':
+      return startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+    case 'image/webp':
+      return bytes.length >= 12 &&
+        startsWith(0x52, 0x49, 0x46, 0x46) &&
+        bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+    case 'image/gif':
+      return startsWith(0x47, 0x49, 0x46, 0x38) &&
+        (bytes[4] === 0x37 || bytes[4] === 0x39) && bytes[5] === 0x61
+    case 'image/avif':
+      return bytes.length >= 12 &&
+        bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70 &&
+        ['avif', 'avis'].includes(String.fromCharCode(...bytes.slice(8, 12)))
+    default:
+      return false
+  }
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  let form: FormData
-  try { form = await request.formData() } catch {
-    return NextResponse.json({ error: 'Invalid image upload' }, { status: 400 })
-  }
+  const form = await readBoundedForm(request)
+  if (!form) return NextResponse.json({ error: 'Image upload exceeds the 8 MB limit or is invalid' }, { status: 413 })
+
   const noteId = form.get('noteId')
   const file = form.get('file')
   if (typeof noteId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(noteId) || !(file instanceof File)) {
     return NextResponse.json({ error: 'A valid note and image are required' }, { status: 400 })
   }
+
   const extension = MIME_EXTENSIONS[file.type]
   if (!extension || file.size < 1 || file.size > MAX_IMAGE_BYTES) {
     return NextResponse.json({ error: 'Use a PNG, JPEG, WebP, GIF or AVIF image up to 8 MB' }, { status: 413 })
+  }
+  const signature = new Uint8Array(await file.slice(0, 16).arrayBuffer())
+  if (!matchesImageSignature(file.type, signature)) {
+    return NextResponse.json({ error: 'Image content does not match its declared file type' }, { status: 415 })
   }
 
   const { data: note, error: noteError } = await supabase
