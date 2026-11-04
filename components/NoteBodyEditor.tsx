@@ -363,7 +363,6 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
         }
       }}
     />
-    </div>
     {openPage && <div className="note-page-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setOpenPage(null) }}>
       <aside className="note-page-sidebar" role="dialog" aria-label="Inline page">
         <div className="note-page-sidebar-header"><span>PAGE</span><button type="button" aria-label="Close page" onClick={() => setOpenPage(null)}>×</button></div>
