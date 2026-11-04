@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { indexDocumentMemory } from '@/lib/memory-engine'
 import { exceedsNoteFieldLimits, readJsonBody } from '@/lib/request-body'
+import { findStaleNoteImagePaths } from '@/lib/note-image-cleanup'
 
 interface NoteUpdateRequest {
   title?: unknown
@@ -91,7 +92,6 @@ async function cleanupUnreferencedNoteImages(
 
   const folder = userId + '/' + noteId
   const stalePaths: string[] = []
-  const retentionMs = 24 * 60 * 60 * 1000
   let offset = 0
   while (true) {
     const { data: objects, error } = await supabase.storage.from('note-images')
@@ -100,11 +100,7 @@ async function cleanupUnreferencedNoteImages(
       console.error('Could not list note images for cleanup:', error)
       return
     }
-    for (const object of objects ?? []) {
-      if (!object.id || !object.created_at || Date.now() - Date.parse(object.created_at) < retentionMs) continue
-      const path = folder + '/' + object.name
-      if (!referenced.has(path)) stalePaths.push(path)
-    }
+    stalePaths.push(...findStaleNoteImagePaths(objects ?? [], folder, referenced))
     if (!objects || objects.length < 1000) break
     offset += objects.length
   }
