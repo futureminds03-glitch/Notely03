@@ -58,7 +58,7 @@ export default function GlobalParkingCapture() {
               continue
             }
             let resolvedBody = note.body
-            const localIds = [...new Set([...note.body.matchAll(/!\\[image\\]\\(notely-local:([0-9a-f-]+)\\)/gi)].map(match => match[1]))]
+            const localIds = [...new Set([...note.body.matchAll(/!\[image\]\(notely-local:([0-9a-f-]+)\)/gi)].map(match => match[1]))]
             const replaceImageMarkers = (content: string, replacements: Map<string, string>) => {
               let updated = content
               for (const [localId, path] of replacements) updated = updated.replaceAll('![image](notely-local:' + localId + ')', '![image](notely-image:' + path + ')')
@@ -66,7 +66,7 @@ export default function GlobalParkingCapture() {
             }
             const payload = (body: string) => JSON.stringify({ id: note.id, title: note.title, body, started_at: note.started_at ?? null, tags: note.tags ?? [] })
             if (record.pendingCreate) {
-              const createBody = note.body.replace(/!\\[image\\]\\(notely-local:[0-9a-f-]+\\)/gi, '')
+              const createBody = note.body.replace(/!\[image\]\(notely-local:[0-9a-f-]+\)/gi, '')
               let response = await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
               if (response.status === 409) response = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
               if (!response.ok) break
