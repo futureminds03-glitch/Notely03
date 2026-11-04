@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { matchesImageSignature } from '../../lib/image-signature'
+import { findStaleNoteImagePaths } from '../../lib/note-image-cleanup'
 
 test('image upload validation accepts supported file signatures and rejects MIME spoofing', () => {
   const cases: Array<{ mime: string; bytes: number[] }> = [
@@ -28,6 +29,20 @@ test('anonymous image upload is rejected before parsing or storing file data', a
   })
   expect(status).toBe(401)
   await page.close()
+})
+
+test('image cleanup preserves current and historical references and honors its grace period', () => {
+  const now = Date.parse('2026-11-04T00:00:00.000Z')
+  const folder = 'owner-id/note-id'
+  const referenced = new Set([folder + '/current.png', folder + '/history.gif'])
+  const stale = findStaleNoteImagePaths([
+    { id: '1', name: 'current.png', created_at: '2026-11-01T00:00:00.000Z' },
+    { id: '2', name: 'history.gif', created_at: '2026-11-01T00:00:00.000Z' },
+    { id: '3', name: 'orphan.png', created_at: '2026-11-01T00:00:00.000Z' },
+    { id: '4', name: 'recent.png', created_at: '2026-11-03T12:00:00.000Z' },
+    { id: null, name: 'folder', created_at: null },
+  ], folder, referenced, now)
+  expect(stale).toEqual([folder + '/orphan.png'])
 })
 
 test('authenticated users can sync an offline pasted image and retrieve it privately', async ({ browser }) => {
@@ -129,5 +144,8 @@ test('authenticated users can sync an offline pasted image and retrieve it priva
   const ownPath = '/api/note-images?path=' + encodeURIComponent(uploaded.path)
   const ownImageStatus = await page.evaluate(async path => (await fetch(path)).status, ownPath)
   expect(ownImageStatus).toBe(200)
+  const foreignPath = '/api/note-images?path=' + encodeURIComponent('00000000-0000-4000-8000-000000000000/' + uploaded.path.split('/').slice(1).join('/'))
+  const foreignImageStatus = await page.evaluate(async path => (await fetch(path)).status, foreignPath)
+  expect(foreignImageStatus).toBe(404)
   await context.close()
 })
