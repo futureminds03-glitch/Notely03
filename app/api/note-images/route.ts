@@ -39,7 +39,14 @@ async function readBoundedForm(request: Request): Promise<FormData | null> {
       }
       chunks.push(value)
     }
-    const body = new Blob(chunks)
+    const buffer = new ArrayBuffer(total)
+    const combined = new Uint8Array(buffer)
+    let offset = 0
+    for (const chunk of chunks) {
+      combined.set(chunk, offset)
+      offset += chunk.byteLength
+    }
+    const body = new Blob([buffer])
     return await new Response(body, {
       headers: { 'content-type': request.headers.get('content-type') ?? '' },
     }).formData()
