@@ -166,7 +166,7 @@ export default function LinkCapture() {
     const sourceUrl = url.trim()
     const body = 'Source URL: ' + sourceUrl + '\n\nThis link was saved without webpage extraction. You can retry extraction later.\n\nCaptured with Notely on ' + now
     const saveLocally = async () => {
-      const id = 'local-link-' + crypto.randomUUID()
+      const id = crypto.randomUUID()
       const note = { id, title: 'Saved link', body, created_at: now, updated_at: now, started_at: now, tags: ['Links'], synced: false }
       try {
         const { data: { session } } = await createClient().auth.getSession()
@@ -202,7 +202,7 @@ export default function LinkCapture() {
       } else if (remote.status === 401) {
         let existing: unknown[] = []
         try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); if (Array.isArray(parsed)) existing = parsed } catch { /* Start a fresh guest collection. */ }
-        const note = { id: 'local-link-' + crypto.randomUUID(), title: 'Saved link', body, created_at: now, updated_at: now, started_at: now, tags: ['Links'], synced: false }
+        const note = { id: crypto.randomUUID(), title: 'Saved link', body, created_at: now, updated_at: now, started_at: now, tags: ['Links'], synced: false }
         localStorage.setItem('notely_notes', JSON.stringify([note, ...existing]))
       } else {
         throw new Error('Could not check your Notely account. Your URL is still here.')
