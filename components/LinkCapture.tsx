@@ -109,6 +109,7 @@ export default function LinkCapture() {
         try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); if (Array.isArray(parsed)) existing = parsed } catch { /* Start a fresh guest collection. */ }
         localStorage.setItem('notely_notes', JSON.stringify([localNote, ...existing]))
       }
+      window.dispatchEvent(new CustomEvent('notely:sync-requested'))
     }
     try {
       if (!navigator.onLine) {
