@@ -32,13 +32,42 @@ test('authenticated users can sync an offline pasted image and retrieve it priva
   await expect(page.locator('.user-email')).not.toBeEmpty({ timeout: 15000 })
 
   await page.getByRole('button', { name: 'New note' }).click()
+  const createResponse = await page.waitForResponse(response =>
+    response.url().endsWith('/api/notes') && response.request().method() === 'POST' && response.ok()
+  )
+  const createdNote = await createResponse.json() as { id: string }
   await page.locator('.desktop-editor textarea.note-title').fill('Authenticated offline image sync E2E')
   const editor = page.locator('.desktop-editor [contenteditable="true"]')
   await editor.fill('A signed-in note with an offline image.')
   await expect(page.locator('.desktop-editor .save-status')).toContainText('saved')
   await page.waitForResponse(response =>
-    response.url().includes('/api/notes') && response.request().method() === 'POST' && response.ok()
+    response.url().includes('/api/notes/' + createdNote.id) && response.request().method() === 'PATCH' && response.ok()
   )
+
+  const spoofed = new FormData()
+  spoofed.set('noteId', createdNote.id)
+  spoofed.set('file', new File(['<svg onload=alert(1)>'], 'spoof.png', { type: 'image/png' }))
+  const spoofStatus = await page.evaluate(async form => (
+    await fetch('/api/note-images', { method: 'POST', body: form })
+  ).status, spoofed)
+  expect(spoofStatus).toBe(415)
+
+  const oversized = new FormData()
+  oversized.set('noteId', createdNote.id)
+  oversized.set('file', new File([new Uint8Array(8 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }))
+  const oversizedStatus = await page.evaluate(async form => (
+    await fetch('/api/note-images', { method: 'POST', body: form })
+  ).status, oversized)
+  expect(oversizedStatus).toBe(413)
+
+  const unknownNote = new FormData()
+  unknownNote.set('noteId', '00000000-0000-4000-8000-000000000000')
+  const validPng = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/K3sAAAAASUVORK5CYII='), character => character.charCodeAt(0))
+  unknownNote.set('file', new File([validPng], 'valid.png', { type: 'image/png' }))
+  const unknownNoteStatus = await page.evaluate(async form => (
+    await fetch('/api/note-images', { method: 'POST', body: form })
+  ).status, unknownNote)
+  expect(unknownNoteStatus).toBe(404)
 
   await editor.evaluate(element => {
     element.focus()
@@ -73,10 +102,12 @@ test('authenticated users can sync an offline pasted image and retrieve it priva
 
   await expect.poll(async () => offlineEditor.locator('img.note-inline-image').getAttribute('src'), { timeout: 30000 })
     .toContain('/api/note-images?path=')
+  const imageSrc = await offlineEditor.locator('img.note-inline-image').getAttribute('src')
+  if (!imageSrc) throw new Error('Synced image URL was not rendered')
   const imageResponse = await page.evaluate(async src => {
     const response = await fetch(src)
     return { status: response.status, type: response.headers.get('content-type'), bytes: (await response.arrayBuffer()).byteLength }
-  }, await offlineEditor.locator('img.note-inline-image').getAttribute('src'))
+  }, imageSrc)
   expect(imageResponse.status).toBe(200)
   expect(imageResponse.type).toContain('image/png')
   expect(imageResponse.bytes).toBeGreaterThan(0)
