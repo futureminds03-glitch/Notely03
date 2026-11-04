@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import { getPendingOfflineTagUpdates, getPendingParking, remapOfflineParking, removeOfflineParking, removeOfflineTagUpdate, saveOfflineParking } from '@/lib/offline-workspace'
+import { getPendingOfflineNotes, markOfflineNoteSynced, removeOfflineNote } from '@/lib/offline-notes'
+import { getOfflineImage, removeOfflineImage } from '@/lib/offline-images'
 
 const PARKING_KEY = 'notely_parking_lot_v1'
 
@@ -41,6 +43,57 @@ export default function GlobalParkingCapture() {
       if (!navigator.onLine) return
       for (const update of await getPendingOfflineTagUpdates(ownerId).catch(() => [])) {
         try { const response = await fetch('/api/notes/' + encodeURIComponent(update.noteId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tags: update.tags }) }); if (!response.ok) break; await removeOfflineTagUpdate(ownerId, update.noteId) } catch { break }
+      }
+      // The home editor owns its richer sync flow while mounted. On every other route,
+      // flush the same durable note queue here so reconnects never depend on returning home.
+      if (window.location.pathname !== '/') {
+        for (const record of await getPendingOfflineNotes(ownerId).catch(() => [])) {
+          if (!navigator.onLine) break
+          const note = record.note
+          try {
+            if (record.pendingDelete) {
+              const response = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'DELETE' })
+              if (!response.ok && response.status !== 404) break
+              await removeOfflineNote(ownerId, note.id)
+              continue
+            }
+            let resolvedBody = note.body
+            const localIds = [...new Set([...note.body.matchAll(/!\\[image\\]\\(notely-local:([0-9a-f-]+)\\)/gi)].map(match => match[1]))]
+            const replaceImageMarkers = (content: string, replacements: Map<string, string>) => {
+              let updated = content
+              for (const [localId, path] of replacements) updated = updated.replaceAll('![image](notely-local:' + localId + ')', '![image](notely-image:' + path + ')')
+              return updated
+            }
+            const payload = (body: string) => JSON.stringify({ id: note.id, title: note.title, body, started_at: note.started_at ?? null, tags: note.tags ?? [] })
+            if (record.pendingCreate) {
+              const createBody = note.body.replace(/!\\[image\\]\\(notely-local:[0-9a-f-]+\\)/gi, '')
+              let response = await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
+              if (response.status === 409) response = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
+              if (!response.ok) break
+            }
+            const replacements = new Map<string, string>()
+            for (const imageId of localIds) {
+              const image = await getOfflineImage(imageId)
+              if (!image) throw new Error('Offline image is not available on this device')
+              const form = new FormData()
+              form.set('noteId', note.id)
+              form.set('file', image.blob, 'pasted-image')
+              const upload = await fetch('/api/note-images', { method: 'POST', body: form })
+              if (!upload.ok) throw new Error('Offline image upload failed')
+              const result = await upload.json() as { path: string }
+              replacements.set(imageId, result.path)
+            }
+            resolvedBody = replaceImageMarkers(note.body, replacements)
+            const updatedHistory = note.history?.map(version => ({ ...version, content: replaceImageMarkers(version.content, replacements) }))
+            const needsUpdate = !record.pendingCreate || resolvedBody !== note.body
+            if (needsUpdate) {
+              const response = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(resolvedBody) })
+              if (!response.ok) break
+            }
+            await markOfflineNoteSynced(ownerId, { ...note, body: resolvedBody, ...(updatedHistory ? { history: updatedHistory } : {}), synced: true, pendingCreate: false })
+            await Promise.all(localIds.map(removeOfflineImage))
+          } catch { break }
+        }
       }
       for (const record of await getPendingParking(ownerId).catch(() => [])) {
         if (record.pendingDelete) { try { if (!record.item.id.startsWith('local-')) { const response = await fetch('/api/parking-lot?id=' + encodeURIComponent(record.item.id), { method: 'DELETE' }); if (!response.ok && response.status !== 404) break } await removeOfflineParking(ownerId, record.item.id); continue } catch { break } }
