@@ -8,10 +8,11 @@ type Props = {
   noteId: string
   onChange: (value: string) => void
   editorRef: React.RefObject<HTMLDivElement | null>
+  parentPageId?: string
 }
 
 
-type InlinePage = { id: string; title: string; body: string }
+type InlinePage = { id: string; title: string; body: string; parentNoteId: string; parentPageId?: string }
 const editorMarkerPattern = /<!--notely-page:[\s\S]*?-->|!\[image\]\(notely-(?:image|local):[^)]+\)/g
 function encodePage(page: InlinePage) { return '<!--notely-page:' + encodeURIComponent(JSON.stringify(page)) + '-->' }
 function decodePage(marker: string): InlinePage | null {
@@ -23,7 +24,7 @@ function decodePage(marker: string): InlinePage | null {
 }
 
 
-function renderContent(element: HTMLDivElement, value: string) {
+function renderContent(element: HTMLDivElement, value: string, parentNoteId: string) {
   element.replaceChildren()
   const parts = value.split(editorMarkerPattern)
   const markers = value.match(editorMarkerPattern) ?? []
@@ -75,6 +76,8 @@ function renderContent(element: HTMLDivElement, value: string) {
         page.dataset.pageId = crypto.randomUUID()
         page.dataset.pageTitle = line.slice(2).trim() || 'Untitled page'
         page.dataset.pageBody = ''
+        page.dataset.parentNoteId = parentNoteId
+        if (element.dataset.parentPageId) page.dataset.parentPageId = element.dataset.parentPageId
         page.contentEditable = 'false'
         const trigger = document.createElement('button')
         trigger.type = 'button'
@@ -103,6 +106,8 @@ function renderContent(element: HTMLDivElement, value: string) {
       page.dataset.pageId = data.id
       page.dataset.pageTitle = data.title
       page.dataset.pageBody = data.body
+      page.dataset.parentNoteId = data.parentNoteId || parentNoteId
+      if (data.parentPageId) page.dataset.parentPageId = data.parentPageId
       page.contentEditable = 'false'
       const button = document.createElement('button')
       button.type = 'button'
@@ -149,7 +154,7 @@ function serializeNode(node: Node): string {
     if (rows.length > 1) rows.splice(1, 0, '| ' + Array.from(node.querySelectorAll('tr')[0].children).map(() => '---').join(' | ') + ' |')
     return rows.join('\n')
   }
-  if (node.dataset.notelyPage) return encodePage({ id: node.dataset.pageId ?? crypto.randomUUID(), title: node.dataset.pageTitle ?? 'Untitled page', body: node.dataset.pageBody ?? '' })
+  if (node.dataset.notelyPage) return encodePage({ id: node.dataset.pageId ?? crypto.randomUUID(), title: node.dataset.pageTitle ?? 'Untitled page', body: node.dataset.pageBody ?? '', parentNoteId: node.dataset.parentNoteId ?? '', ...(node.dataset.parentPageId ? { parentPageId: node.dataset.parentPageId } : {}) })
   if (node.tagName === 'IMG') {
     if (node.dataset.storagePath) return '![image](notely-image:' + node.dataset.storagePath + ')'
     if (node.dataset.localImageId) return '![image](notely-local:' + node.dataset.localImageId + ')'
@@ -166,10 +171,11 @@ function serializeEditor(element: HTMLDivElement) {
 
 const slashCommands = [{id:'todo',label:'To-do list',description:'Add task checkboxes',icon:'☐',insert:'☐ Task\n'},{id:'database',label:'Inline database',description:'Start a name and status database',icon:'▦',insert:'| Name | Status |\n| --- | --- |\n| New item | Not started |\n'},{id:'table',label:'Table',description:'Insert a two-column table',icon:'▤',insert:'| Column 1 | Column 2 |\n| --- | --- |\n| | |\n'},{id:'page',label:'Inline page',description:'Create a page that opens in the side panel',icon:'▸',insert:'page'}]
 
-export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: Props) {
+export default function NoteBodyEditor({ value, noteId, onChange, editorRef, parentPageId }: Props) {
   const [openPage,setOpenPage]=useState<InlinePage|null>(null)
   const [pageTitle,setPageTitle]=useState('')
   const [pageBody,setPageBody]=useState('')
+  const pageEditorRef = useRef<HTMLDivElement>(null)
   const [slashOpen,setSlashOpen]=useState(false)
   const [slashQuery,setSlashQuery]=useState('')
   const [slashIndex,setSlashIndex]=useState(0)
@@ -181,7 +187,7 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
   useEffect(() => {
     const element = editorRef.current
     if (!element || (value === lastEmitted.current && noteId === lastRenderedNoteId.current)) return
-    renderContent(element, value)
+    renderContent(element, value, noteId)
     lastEmitted.current = value
     lastRenderedNoteId.current = noteId
   }, [value, noteId, editorRef])
@@ -238,6 +244,8 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
     if (page) {
       page.dataset.pageTitle = pageTitle.trim() || 'Untitled page'
       page.dataset.pageBody = pageBody
+      page.dataset.parentNoteId = openPage.parentNoteId || noteId
+      if (openPage.parentPageId) page.dataset.parentPageId = openPage.parentPageId
       const trigger = page.querySelector('.note-inline-page-trigger')
       if (trigger) {
         trigger.textContent = page.dataset.pageTitle
@@ -292,6 +300,8 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
       page.dataset.pageId = crypto.randomUUID()
       page.dataset.pageTitle = 'New page'
       page.dataset.pageBody = ''
+      page.dataset.parentNoteId = noteId
+      if (parentPageId) page.dataset.parentPageId = parentPageId
       page.contentEditable = 'false'
       const trigger = document.createElement('button')
       trigger.type = 'button'
@@ -300,6 +310,15 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
       trigger.setAttribute('aria-label', 'Open page New page')
       page.append(trigger)
       block = page
+    }
+    const anchor = range.startContainer
+    const precedingText = anchor.nodeType === Node.TEXT_NODE
+      ? (anchor.textContent ?? '').slice(0, range.startOffset)
+      : ''
+    if (precedingText.trim()) {
+      const leadingBreak = document.createElement('br')
+      range.insertNode(leadingBreak)
+      range.setStartAfter(leadingBreak)
     }
     range.insertNode(block)
     const lineBreak = document.createElement('br')
@@ -334,7 +353,7 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
         const trigger = (event.target as HTMLElement).closest('.note-inline-page-trigger')
         const page = trigger?.closest<HTMLElement>('[data-notely-page]')
         if (page) {
-          setOpenPage({ id: page.dataset.pageId ?? '', title: page.dataset.pageTitle ?? 'Untitled page', body: page.dataset.pageBody ?? '' })
+          setOpenPage({ id: page.dataset.pageId ?? '', title: page.dataset.pageTitle ?? 'Untitled page', body: page.dataset.pageBody ?? '', parentNoteId: page.dataset.parentNoteId ?? noteId, ...(page.dataset.parentPageId ? { parentPageId: page.dataset.parentPageId } : {}) })
           setPageTitle(page.dataset.pageTitle ?? 'Untitled page')
           setPageBody(page.dataset.pageBody ?? '')
         }
@@ -368,7 +387,7 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
       <aside className="note-page-sidebar" role="dialog" aria-label="Inline page">
         <div className="note-page-sidebar-header"><span>PAGE</span><button type="button" aria-label="Close page" onClick={() => setOpenPage(null)}>×</button></div>
         <input className="note-page-title" aria-label="Page title" value={pageTitle} onChange={event => setPageTitle(event.target.value)} placeholder="Untitled page" />
-        <textarea className="note-page-content" aria-label="Page content" value={pageBody} onChange={event => setPageBody(event.target.value)} placeholder="Start writing…" />
+        <div className="note-page-content-shell"><NoteBodyEditor value={pageBody} noteId={noteId} parentPageId={openPage.id} onChange={setPageBody} editorRef={pageEditorRef} /></div>
         <div className="note-page-sidebar-footer"><button type="button" onClick={() => setOpenPage(null)}>Cancel</button><button type="button" onClick={saveInlinePage}>Save page</button></div>
       </aside>
     </div>}

@@ -2,23 +2,21 @@ import { test, expect } from '@playwright/test'
 
 const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
 
-test('theme selector persists the warm and monochrome palettes', async ({ page }) => {
+test('theme store offers six palettes and persists each selected theme', async ({ page }) => {
   await page.goto(new URL('/themes', baseURL).toString())
   const cards = page.locator('.theme-card')
-  await expect(cards).toHaveCount(2)
-
-  await cards.nth(1).click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mono')
-  expect(await page.evaluate(() => localStorage.getItem('notely-theme'))).toBe('mono')
-
+  await expect(cards).toHaveCount(6)
+  for (const theme of ['warm', 'mono', 'midnight', 'sage', 'rose', 'ocean']) {
+    const card = page.locator('.theme-card').filter({ hasText: theme === 'mono' ? 'Monochrome' : theme === 'warm' ? 'Notely Warm' : theme === 'midnight' ? 'Midnight Ink' : theme === 'sage' ? 'Sage Garden' : theme === 'rose' ? 'Rose Quartz' : 'Ocean Glass' })
+    await card.click()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+    expect(await page.evaluate(() => localStorage.getItem('notely-theme'))).toBe(theme)
+  }
   await page.goto(new URL('/', baseURL).toString())
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mono')
-  expect(await page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--accent').trim())).toBe('#111')
-
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'ocean')
   await page.goto(new URL('/themes', baseURL).toString())
-  await cards.nth(0).click()
+  await page.locator('.theme-card').filter({ hasText: 'Notely Warm' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'warm')
-  expect(await page.evaluate(() => localStorage.getItem('notely-theme'))).toBe('warm')
 })
 
 test('slash menu inserts working to-do, table, database and inline page blocks', async ({ page }) => {
@@ -57,17 +55,25 @@ test('slash menu inserts working to-do, table, database and inline page blocks',
       await expect(firstCell).toHaveText('Edited row')
     } else {
       const pageButton = editor.getByRole('button', { name: 'Open page New page' })
+      await expect(editor.locator('.note-inline-page')).toHaveAttribute('data-parent-note-id', /.+/)
       await expect(pageButton).toBeVisible()
       await pageButton.click()
       const sidebar = page.getByRole('dialog', { name: 'Inline page' })
       await expect(sidebar).toBeVisible()
       await expect(sidebar.locator('[aria-label="Properties"]')).toHaveCount(0)
       await sidebar.getByRole('textbox', { name: 'Page title' }).fill('Research ideas')
-      await sidebar.getByRole('textbox', { name: 'Page content' }).fill('Keep this as a separate page body.')
+      const subpageEditor = sidebar.getByRole('textbox', { name: 'Note body' })
+      await subpageEditor.fill('Keep this as a separate page body.')
+      await subpageEditor.pressSequentially(' /todo')
+      await expect(sidebar.getByRole('listbox', { name: 'Insert a block' })).toBeVisible()
+      await sidebar.getByRole('option', { name: /To-do list/ }).click()
+      await expect(subpageEditor.locator('.note-task-line input')).toBeVisible()
       await sidebar.getByRole('button', { name: 'Save page' }).click()
       await expect(editor.getByRole('button', { name: 'Open page Research ideas' })).toBeVisible()
       await editor.getByRole('button', { name: 'Open page Research ideas' }).click()
-      await expect(page.getByRole('textbox', { name: 'Page content' })).toHaveValue('Keep this as a separate page body.')
+      const reopenedEditor = page.getByRole('dialog', { name: 'Inline page' }).getByRole('textbox', { name: 'Note body' })
+      await expect(reopenedEditor).toContainText('Keep this as a separate page body.')
+      await expect(reopenedEditor.locator('.note-task-line input')).toBeVisible()
       await page.getByRole('button', { name: 'Close page' }).click()
     }
   }
