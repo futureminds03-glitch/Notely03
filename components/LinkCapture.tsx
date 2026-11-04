@@ -115,7 +115,7 @@ export default function LinkCapture() {
       if (!navigator.onLine) {
         await saveLocally()
         setSaved(true)
-        setError('Saved on this device. It will sync automatically when you reconnect.')
+        setError('Could not save this link to your account. It is saved on this device and will sync automatically when you reconnect.')
         return
       }
       const remote = await fetch('/api/notes', { cache: 'no-store' })
