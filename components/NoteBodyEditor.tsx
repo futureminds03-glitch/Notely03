@@ -16,14 +16,61 @@ function renderContent(element: HTMLDivElement, value: string) {
   element.replaceChildren()
   const parts = value.split(markerPattern)
   const markers = value.match(markerPattern) ?? []
-  parts.forEach((part, index) => {
-    if (part) {
-      const lines = part.split('\n')
-      lines.forEach((line, lineIndex) => {
-        if (line) element.append(document.createTextNode(line))
-        if (lineIndex < lines.length - 1) element.append(document.createElement('br'))
-      })
+  const appendPart = (target: HTMLDivElement, part: string) => {
+    const lines = part.split('\n')
+    let index = 0
+    while (index < lines.length) {
+      const line = lines[index]
+      const separator = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/
+      if (line.trim().startsWith('|') && index + 1 < lines.length && separator.test(lines[index + 1])) {
+        const table = document.createElement('table')
+        table.className = 'note-inline-table'
+        const body = document.createElement('tbody')
+        table.append(body)
+        while (index < lines.length && lines[index].trim().startsWith('|')) {
+          const rowLine = lines[index]
+          if (!separator.test(rowLine)) {
+            const row = document.createElement('tr')
+            rowLine.trim().replace(/^\||\|$/g, '').split('|').forEach(value => {
+              const cell = document.createElement('td')
+              cell.textContent = value.trim()
+              row.append(cell)
+            })
+            body.append(row)
+          }
+          index += 1
+        }
+        target.append(table)
+        if (index < lines.length) target.append(document.createElement('br'))
+        continue
+      }
+      if (/^[☐☑]\s/.test(line)) {
+        const task = document.createElement('label')
+        task.className = 'note-task-line'
+        task.dataset.notelyTask = 'true'
+        const checkbox = document.createElement('input')
+        checkbox.type = 'checkbox'
+        checkbox.checked = line.startsWith('☑')
+        checkbox.contentEditable = 'false'
+        const text = document.createElement('span')
+        text.textContent = line.slice(2)
+        task.append(checkbox, text)
+        target.append(task)
+      } else if (line.startsWith('▸ ')) {
+        const page = document.createElement('div')
+        page.className = 'note-inline-page'
+        page.dataset.notelyPage = 'true'
+        page.textContent = line.slice(2)
+        target.append(page)
+      } else if (line) {
+        target.append(document.createTextNode(line))
+      }
+      if (index < lines.length - 1) target.append(document.createElement('br'))
+      index += 1
     }
+  }
+  parts.forEach((part, index) => {
+    if (part) appendPart(element, part)
     const marker = markers[index]
     if (!marker) return
     const match = marker.match(/^!\[image\]\(notely-(image|local):([^)]+)\)$/)
@@ -52,6 +99,17 @@ function renderContent(element: HTMLDivElement, value: string) {
 function serializeNode(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? ''
   if (!(node instanceof HTMLElement)) return ''
+  if (node.tagName === 'LABEL' && node.dataset.notelyTask) {
+    const checkbox = node.querySelector('input[type="checkbox"]') as HTMLInputElement | null
+    const text = node.querySelector('span')?.textContent ?? ''
+    return (checkbox?.checked ? '☑ ' : '☐ ') + text + '\\n'
+  }
+  if (node.tagName === 'TABLE') {
+    const rows = Array.from(node.querySelectorAll('tr')).map(row => '| ' + Array.from(row.children).map(cell => cell.textContent ?? '').join(' | ') + ' |')
+    if (rows.length > 1) rows.splice(1, 0, '| ' + Array.from(node.querySelectorAll('tr')[0].children).map(() => '---').join(' | ') + ' |')
+    return rows.join('\\n') + '\\n'
+  }
+  if (node.dataset.notelyPage) return '▸ ' + (node.textContent ?? '').trim() + '\\n'
   if (node.tagName === 'IMG') {
     if (node.dataset.storagePath) return '![image](notely-image:' + node.dataset.storagePath + ')'
     if (node.dataset.localImageId) return '![image](notely-local:' + node.dataset.localImageId + ')'
@@ -147,6 +205,7 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
       aria-multiline="true"
       data-placeholder="Start writing… Paste or drop an image"
       onInput={() => {emitChange();inspectSlashCommand()}}
+      onChange={event => { if ((event.target as HTMLElement).tagName === 'INPUT') emitChange() }}
       onKeyUp={inspectSlashCommand}
       onKeyDown={event=>{if(!slashOpen)return;if(event.key==='Escape'){event.preventDefault();setSlashOpen(false);slashRange.current=null}if(event.key==='ArrowDown'&&matchingCommands.length){event.preventDefault();setSlashIndex(i=>(i+1)%matchingCommands.length)}if(event.key==='ArrowUp'&&matchingCommands.length){event.preventDefault();setSlashIndex(i=>(i-1+matchingCommands.length)%matchingCommands.length)}if(event.key==='Enter'&&matchingCommands[slashIndex]){event.preventDefault();insertSlashCommand(matchingCommands[slashIndex])}}}
       onPaste={event => {
