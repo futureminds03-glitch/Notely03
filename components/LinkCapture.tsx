@@ -136,7 +136,7 @@ export default function LinkCapture() {
       try {
         await saveLocally()
         setSaved(true)
-        setError('Saved on this device. It will sync automatically when you reconnect.')
+        setError('Could not save this link to your account. It is saved on this device and will sync automatically when you reconnect.')
       } catch {
         setError('Could not save this link locally. Your extracted content is still here; please try again.')
       }
