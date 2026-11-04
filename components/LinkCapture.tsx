@@ -101,6 +101,13 @@ export default function LinkCapture() {
     const id = 'local-link-' + crypto.randomUUID()
     const localNote = { id, title, body, created_at: now, updated_at: now, started_at: result.extractedAt, tags: ['Links'], synced: false }
     const saveLocally = async () => {
+      let guestStored = false
+      try {
+        const existing = (() => { try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })()
+        localStorage.setItem('notely_notes', JSON.stringify([localNote, ...existing]))
+        guestStored = true
+        setSaved(true)
+      } catch { /* Continue with the account-scoped offline store if browser storage is unavailable. */ }
       let userId: string | null = null
       try {
         const { data: { session } } = await createClient().auth.getSession()
@@ -109,21 +116,20 @@ export default function LinkCapture() {
       if (userId) {
         try {
           await saveOfflineNote(userId, localNote, { pendingCreate: true })
-        } catch {
-          const existing = (() => { try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })()
-          localStorage.setItem('notely_notes', JSON.stringify([localNote, ...existing]))
-        }
-      } else {
-        const existing = (() => { try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })()
-        localStorage.setItem('notely_notes', JSON.stringify([localNote, ...existing]))
+          if (guestStored) {
+            const existing = (() => { try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })()
+            localStorage.setItem('notely_notes', JSON.stringify(existing.filter((note: { id?: string }) => note.id !== id)))
+          }
+        } catch { /* The browser copy remains available if IndexedDB is unavailable. */ }
       }
+      if (!guestStored && !userId) throw new Error('Local storage is unavailable')
       window.dispatchEvent(new CustomEvent('notely:sync-requested'))
     }
     try {
       if (!navigator.onLine) {
+        setError('Could not save this link to your account. It is saved on this device and will sync automatically when you reconnect.')
         await saveLocally()
         setSaved(true)
-        setError('Could not save this link to your account. It is saved on this device and will sync automatically when you reconnect.')
         return
       }
       const remote = await fetch('/api/notes', { cache: 'no-store' })
@@ -141,11 +147,11 @@ export default function LinkCapture() {
       }
       setSaved(true)
     } catch {
+      setError('Could not save this link to your account. Your extracted content is still here; it is being saved locally for retry.')
       try {
         await saveLocally()
         setSaved(true)
       } catch { /* Keep the extracted content visible even if local persistence is unavailable. */ }
-      setError('Could not save this link to your account. Your extracted content is still here and will be saved locally for retry.')
     } finally {
       setSaving(false)
     }
