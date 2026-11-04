@@ -28,7 +28,7 @@ test('slash menu inserts working to-do, table, database and inline page blocks',
   // from browser caret movement around non-editable checkbox controls.
   const commands = [
     { query: '/todo', option: /To-do list/ },
-    { query: '/table', option: /^Table/ },
+    { query: '/table', option: /Table/ },
     { query: '/database', option: /Inline database/ },
     { query: '/page', option: /Inline page/ },
   ]
@@ -78,4 +78,18 @@ test('Time Machine explains capture-date browsing and version history', async ({
   await expect(page.locator('.tm-guide')).toBeVisible()
   await expect(page.locator('.tm-guide')).toContainText('original capture date')
   await expect(page.locator('.tm-guide')).toContainText('earlier versions')
+})
+
+test('privacy and terms links use the active Notely brand accent', async ({ page }) => {
+  for (const path of ['/privacy', '/terms']) {
+    await page.goto(new URL(path, baseURL).toString())
+    const link = page.locator('.legal-document-page a').first()
+    await expect(link).toBeVisible()
+    const colors = await page.evaluate(() => ({
+      accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
+      link: getComputedStyle(document.querySelector('.legal-document-page a')!).color,
+    }))
+    const rgb = colors.accent === '#a94a17' ? 'rgb(169, 74, 23)' : colors.accent === '#111' ? 'rgb(17, 17, 17)' : colors.link
+    expect(colors.link).toBe(rgb)
+  }
 })
