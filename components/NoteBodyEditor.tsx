@@ -76,6 +76,8 @@ function renderContent(element: HTMLDivElement, value: string, parentNoteId: str
         page.dataset.pageId = crypto.randomUUID()
         page.dataset.pageTitle = line.slice(2).trim() || 'Untitled page'
         page.dataset.pageBody = ''
+        page.dataset.parentNoteId = parentNoteId
+        if (element.dataset.parentPageId) page.dataset.parentPageId = element.dataset.parentPageId
         page.contentEditable = 'false'
         const trigger = document.createElement('button')
         trigger.type = 'button'
