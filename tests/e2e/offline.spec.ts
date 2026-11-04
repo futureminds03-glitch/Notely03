@@ -103,7 +103,7 @@ test('Link Capture route and URL-only saving work offline after first visit', as
   await expect(page.getByText('URL saved to your Notely notes.')).toBeVisible()
   const savedLinkId = await page.evaluate(() => {
     const notes = JSON.parse(localStorage.getItem('notely_notes') || '[]') as Array<{ title: string; id: string }>
-    return notes.find(note => note.title.includes('example.com'))?.id ?? ''
+    return notes.find(note => note.body.includes('example.com/offline-article'))?.id ?? ''
   })
   expect(savedLinkId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
   await page.reload()
