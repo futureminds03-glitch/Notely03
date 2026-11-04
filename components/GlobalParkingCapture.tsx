@@ -147,10 +147,12 @@ export default function GlobalParkingCapture() {
           } catch {
             window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: item }))
             queuedOffline = true
+            window.dispatchEvent(new CustomEvent('notely:sync-requested'))
           }
         } else {
           window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: item }))
           queuedOffline = true
+          window.dispatchEvent(new CustomEvent('notely:sync-requested'))
         }
       } else {
         let savedItem = item
