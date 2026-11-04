@@ -98,7 +98,7 @@ export default function LinkCapture() {
     const title = result.title || 'Saved link'
     const body = noteText(result)
     const now = new Date().toISOString()
-    const id = 'local-link-' + crypto.randomUUID()
+    const id = crypto.randomUUID()
     const localNote = { id, title, body, created_at: now, updated_at: now, started_at: result.extractedAt, tags: ['Links'], synced: false }
     const saveLocally = async () => {
       let guestStored = false
