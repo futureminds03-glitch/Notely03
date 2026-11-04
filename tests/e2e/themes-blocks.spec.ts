@@ -31,7 +31,7 @@ test('slash menu inserts working to-do, table, database and inline page blocks',
   await editor.pressSequentially('/')
   await expect(page.getByRole('listbox', { name: 'Insert a block' })).toBeVisible()
   await page.getByRole('option', { name: /To-do list/ }).click()
-  const checkbox = page.locator('.note-task-line input[type="checkbox"]')
+  const checkbox = page.locator('.note-task-line input[type="checkbox"]:visible').first()
   await expect(checkbox).toBeVisible()
   await checkbox.check()
   await expect(checkbox).toBeChecked()
@@ -40,19 +40,19 @@ test('slash menu inserts working to-do, table, database and inline page blocks',
   await editor.press('Enter')
   await editor.pressSequentially('/table')
   await page.getByRole('option', { name: /^Table/ }).click()
-  await expect(page.locator('.note-inline-table').first()).toBeVisible()
+  await expect(page.locator('.note-inline-table:visible').first()).toBeVisible()
 
   await editor.press('Control+End')
   await editor.press('Enter')
   await editor.pressSequentially('/database')
   await page.getByRole('option', { name: /Inline database/ }).click()
-  await expect(page.locator('.note-inline-table')).toHaveCount(2)
+  await expect(page.locator('.note-inline-table:visible')).toHaveCount(2)
 
   await editor.press('Control+End')
   await editor.press('Enter')
   await editor.pressSequentially('/page')
   await page.getByRole('option', { name: /Inline page/ }).click()
-  await expect(page.locator('.note-inline-page')).toContainText('New page')
+  await expect(page.locator('.note-inline-page:visible').first()).toContainText('New page')
 })
 
 test('Quick Capture capsule sits above the online-sync indicator', async ({ page }) => {
