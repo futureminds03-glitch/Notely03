@@ -102,14 +102,14 @@ function serializeNode(node: Node): string {
   if (node.tagName === 'LABEL' && node.dataset.notelyTask) {
     const checkbox = node.querySelector('input[type="checkbox"]') as HTMLInputElement | null
     const text = node.querySelector('span')?.textContent ?? ''
-    return (checkbox?.checked ? '☑ ' : '☐ ') + text + '\\n'
+    return (checkbox?.checked ? '☑ ' : '☐ ') + text + '\n'
   }
   if (node.tagName === 'TABLE') {
     const rows = Array.from(node.querySelectorAll('tr')).map(row => '| ' + Array.from(row.children).map(cell => cell.textContent ?? '').join(' | ') + ' |')
     if (rows.length > 1) rows.splice(1, 0, '| ' + Array.from(node.querySelectorAll('tr')[0].children).map(() => '---').join(' | ') + ' |')
-    return rows.join('\\n') + '\\n'
+    return rows.join('\n') + '\n'
   }
-  if (node.dataset.notelyPage) return '▸ ' + (node.textContent ?? '').trim() + '\\n'
+  if (node.dataset.notelyPage) return '▸ ' + (node.textContent ?? '').trim() + '\n'
   if (node.tagName === 'IMG') {
     if (node.dataset.storagePath) return '![image](notely-image:' + node.dataset.storagePath + ')'
     if (node.dataset.localImageId) return '![image](notely-local:' + node.dataset.localImageId + ')'
@@ -186,7 +186,7 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
     }
   }
 
-  function inspectSlashCommand(){const selection=window.getSelection(),element=editorRef.current;if(!selection?.rangeCount||!element||!selection.isCollapsed||!element.contains(selection.anchorNode)){setSlashOpen(false);return}const node=selection.anchorNode;if(!node||node.nodeType!==Node.TEXT_NODE){setSlashOpen(false);return}const before=(node.textContent??'').slice(0,selection.anchorOffset),match=before.match(/(^|\\s)\\/([a-z-]*)$/i);if(!match){setSlashOpen(false);slashRange.current=null;return}const range=document.createRange();range.setStart(node,selection.anchorOffset-match[2].length-1);range.setEnd(node,selection.anchorOffset);slashRange.current=range;setSlashQuery(match[2].toLowerCase());setSlashIndex(0);setSlashOpen(true)}
+  function inspectSlashCommand(){const selection=window.getSelection(),element=editorRef.current;if(!selection?.rangeCount||!element||!selection.isCollapsed||!element.contains(selection.anchorNode)){setSlashOpen(false);return}const node=selection.anchorNode;if(!node||node.nodeType!==Node.TEXT_NODE){setSlashOpen(false);return}const before=(node.textContent??'').slice(0,selection.anchorOffset),match=before.match(/(^|\s)\/([a-z-]*)$/i);if(!match){setSlashOpen(false);slashRange.current=null;return}const range=document.createRange();range.setStart(node,selection.anchorOffset-match[2].length-1);range.setEnd(node,selection.anchorOffset);slashRange.current=range;setSlashQuery(match[2].toLowerCase());setSlashIndex(0);setSlashOpen(true)}
   const matchingCommands=slashCommands.filter(command=>(command.label+' '+command.id).toLowerCase().includes(slashQuery))
   function insertSlashCommand(command:typeof slashCommands[number]){const range=slashRange.current,element=editorRef.current;if(!range||!element)return;element.focus();range.deleteContents();const insertion=document.createTextNode(command.insert);range.insertNode(insertion);range.setStartAfter(insertion);range.collapse(true);const selection=window.getSelection();selection?.removeAllRanges();selection?.addRange(range);slashRange.current=null;setSlashOpen(false);setSlashQuery('');emitChange()}
   return (
