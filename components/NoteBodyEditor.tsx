@@ -10,12 +10,23 @@ type Props = {
   editorRef: React.RefObject<HTMLDivElement | null>
 }
 
-const markerPattern = /!\[image\]\(notely-(?:image|local):[^)]+\)/g
+
+type InlinePage = { id: string; title: string; body: string }
+const editorMarkerPattern = /<!--notely-page:[\s\S]*?-->|!\[image\]\(notely-(?:image|local):[^)]+\)/g
+function encodePage(page: InlinePage) { return '<!--notely-page:' + encodeURIComponent(JSON.stringify(page)) + '-->' }
+function decodePage(marker: string): InlinePage | null {
+  try {
+    const page = JSON.parse(decodeURIComponent(marker.slice('<!--notely-page:'.length, -'-->'.length)))
+    if (typeof page.id !== 'string' || typeof page.title !== 'string' || typeof page.body !== 'string') return null
+    return page as InlinePage
+  } catch { return null }
+}
+
 
 function renderContent(element: HTMLDivElement, value: string) {
   element.replaceChildren()
-  const parts = value.split(markerPattern)
-  const markers = value.match(markerPattern) ?? []
+  const parts = value.split(editorMarkerPattern)
+  const markers = value.match(editorMarkerPattern) ?? []
   const appendPart = (target: HTMLDivElement, part: string) => {
     const lines = part.split('\n')
     let index = 0
@@ -33,6 +44,7 @@ function renderContent(element: HTMLDivElement, value: string) {
             const row = document.createElement('tr')
             rowLine.trim().replace(/^\||\|$/g, '').split('|').forEach(value => {
               const cell = document.createElement('td')
+              cell.contentEditable = 'true'
               cell.textContent = value.trim()
               row.append(cell)
             })
@@ -60,7 +72,16 @@ function renderContent(element: HTMLDivElement, value: string) {
         const page = document.createElement('div')
         page.className = 'note-inline-page'
         page.dataset.notelyPage = 'true'
-        page.textContent = line.slice(2)
+        page.dataset.pageId = crypto.randomUUID()
+        page.dataset.pageTitle = line.slice(2).trim() || 'Untitled page'
+        page.dataset.pageBody = ''
+        page.contentEditable = 'false'
+        const trigger = document.createElement('button')
+        trigger.type = 'button'
+        trigger.className = 'note-inline-page-trigger'
+        trigger.textContent = page.dataset.pageTitle
+        trigger.setAttribute('aria-label', 'Open page ' + page.dataset.pageTitle)
+        page.append(trigger)
         target.append(page)
       } else if (line) {
         target.append(document.createTextNode(line))
@@ -73,6 +94,25 @@ function renderContent(element: HTMLDivElement, value: string) {
     if (part) appendPart(element, part)
     const marker = markers[index]
     if (!marker) return
+    if (marker.startsWith('<!--notely-page:')) {
+      const data = decodePage(marker)
+      if (!data) return
+      const page = document.createElement('div')
+      page.className = 'note-inline-page'
+      page.dataset.notelyPage = 'true'
+      page.dataset.pageId = data.id
+      page.dataset.pageTitle = data.title
+      page.dataset.pageBody = data.body
+      page.contentEditable = 'false'
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'note-inline-page-trigger'
+      button.textContent = data.title || 'Untitled page'
+      button.setAttribute('aria-label', 'Open page ' + (data.title || 'Untitled page'))
+      page.append(button)
+      element.append(page)
+      return
+    }
     const match = marker.match(/^!\[image\]\(notely-(image|local):([^)]+)\)$/)
     if (!match) return
     const image = document.createElement('img')
@@ -109,7 +149,7 @@ function serializeNode(node: Node): string {
     if (rows.length > 1) rows.splice(1, 0, '| ' + Array.from(node.querySelectorAll('tr')[0].children).map(() => '---').join(' | ') + ' |')
     return rows.join('\n')
   }
-  if (node.dataset.notelyPage) return '▸ ' + (node.textContent ?? '').trim()
+  if (node.dataset.notelyPage) return encodePage({ id: node.dataset.pageId ?? crypto.randomUUID(), title: node.dataset.pageTitle ?? 'Untitled page', body: node.dataset.pageBody ?? '' })
   if (node.tagName === 'IMG') {
     if (node.dataset.storagePath) return '![image](notely-image:' + node.dataset.storagePath + ')'
     if (node.dataset.localImageId) return '![image](notely-local:' + node.dataset.localImageId + ')'
@@ -124,9 +164,12 @@ function serializeEditor(element: HTMLDivElement) {
   return Array.from(element.childNodes).map(serializeNode).join('').replace(/\n{3,}/g, '\n\n').replace(/\n$/, '')
 }
 
-const slashCommands = [{id:'todo',label:'To-do list',description:'Add task checkboxes',icon:'☐',insert:'☐ Task\n'},{id:'database',label:'Inline database',description:'Start a name and status database',icon:'▦',insert:'Name | Status\n--- | ---\nNew item | Not started\n'},{id:'table',label:'Table',description:'Insert a two-column table',icon:'▤',insert:'| Column 1 | Column 2 |\n| --- | --- |\n| | |\n'},{id:'page',label:'Inline page',description:'Add a page-like section',icon:'▸',insert:'▸ New page\n  Start writing inside this page…\n'}]
+const slashCommands = [{id:'todo',label:'To-do list',description:'Add task checkboxes',icon:'☐',insert:'☐ Task\n'},{id:'database',label:'Inline database',description:'Start a name and status database',icon:'▦',insert:'| Name | Status |\n| --- | --- |\n| New item | Not started |\n'},{id:'table',label:'Table',description:'Insert a two-column table',icon:'▤',insert:'| Column 1 | Column 2 |\n| --- | --- |\n| | |\n'},{id:'page',label:'Inline page',description:'Create a page that opens in the side panel',icon:'▸',insert:'page'}]
 
 export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: Props) {
+  const [openPage,setOpenPage]=useState<InlinePage|null>(null)
+  const [pageTitle,setPageTitle]=useState('')
+  const [pageBody,setPageBody]=useState('')
   const [slashOpen,setSlashOpen]=useState(false)
   const [slashQuery,setSlashQuery]=useState('')
   const [slashIndex,setSlashIndex]=useState(0)
@@ -228,7 +271,16 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
       const page = document.createElement('div')
       page.className = 'note-inline-page'
       page.dataset.notelyPage = 'true'
-      page.textContent = 'New page'
+      page.dataset.pageId = crypto.randomUUID()
+      page.dataset.pageTitle = 'New page'
+      page.dataset.pageBody = ''
+      page.contentEditable = 'false'
+      const trigger = document.createElement('button')
+      trigger.type = 'button'
+      trigger.className = 'note-inline-page-trigger'
+      trigger.textContent = 'New page'
+      trigger.setAttribute('aria-label', 'Open page New page')
+      page.append(trigger)
       block = page
     }
     range.insertNode(block)
@@ -260,6 +312,15 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
       aria-label="Note body"
       aria-multiline="true"
       data-placeholder="Start writing… Paste or drop an image"
+      onClick={event => {
+        const trigger = (event.target as HTMLElement).closest('.note-inline-page-trigger')
+        const page = trigger?.closest<HTMLElement>('[data-notely-page]')
+        if (page) {
+          setOpenPage({ id: page.dataset.pageId ?? '', title: page.dataset.pageTitle ?? 'Untitled page', body: page.dataset.pageBody ?? '' })
+          setPageTitle(page.dataset.pageTitle ?? 'Untitled page')
+          setPageBody(page.dataset.pageBody ?? '')
+        }
+      }}
       onInput={() => {emitChange();inspectSlashCommand()}}
       onChange={event => { if ((event.target as HTMLElement).tagName === 'INPUT') emitChange() }}
       onKeyUp={inspectSlashCommand}
@@ -285,6 +346,26 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
         }
       }}
     />
+    </div>
+    {openPage && <div className="note-page-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setOpenPage(null) }}>
+      <aside className="note-page-sidebar" role="dialog" aria-label="Inline page">
+        <div className="note-page-sidebar-header"><span>PAGE</span><button type="button" aria-label="Close page" onClick={() => setOpenPage(null)}>×</button></div>
+        <input className="note-page-title" aria-label="Page title" value={pageTitle} onChange={event => setPageTitle(event.target.value)} placeholder="Untitled page" />
+        <textarea className="note-page-content" aria-label="Page content" value={pageBody} onChange={event => setPageBody(event.target.value)} placeholder="Start writing…" />
+        <div className="note-page-sidebar-footer"><button type="button" onClick={() => setOpenPage(null)}>Cancel</button><button type="button" onClick={() => {
+          const element = editorRef.current
+          const page = element?.querySelector<HTMLElement>('[data-notely-page][data-page-id="' + openPage.id + '"]')
+          if (page) {
+            page.dataset.pageTitle = pageTitle.trim() || 'Untitled page'
+            page.dataset.pageBody = pageBody
+            const trigger = page.querySelector('.note-inline-page-trigger')
+            if (trigger) { trigger.textContent = page.dataset.pageTitle; trigger.setAttribute('aria-label', 'Open page ' + page.dataset.pageTitle) }
+            emitChange()
+          }
+          setOpenPage(null)
+        }}>Save page</button></div>
+      </aside>
+    </div>}
     </div>
   )
 }
