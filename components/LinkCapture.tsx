@@ -101,12 +101,20 @@ export default function LinkCapture() {
     const id = 'local-link-' + crypto.randomUUID()
     const localNote = { id, title, body, created_at: now, updated_at: now, started_at: result.extractedAt, tags: ['Links'], synced: false }
     const saveLocally = async () => {
-      const { data: { session } } = await createClient().auth.getSession()
-      if (session?.user.id) {
-        await saveOfflineNote(session.user.id, localNote, { pendingCreate: true })
+      let userId: string | null = null
+      try {
+        const { data: { session } } = await createClient().auth.getSession()
+        userId = session?.user.id ?? null
+      } catch { /* Local capture must still work if auth infrastructure is unavailable. */ }
+      if (userId) {
+        try {
+          await saveOfflineNote(userId, localNote, { pendingCreate: true })
+        } catch {
+          const existing = (() => { try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })()
+          localStorage.setItem('notely_notes', JSON.stringify([localNote, ...existing]))
+        }
       } else {
-        let existing: unknown[] = []
-        try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); if (Array.isArray(parsed)) existing = parsed } catch { /* Start a fresh guest collection. */ }
+        const existing = (() => { try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })()
         localStorage.setItem('notely_notes', JSON.stringify([localNote, ...existing]))
       }
       window.dispatchEvent(new CustomEvent('notely:sync-requested'))
@@ -136,10 +144,8 @@ export default function LinkCapture() {
       try {
         await saveLocally()
         setSaved(true)
-        setError('Could not save this link to your account. It is saved on this device and will sync automatically when you reconnect.')
-      } catch {
-        setError('Could not save this link locally. Your extracted content is still here; please try again.')
-      }
+      } catch { /* Keep the extracted content visible even if local persistence is unavailable. */ }
+      setError('Could not save this link to your account. Your extracted content is still here and will be saved locally for retry.')
     } finally {
       setSaving(false)
     }
