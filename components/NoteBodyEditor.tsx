@@ -41,6 +41,7 @@ function renderContent(element: HTMLDivElement, value: string, parentNoteId: str
         table.append(body)
         index += 2
         while (index < lines.length && lines[index].trim().startsWith('|')) {
+          if (index + 1 < lines.length && separator.test(lines[index + 1])) break
           const rowLine = lines[index]
           if (separator.test(rowLine)) break
           const row = document.createElement('tr')
