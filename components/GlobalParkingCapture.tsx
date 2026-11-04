@@ -27,8 +27,12 @@ export default function GlobalParkingCapture() {
 
   useEffect(() => {
     let active = true
-    createClient().auth.getSession().then(({ data }) => { if (active) setOwnerId(data.session?.user.id ?? null) }).catch(() => undefined)
-    return () => { active = false }
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data }) => { if (active) setOwnerId(data.session?.user.id ?? null) }).catch(() => undefined)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setOwnerId(session?.user.id ?? null)
+    })
+    return () => { active = false; subscription.unsubscribe() }
   }, [])
 
   useEffect(() => {
