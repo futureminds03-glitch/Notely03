@@ -231,6 +231,23 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
 
   function inspectSlashCommand(){const selection=window.getSelection(),element=editorRef.current;if(!selection?.rangeCount||!element||!selection.isCollapsed||!element.contains(selection.anchorNode)){setSlashOpen(false);return}const node=selection.anchorNode;if(!node||node.nodeType!==Node.TEXT_NODE){setSlashOpen(false);return}const before=(node.textContent??'').slice(0,selection.anchorOffset),match=before.match(/(^|\s)\/([a-z-]*)$/i);if(!match){setSlashOpen(false);slashRange.current=null;return}const range=document.createRange();range.setStart(node,selection.anchorOffset-match[2].length-1);range.setEnd(node,selection.anchorOffset);slashRange.current=range;setSlashQuery(match[2].toLowerCase());setSlashIndex(0);setSlashOpen(true)}
   const matchingCommands=slashCommands.filter(command=>(command.label+' '+command.id).toLowerCase().includes(slashQuery))
+  function saveInlinePage() {
+    if (!openPage) return
+    const element = editorRef.current
+    const page = element?.querySelector<HTMLElement>('[data-notely-page][data-page-id="' + openPage.id + '"]')
+    if (page) {
+      page.dataset.pageTitle = pageTitle.trim() || 'Untitled page'
+      page.dataset.pageBody = pageBody
+      const trigger = page.querySelector('.note-inline-page-trigger')
+      if (trigger) {
+        trigger.textContent = page.dataset.pageTitle
+        trigger.setAttribute('aria-label', 'Open page ' + page.dataset.pageTitle)
+      }
+      emitChange()
+    }
+    setOpenPage(null)
+  }
+
   function insertSlashCommand(command: typeof slashCommands[number]) {
     const range = slashRange.current
     const element = editorRef.current
@@ -352,18 +369,7 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
         <div className="note-page-sidebar-header"><span>PAGE</span><button type="button" aria-label="Close page" onClick={() => setOpenPage(null)}>×</button></div>
         <input className="note-page-title" aria-label="Page title" value={pageTitle} onChange={event => setPageTitle(event.target.value)} placeholder="Untitled page" />
         <textarea className="note-page-content" aria-label="Page content" value={pageBody} onChange={event => setPageBody(event.target.value)} placeholder="Start writing…" />
-        <div className="note-page-sidebar-footer"><button type="button" onClick={() => setOpenPage(null)}>Cancel</button><button type="button" onClick={() => {
-          const element = editorRef.current
-          const page = element?.querySelector<HTMLElement>('[data-notely-page][data-page-id="' + openPage.id + '"]')
-          if (page) {
-            page.dataset.pageTitle = pageTitle.trim() || 'Untitled page'
-            page.dataset.pageBody = pageBody
-            const trigger = page.querySelector('.note-inline-page-trigger')
-            if (trigger) { trigger.textContent = page.dataset.pageTitle; trigger.setAttribute('aria-label', 'Open page ' + page.dataset.pageTitle) }
-            emitChange()
-          }
-          setOpenPage(null)
-        }}>Save page</button></div>
+        <div className="note-page-sidebar-footer"><button type="button" onClick={() => setOpenPage(null)}>Cancel</button><button type="button" onClick={saveInlinePage}>Save page</button></div>
       </aside>
     </div>}
     </div>
