@@ -15,7 +15,7 @@ test.describe('Notely Flow', () => {
     await expect(page.getByText('Captured. Come back to organize this whenever you want.')).toBeVisible()
     const noteId = await page.evaluate(() => JSON.parse(localStorage.getItem('notely_notes') || '[]')[0].id)
     await page.goto(new URL('/?note=' + encodeURIComponent(noteId), baseURL).toString())
-    await expect(page.locator('.note-body').first()).toHaveValue('A loose idea I need to remember later')
+    await expect(page.locator('.note-body').first()).toContainText('A loose idea I need to remember later')
   })
 
   test('keeps Thought Inbox thoughts across reloads and promotes them to notes', async ({ page }) => {

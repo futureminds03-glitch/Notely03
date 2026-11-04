@@ -3,8 +3,10 @@ import MemoryLoading from '@/components/MemoryLoading'
 
 import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { cacheSyncedOfflineNote, getOfflineNotes, getPendingOfflineNotes, markOfflineNoteDeleted, markOfflineNoteSynced, removeOfflineNote, saveOfflineNote } from '@/lib/offline-notes'
+import { cacheSyncedOfflineNote, getOfflineNotes, getPendingOfflineNotes, markOfflineNoteDeleted, markOfflineNoteSynced, removeOfflineNote, saveOfflineNote, updateCachedOfflineNote } from '@/lib/offline-notes'
 import type { User } from '@supabase/supabase-js'
+import NoteBodyEditor from '@/components/NoteBodyEditor'
+import { getOfflineImage, removeOfflineImage } from '@/lib/offline-images'
 
 interface NoteVersion { content: string; timestamp: number }
 
@@ -118,7 +120,7 @@ interface EditorProps {
   onExport: () => void
   onTravel: (idx: number) => void
   onRestoreVersion: () => void
-  bodyRef: React.RefObject<HTMLTextAreaElement | null>
+  bodyRef: React.RefObject<HTMLDivElement | null>
   titleRef: React.RefObject<HTMLTextAreaElement | null>
 }
 
@@ -206,17 +208,13 @@ function Editor({
         onKeyDown={onTitleKeyDown}
         rows={1}
       />
-      <textarea
-        ref={bodyRef}
-        spellCheck={false}
-        autoCorrect="off"
-        autoCapitalize="off"
-        className="note-body"
-        placeholder="Start writing…"
+      <NoteBodyEditor
+        editorRef={bodyRef}
+        noteId={activeId}
         value={displayBody}
-        onChange={e => {
+        onChange={value => {
           if (travelIndex >= 0) onTravel(-1)
-          onBodyChange(e.target.value)
+          onBodyChange(value)
         }}
       />
 
@@ -364,9 +362,9 @@ export default function NotelyApp() {
   const [showTimeMachine, setShowTimeMachine] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
 
-  const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLTextAreaElement>(null)
-  const mobileBodyRef = useRef<HTMLTextAreaElement>(null)
+  const mobileBodyRef = useRef<HTMLDivElement>(null)
   const mobileTitleRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const historyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -639,11 +637,67 @@ export default function NotelyApp() {
           continue
         }
 
+        const resolveImages = async (sourceBody: string) => {
+          let resolvedBody = sourceBody
+          const ids = [...new Set([...sourceBody.matchAll(/!\[image\]\(notely-local:([0-9a-f-]+)\)/gi)].map(match => match[1]))]
+          for (const imageId of ids) {
+            const image = await getOfflineImage(imageId)
+            if (!image) throw new Error('A locally pasted image is missing from this device. Reconnect the original device to sync it.')
+            const form = new FormData()
+            form.set('noteId', note.id)
+            form.set('file', image.blob, 'pasted-image')
+            const upload = await fetch('/api/note-images', { method: 'POST', body: form })
+            if (!upload.ok) throw new Error('Pasted image upload failed')
+            const result = await upload.json() as { path: string }
+            resolvedBody = resolvedBody.replaceAll('![image](notely-local:' + imageId + ')', '![image](notely-image:' + result.path + ')')
+          }
+          return resolvedBody
+        }
+        const cleanupUploadedImages = async () => {
+          const ids = [...new Set([...note.body.matchAll(/!\[image\]\(notely-local:([0-9a-f-]+)\)/gi)].map(match => match[1]))]
+          await Promise.all(ids.map(removeOfflineImage))
+        }
+        const finalizeSyncedImages = async (bodyValue: string) => {
+          const latest = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id)
+          const activeDraftUnchanged = activeIdRef.current !== note.id ||
+            (activeDraftRef.current.title === note.title && activeDraftRef.current.body === note.body)
+          const unchanged = Boolean(latest &&
+            latest.title === note.title &&
+            latest.body === note.body &&
+            latest.updated_at === note.updated_at &&
+            JSON.stringify(latest.tags ?? []) === JSON.stringify(note.tags ?? []) &&
+            activeDraftUnchanged)
+          if (!unchanged || !latest) return
+
+          const previousMarkers = [...note.body.matchAll(/!\[image\]\(notely-(image|local):([^)]+)\)/g)]
+          const resolvedMarkers = [...bodyValue.matchAll(/!\[image\]\(notely-image:([^)]+)\)/g)]
+          const replacements = new Map<string, string>()
+          previousMarkers.forEach((marker, index) => {
+            if (marker[1] === 'local' && resolvedMarkers[index]?.[1]) replacements.set(marker[2], resolvedMarkers[index][1])
+          })
+          const replaceHistoryMarkers = (content: string) => {
+            let updated = content
+            for (const [localId, path] of replacements) {
+              updated = updated.replaceAll('![image](notely-local:' + localId + ')', '![image](notely-image:' + path + ')')
+            }
+            return updated
+          }
+          const updatedHistory = latest.history?.map(version => ({ ...version, content: replaceHistoryMarkers(version.content) }))
+          await updateCachedOfflineNote(ownerId, { ...note, body: bodyValue, ...(updatedHistory ? { history: updatedHistory } : {}) })
+          await cleanupUploadedImages()
+          if (activeIdRef.current === note.id) {
+            setBody(bodyValue)
+            activeDraftRef.current = { ...activeDraftRef.current, body: bodyValue }
+            draftByIdRef.current[note.id] = { ...activeDraftRef.current }
+            setHistory(previous => previous.map(version => ({ ...version, content: replaceHistoryMarkers(version.content) })))
+          }
+        }
+        let syncedBody = note.body
         let response: Response
-        const payload = JSON.stringify({
+        const payloadFor = (bodyValue: string) => JSON.stringify({
           id: note.id,
           title: note.title,
-          body: note.body,
+          body: bodyValue,
           started_at: note.started_at ?? null,
           tags: note.tags ?? [],
         })
@@ -651,27 +705,47 @@ export default function NotelyApp() {
           response = await fetch('/api/notes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: payload,
+            body: payloadFor(note.body.replace(/!\[image\]\(notely-local:[0-9a-f-]+\)/gi, '')),
           })
-          // A create may have reached the server even if the response was lost.
-          // A conflict is therefore reconciled as an update to the same owner-scoped ID.
           if (response.status === 409) {
             response = await fetch('/api/notes/' + note.id, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: payload,
+              body: payloadFor(note.body),
             })
           }
+          if (!response.ok) { completedAll = false; break }
+          await response.json().catch(() => null)
+          syncedBody = await resolveImages(note.body)
+          if (syncedBody !== note.body) {
+            response = await fetch('/api/notes/' + note.id, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: payloadFor(syncedBody),
+            })
+            if (!response.ok) { completedAll = false; break }
+          }
+          await finalizeSyncedImages(syncedBody)
+          const syncedNote: Note = { ...note, body: syncedBody, synced: true, pendingCreate: false }
+          await markOfflineNoteSynced(ownerId, syncedNote)
+          const latestLocal = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id) ?? syncedNote
+          setNotes(prev => {
+            const next = prev.map(existing => existing.id === note.id ? latestLocal as Note : existing)
+            notesRef.current = next
+            return next
+          })
+          continue
         } else {
+          syncedBody = await resolveImages(note.body)
           response = await fetch('/api/notes/' + note.id, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: payload,
+            body: payloadFor(syncedBody),
           })
         }
         if (!response.ok) { completedAll = false; break }
-        const serverNote = item.pendingCreate ? await response.json().catch(() => null) : null
-        const syncedNote: Note = { ...note, ...(serverNote ?? {}), synced: true, pendingCreate: false }
+        await finalizeSyncedImages(syncedBody)
+        const syncedNote: Note = { ...note, body: syncedBody, synced: true, pendingCreate: false }
         await markOfflineNoteSynced(ownerId, syncedNote)
         const latestLocal = (await getOfflineNotes(ownerId)).find(existing => existing.id === note.id) ?? syncedNote
         setNotes(prev => {

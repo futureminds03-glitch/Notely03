@@ -44,12 +44,12 @@ test('guest notes autosave, remain isolated, and survive reload', async ({ page 
 
   await page.locator('.note-item').filter({ hasText: 'E2E first note' }).first().click()
   await expect(title).toHaveValue('E2E first note')
-  await expect(body).toHaveValue('Text typed into the first note must not disappear.')
+  await expect(body).toContainText('Text typed into the first note must not disappear.')
 
   await page.reload()
   await page.locator('.note-item').filter({ hasText: 'E2E first note' }).first().click()
   await expect(page.locator('.desktop-editor .note-title')).toHaveValue('E2E first note')
-  await expect(page.locator('.desktop-editor .note-body')).toHaveValue('Text typed into the first note must not disappear.')
+  await expect(page.locator('.desktop-editor .note-body')).toContainText('Text typed into the first note must not disappear.')
   await expect(page.locator('.note-item').filter({ hasText: 'E2E second note' }).first()).toBeVisible()
 })
 
@@ -104,7 +104,7 @@ test('mobile guest editor keeps the draft when navigating back and reopening', a
   await page.getByRole('button', { name: 'Notes' }).click()
   await page.locator('.mobile-notes-panel .note-item').filter({ hasText: 'Mobile persistence' }).click()
   await expect(page.locator('.mobile-editor .note-title')).toHaveValue('Mobile persistence')
-  await expect(page.locator('.mobile-editor .note-body')).toHaveValue('Mobile editor content stays saved.')
+  await expect(page.locator('.mobile-editor .note-body')).toContainText('Mobile editor content stays saved.')
 })
 
 test('version history can restore an earlier body without losing it on reload', async ({ page }) => {
@@ -127,12 +127,12 @@ test('version history can restore an earlier body without losing it on reload', 
   await slider.press('ArrowRight')
   await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible()
   await page.getByRole('button', { name: 'Restore' }).click()
-  await expect(body).toHaveValue('First durable version of the note.')
+  await expect(body).toContainText('First durable version of the note.')
   await expectGuestNoteSaved(page, 'History restore', 'First durable version of the note.')
 
   await page.reload()
   await page.locator('.note-item').filter({ hasText: 'History restore' }).first().click()
-  await expect(page.locator('.desktop-editor .note-body')).toHaveValue('First durable version of the note.')
+  await expect(page.locator('.desktop-editor .note-body')).toContainText('First durable version of the note.')
 })
 
 test('private APIs reject anonymous access and link previews block local targets', async ({ request }) => {
@@ -276,7 +276,7 @@ test('Time Machine browses notes by day, week, and month and opens the original 
   await expect(page.getByRole('button', { name: 'Thought from the timeline', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Open Thought from the timeline' }).click()
   await expect(page.locator('.desktop-editor .note-title')).toHaveValue('Thought from the timeline')
-  await expect(page.locator('.desktop-editor .note-body')).toHaveValue('This thought must be findable by the day it was captured.')
+  await expect(page.locator('.desktop-editor .note-body')).toContainText('This thought must be findable by the day it was captured.')
 })
 
 test('Memory Studio captures thoughts, tags them, resurfaces notes, and finds connections', async ({ page }) => {
