@@ -36,16 +36,19 @@ test('slash menu inserts working to-do, table, database and inline page blocks',
   await checkbox.check()
   await expect(checkbox).toBeChecked()
 
+  await editor.press('Control+End')
   await editor.press('Enter')
   await editor.pressSequentially('/table')
   await page.getByRole('option', { name: /^Table/ }).click()
   await expect(page.locator('.note-inline-table').first()).toBeVisible()
 
+  await editor.press('Control+End')
   await editor.press('Enter')
   await editor.pressSequentially('/database')
   await page.getByRole('option', { name: /Inline database/ }).click()
   await expect(page.locator('.note-inline-table')).toHaveCount(2)
 
+  await editor.press('Control+End')
   await editor.press('Enter')
   await editor.pressSequentially('/page')
   await page.getByRole('option', { name: /Inline page/ }).click()
