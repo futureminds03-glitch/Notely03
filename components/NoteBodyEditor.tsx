@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getOfflineImage, saveOfflineImage } from '@/lib/offline-images'
 
 type Props = {
@@ -16,14 +16,61 @@ function renderContent(element: HTMLDivElement, value: string) {
   element.replaceChildren()
   const parts = value.split(markerPattern)
   const markers = value.match(markerPattern) ?? []
-  parts.forEach((part, index) => {
-    if (part) {
-      const lines = part.split('\n')
-      lines.forEach((line, lineIndex) => {
-        if (line) element.append(document.createTextNode(line))
-        if (lineIndex < lines.length - 1) element.append(document.createElement('br'))
-      })
+  const appendPart = (target: HTMLDivElement, part: string) => {
+    const lines = part.split('\n')
+    let index = 0
+    while (index < lines.length) {
+      const line = lines[index]
+      const separator = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/
+      if (line.trim().startsWith('|') && index + 1 < lines.length && separator.test(lines[index + 1])) {
+        const table = document.createElement('table')
+        table.className = 'note-inline-table'
+        const body = document.createElement('tbody')
+        table.append(body)
+        while (index < lines.length && lines[index].trim().startsWith('|')) {
+          const rowLine = lines[index]
+          if (!separator.test(rowLine)) {
+            const row = document.createElement('tr')
+            rowLine.trim().replace(/^\||\|$/g, '').split('|').forEach(value => {
+              const cell = document.createElement('td')
+              cell.textContent = value.trim()
+              row.append(cell)
+            })
+            body.append(row)
+          }
+          index += 1
+        }
+        target.append(table)
+        if (index < lines.length) target.append(document.createElement('br'))
+        continue
+      }
+      if (/^[☐☑]\s/.test(line)) {
+        const task = document.createElement('label')
+        task.className = 'note-task-line'
+        task.dataset.notelyTask = 'true'
+        const checkbox = document.createElement('input')
+        checkbox.type = 'checkbox'
+        checkbox.checked = line.startsWith('☑')
+        checkbox.contentEditable = 'false'
+        const text = document.createElement('span')
+        text.textContent = line.slice(2)
+        task.append(checkbox, text)
+        target.append(task)
+      } else if (line.startsWith('▸ ')) {
+        const page = document.createElement('div')
+        page.className = 'note-inline-page'
+        page.dataset.notelyPage = 'true'
+        page.textContent = line.slice(2)
+        target.append(page)
+      } else if (line) {
+        target.append(document.createTextNode(line))
+      }
+      if (index < lines.length - 1) target.append(document.createElement('br'))
+      index += 1
     }
+  }
+  parts.forEach((part, index) => {
+    if (part) appendPart(element, part)
     const marker = markers[index]
     if (!marker) return
     const match = marker.match(/^!\[image\]\(notely-(image|local):([^)]+)\)$/)
@@ -52,6 +99,17 @@ function renderContent(element: HTMLDivElement, value: string) {
 function serializeNode(node: Node): string {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? ''
   if (!(node instanceof HTMLElement)) return ''
+  if (node.tagName === 'LABEL' && node.dataset.notelyTask) {
+    const checkbox = node.querySelector('input[type="checkbox"]') as HTMLInputElement | null
+    const text = node.querySelector('span')?.textContent ?? ''
+    return (checkbox?.checked ? '☑ ' : '☐ ') + text
+  }
+  if (node.tagName === 'TABLE') {
+    const rows = Array.from(node.querySelectorAll('tr')).map(row => '| ' + Array.from(row.children).map(cell => cell.textContent ?? '').join(' | ') + ' |')
+    if (rows.length > 1) rows.splice(1, 0, '| ' + Array.from(node.querySelectorAll('tr')[0].children).map(() => '---').join(' | ') + ' |')
+    return rows.join('\n')
+  }
+  if (node.dataset.notelyPage) return '▸ ' + (node.textContent ?? '').trim()
   if (node.tagName === 'IMG') {
     if (node.dataset.storagePath) return '![image](notely-image:' + node.dataset.storagePath + ')'
     if (node.dataset.localImageId) return '![image](notely-local:' + node.dataset.localImageId + ')'
@@ -66,7 +124,13 @@ function serializeEditor(element: HTMLDivElement) {
   return Array.from(element.childNodes).map(serializeNode).join('').replace(/\n{3,}/g, '\n\n').replace(/\n$/, '')
 }
 
+const slashCommands = [{id:'todo',label:'To-do list',description:'Add task checkboxes',icon:'☐',insert:'☐ Task\n'},{id:'database',label:'Inline database',description:'Start a name and status database',icon:'▦',insert:'Name | Status\n--- | ---\nNew item | Not started\n'},{id:'table',label:'Table',description:'Insert a two-column table',icon:'▤',insert:'| Column 1 | Column 2 |\n| --- | --- |\n| | |\n'},{id:'page',label:'Inline page',description:'Add a page-like section',icon:'▸',insert:'▸ New page\n  Start writing inside this page…\n'}]
+
 export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: Props) {
+  const [slashOpen,setSlashOpen]=useState(false)
+  const [slashQuery,setSlashQuery]=useState('')
+  const [slashIndex,setSlashIndex]=useState(0)
+  const slashRange=useRef<Range|null>(null)
   const lastEmitted = useRef(value)
   const lastRenderedNoteId = useRef<string | null>(null)
   const uploading = useRef(false)
@@ -122,7 +186,68 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
     }
   }
 
+  function inspectSlashCommand(){const selection=window.getSelection(),element=editorRef.current;if(!selection?.rangeCount||!element||!selection.isCollapsed||!element.contains(selection.anchorNode)){setSlashOpen(false);return}const node=selection.anchorNode;if(!node||node.nodeType!==Node.TEXT_NODE){setSlashOpen(false);return}const before=(node.textContent??'').slice(0,selection.anchorOffset),match=before.match(/(^|\s)\/([a-z-]*)$/i);if(!match){setSlashOpen(false);slashRange.current=null;return}const range=document.createRange();range.setStart(node,selection.anchorOffset-match[2].length-1);range.setEnd(node,selection.anchorOffset);slashRange.current=range;setSlashQuery(match[2].toLowerCase());setSlashIndex(0);setSlashOpen(true)}
+  const matchingCommands=slashCommands.filter(command=>(command.label+' '+command.id).toLowerCase().includes(slashQuery))
+  function insertSlashCommand(command: typeof slashCommands[number]) {
+    const range = slashRange.current
+    const element = editorRef.current
+    if (!range || !element) return
+    element.focus()
+    range.deleteContents()
+    let block: HTMLElement
+    if (command.id === 'todo') {
+      const task = document.createElement('label')
+      task.className = 'note-task-line'
+      task.dataset.notelyTask = 'true'
+      const checkbox = document.createElement('input')
+      checkbox.type = 'checkbox'
+      checkbox.contentEditable = 'false'
+      const text = document.createElement('span')
+      text.textContent = 'Task'
+      task.append(checkbox, text)
+      block = task
+    } else if (command.id === 'table' || command.id === 'database') {
+      const table = document.createElement('table')
+      table.className = 'note-inline-table'
+      const body = document.createElement('tbody')
+      const rows = command.id === 'database'
+        ? [['Name', 'Status'], ['New item', 'Not started']]
+        : [['Column 1', 'Column 2'], ['', '']]
+      rows.forEach(values => {
+        const row = document.createElement('tr')
+        values.forEach(value => {
+          const cell = document.createElement('td')
+          cell.textContent = value
+          row.append(cell)
+        })
+        body.append(row)
+      })
+      table.append(body)
+      block = table
+    } else {
+      const page = document.createElement('div')
+      page.className = 'note-inline-page'
+      page.dataset.notelyPage = 'true'
+      page.textContent = 'New page'
+      block = page
+    }
+    range.insertNode(block)
+    const lineBreak = document.createElement('br')
+    range.setStartAfter(block)
+    range.insertNode(lineBreak)
+    range.setStartAfter(lineBreak)
+    range.collapse(true)
+    const selection = window.getSelection()
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+    slashRange.current = null
+    setSlashOpen(false)
+    setSlashQuery('')
+    emitChange()
+  }
   return (
+    <div className="note-editor-shell">
+    {slashOpen&&matchingCommands.length>0&&<div className="note-slash-menu" role="listbox" aria-label="Insert a block"><div className="note-slash-heading">INSERT A BLOCK</div>{matchingCommands.map((command,index)=><button type="button" key={command.id} role="option" aria-selected={index===slashIndex} className={index===slashIndex?'active':''} onMouseDown={event=>event.preventDefault()} onClick={()=>insertSlashCommand(command)}><span className="note-slash-icon">{command.icon}</span><span><strong>{command.label}</strong><small>{command.description}</small></span></button>)}</div>}
     <div
       ref={editorRef}
       className="note-body note-rich-body"
@@ -135,7 +260,10 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
       aria-label="Note body"
       aria-multiline="true"
       data-placeholder="Start writing… Paste or drop an image"
-      onInput={emitChange}
+      onInput={() => {emitChange();inspectSlashCommand()}}
+      onChange={event => { if ((event.target as HTMLElement).tagName === 'INPUT') emitChange() }}
+      onKeyUp={inspectSlashCommand}
+      onKeyDown={event=>{if(!slashOpen)return;if(event.key==='Escape'){event.preventDefault();setSlashOpen(false);slashRange.current=null}if(event.key==='ArrowDown'&&matchingCommands.length){event.preventDefault();setSlashIndex(i=>(i+1)%matchingCommands.length)}if(event.key==='ArrowUp'&&matchingCommands.length){event.preventDefault();setSlashIndex(i=>(i-1+matchingCommands.length)%matchingCommands.length)}if(event.key==='Enter'&&matchingCommands[slashIndex]){event.preventDefault();insertSlashCommand(matchingCommands[slashIndex])}}}
       onPaste={event => {
         const files = Array.from(event.clipboardData.items)
           .filter(item => item.kind === 'file')
@@ -157,5 +285,6 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
         }
       }}
     />
+    </div>
   )
 }

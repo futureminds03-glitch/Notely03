@@ -58,6 +58,7 @@ export default function LinkCapture() {
   const [offline, setOffline] = useState(false)
 
   useEffect(() => { const update = () => setOffline(!navigator.onLine); setHydrated(true); update(); window.addEventListener('online', update); window.addEventListener('offline', update); return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) } }, [])
+
   const [useAI, setUseAI] = useState(false)
   const [result, setResult] = useState<LinkResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -96,36 +97,61 @@ export default function LinkCapture() {
     setError('')
     const title = result.title || 'Saved link'
     const body = noteText(result)
+    const now = new Date().toISOString()
+    const id = crypto.randomUUID()
+    const localNote = { id, title, body, created_at: now, updated_at: now, started_at: result.extractedAt, tags: ['Links'], synced: false }
+    const saveLocally = async () => {
+      let guestStored = false
+      try {
+        const existing = (() => { try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })()
+        localStorage.setItem('notely_notes', JSON.stringify([localNote, ...existing]))
+        guestStored = true
+        setSaved(true)
+      } catch { /* Continue with the account-scoped offline store if browser storage is unavailable. */ }
+      let userId: string | null = null
+      try {
+        const { data: { session } } = await createClient().auth.getSession()
+        userId = session?.user.id ?? null
+      } catch { /* Local capture must still work if auth infrastructure is unavailable. */ }
+      if (userId) {
+        try {
+          await saveOfflineNote(userId, localNote, { pendingCreate: true })
+          if (guestStored) {
+            const existing = (() => { try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); return Array.isArray(parsed) ? parsed : [] } catch { return [] } })()
+            localStorage.setItem('notely_notes', JSON.stringify(existing.filter((note: { id?: string }) => note.id !== id)))
+          }
+        } catch { /* The browser copy remains available if IndexedDB is unavailable. */ }
+      }
+      if (!guestStored && !userId) throw new Error('Local storage is unavailable')
+      window.dispatchEvent(new CustomEvent('notely:sync-requested'))
+    }
     try {
+      if (!navigator.onLine) {
+        setError('Could not save this link to your account. It is saved on this device and will sync automatically when you reconnect.')
+        await saveLocally()
+        setSaved(true)
+        return
+      }
       const remote = await fetch('/api/notes', { cache: 'no-store' })
       if (remote.ok) {
         const response = await fetch('/api/notes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, body, tags: ['Links'], started_at: result.extractedAt }),
+          body: JSON.stringify({ id, title, body, tags: ['Links'], started_at: result.extractedAt }),
         })
-        const data = await response.json().catch(() => ({}))
-        if (!response.ok) throw new Error('Could not save this link to your account. ' + (typeof data.error === 'string' ? data.error : 'Your extracted content is still here.'))
+        if (!response.ok) throw new Error('Could not save this link to your account.')
       } else if (remote.status === 401) {
-        const key = 'notely_notes'
-        let existing: unknown[] = []
-        try {
-          const parsed = JSON.parse(localStorage.getItem(key) || '[]')
-          if (Array.isArray(parsed)) existing = parsed
-        } catch { /* recover with a fresh guest collection */ }
-        const now = new Date().toISOString()
-        const note = {
-          id: 'local-link-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
-          title, body, created_at: now, updated_at: now, started_at: result.extractedAt,
-          tags: ['Links'], synced: false,
-        }
-        localStorage.setItem(key, JSON.stringify([note, ...existing]))
+        await saveLocally()
       } else {
-        throw new Error('Could not check your Notely account. Your extracted content is still here.')
+        throw new Error('Could not check your Notely account.')
       }
       setSaved(true)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save this link. Your extracted content is still here.')
+    } catch {
+      setError('Could not save this link to your account. Your extracted content is still here; it is being saved locally for retry.')
+      try {
+        await saveLocally()
+        setSaved(true)
+      } catch { /* Keep the extracted content visible even if local persistence is unavailable. */ }
     } finally {
       setSaving(false)
     }
@@ -140,7 +166,7 @@ export default function LinkCapture() {
     const sourceUrl = url.trim()
     const body = 'Source URL: ' + sourceUrl + '\n\nThis link was saved without webpage extraction. You can retry extraction later.\n\nCaptured with Notely on ' + now
     const saveLocally = async () => {
-      const id = 'local-link-' + crypto.randomUUID()
+      const id = crypto.randomUUID()
       const note = { id, title: 'Saved link', body, created_at: now, updated_at: now, started_at: now, tags: ['Links'], synced: false }
       try {
         const { data: { session } } = await createClient().auth.getSession()
@@ -176,15 +202,14 @@ export default function LinkCapture() {
       } else if (remote.status === 401) {
         let existing: unknown[] = []
         try { const parsed = JSON.parse(localStorage.getItem('notely_notes') || '[]'); if (Array.isArray(parsed)) existing = parsed } catch { /* Start a fresh guest collection. */ }
-        const note = { id: 'local-link-' + crypto.randomUUID(), title: 'Saved link', body, created_at: now, updated_at: now, started_at: now, tags: ['Links'], synced: false }
+        const note = { id: crypto.randomUUID(), title: 'Saved link', body, created_at: now, updated_at: now, started_at: now, tags: ['Links'], synced: false }
         localStorage.setItem('notely_notes', JSON.stringify([note, ...existing]))
       } else {
         throw new Error('Could not check your Notely account. Your URL is still here.')
       }
       setPlainSaved(true)
-    } catch (cause) {
-      if (!navigator.onLine) await saveLocally()
-      else setError(cause instanceof Error ? cause.message : 'Could not save this URL. Your link is still here.')
+    } catch {
+      await saveLocally()
     } finally {
       setSaving(false)
     }

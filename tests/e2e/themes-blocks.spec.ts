@@ -1,0 +1,95 @@
+import { test, expect } from '@playwright/test'
+
+const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:3000'
+
+test('theme selector persists the warm and monochrome palettes', async ({ page }) => {
+  await page.goto(new URL('/themes', baseURL).toString())
+  const cards = page.locator('.theme-card')
+  await expect(cards).toHaveCount(2)
+
+  await cards.nth(1).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mono')
+  expect(await page.evaluate(() => localStorage.getItem('notely-theme'))).toBe('mono')
+
+  await page.goto(new URL('/', baseURL).toString())
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'mono')
+  expect(await page.locator('html').evaluate(el => getComputedStyle(el).getPropertyValue('--accent').trim())).toBe('#111')
+
+  await page.goto(new URL('/themes', baseURL).toString())
+  await cards.nth(0).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'warm')
+  expect(await page.evaluate(() => localStorage.getItem('notely-theme'))).toBe('warm')
+})
+
+test('slash menu inserts working to-do, table, database and inline page blocks', async ({ page }) => {
+  await page.goto(new URL('/', baseURL).toString())
+
+  // Exercise each insertion from a clean editor. This isolates block insertion
+  // from browser caret movement around non-editable checkbox controls.
+  const commands = [
+    { query: '/todo', option: /To-do list/ },
+    { query: '/table', option: /Table/ },
+    { query: '/database', option: /Inline database/ },
+    { query: '/page', option: /Inline page/ },
+  ]
+
+  for (const command of commands) {
+    await page.locator('.sidebar .new-btn').click()
+    const editor = page.getByRole('textbox', { name: 'Note body' })
+    await expect(editor).toBeVisible()
+    await editor.click()
+    await editor.pressSequentially(command.query)
+    await expect(page.getByRole('listbox', { name: 'Insert a block' })).toBeVisible()
+    await page.getByRole('option', { name: command.option }).click()
+
+    if (command.query === '/todo') {
+      const checkbox = editor.locator('.note-task-line input[type="checkbox"]')
+      await expect(checkbox).toBeVisible()
+      await checkbox.check()
+      await expect(checkbox).toBeChecked()
+    } else if (command.query === '/table' || command.query === '/database') {
+      const table = editor.locator('.note-inline-table')
+      await expect(table).toBeVisible()
+      await expect(table.locator('tr')).toHaveCount(command.query === '/database' ? 2 : 2)
+      if (command.query === '/database') await expect(table).toContainText('Not started')
+    } else {
+      await expect(editor.locator('.note-inline-page')).toContainText('New page')
+    }
+  }
+})
+
+test('Quick Capture capsule sits above the online-sync indicator', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await page.goto(new URL('/', baseURL).toString())
+  const capture = page.locator('.global-parking-launcher')
+  const sync = page.locator('.offline-status')
+  await expect(capture).toBeVisible()
+  await expect(sync).toBeVisible()
+  const captureBox = await capture.boundingBox()
+  const syncBox = await sync.boundingBox()
+  expect(captureBox).not.toBeNull()
+  expect(syncBox).not.toBeNull()
+  expect(captureBox!.y + captureBox!.height).toBeLessThan(syncBox!.y)
+})
+
+test('Time Machine explains capture-date browsing and version history', async ({ page }) => {
+  await page.goto(new URL('/', baseURL).toString())
+  await page.locator('.sidebar .studio-nav-link[aria-label="Time Machine"]').click()
+  await expect(page.locator('.tm-guide')).toBeVisible()
+  await expect(page.locator('.tm-guide')).toContainText('original capture date')
+  await expect(page.locator('.tm-guide')).toContainText('earlier versions')
+})
+
+test('privacy and terms links use the active Notely brand accent', async ({ page }) => {
+  for (const path of ['/privacy', '/terms']) {
+    await page.goto(new URL(path, baseURL).toString())
+    const link = page.locator('.legal-document-page a').first()
+    await expect(link).toBeVisible()
+    const colors = await page.evaluate(() => ({
+      accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
+      link: getComputedStyle(document.querySelector('.legal-document-page a')!).color,
+    }))
+    const rgb = colors.accent === '#a94a17' ? 'rgb(169, 74, 23)' : colors.accent === '#111' ? 'rgb(17, 17, 17)' : colors.link
+    expect(colors.link).toBe(rgb)
+  }
+})
