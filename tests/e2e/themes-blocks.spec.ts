@@ -68,7 +68,7 @@ test('slash menu inserts working to-do, table, database and inline page blocks',
       await expect(sidebar.getByRole('listbox', { name: 'Insert a block' })).toBeVisible()
       await sidebar.getByRole('option', { name: /To-do list/ }).click()
       await expect(subpageEditor.locator('.note-task-line input')).toBeVisible()
-      await sidebar.getByRole('button', { name: 'Save page' }).click()
+      await sidebar.getByRole('button', { name: 'Close page' }).click()
       await expect(editor.getByRole('button', { name: 'Open page Research ideas' })).toBeVisible()
       await editor.getByRole('button', { name: 'Open page Research ideas' }).click()
       const reopenedEditor = page.getByRole('dialog', { name: 'Inline page' }).getByRole('textbox', { name: 'Note body' })
@@ -77,6 +77,24 @@ test('slash menu inserts working to-do, table, database and inline page blocks',
       await page.getByRole('button', { name: 'Close page' }).click()
     }
   }
+})
+
+
+test('adjacent inline database and table blocks remain separate', async ({ page }) => {
+  await page.goto(new URL('/', baseURL).toString())
+  await page.locator('.sidebar .new-btn').click()
+  const editor = page.getByRole('textbox', { name: 'Note body' })
+  for (const command of [{ query: '/database', option: /Inline database/ }, { query: '/table', option: /Table/ }]) {
+    await editor.pressSequentially(command.query)
+    await expect(page.getByRole('listbox', { name: 'Insert a block' })).toBeVisible()
+    await page.getByRole('option', { name: command.option }).click()
+  }
+  const tables = editor.locator('table.note-inline-table')
+  await expect(tables).toHaveCount(2)
+  await expect(tables.nth(0).locator('tr').first().locator('td')).toHaveCount(2)
+  await expect(tables.nth(1).locator('tr').first().locator('td')).toHaveCount(2)
+  await expect(tables.nth(0)).toContainText('Name')
+  await expect(tables.nth(1)).toContainText('Column 1')
 })
 
 test('Quick Capture capsule sits above the online-sync indicator', async ({ page }) => {
