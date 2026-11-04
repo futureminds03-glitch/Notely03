@@ -82,8 +82,7 @@ export default function LinkCapture() {
     }
     void syncQueuedLinks()
     window.addEventListener('online', syncQueuedLinks)
-    window.addEventListener('notely:sync-requested', syncQueuedLinks)
-    return () => { window.removeEventListener('online', syncQueuedLinks); window.removeEventListener('notely:sync-requested', syncQueuedLinks) }
+    return () => { window.removeEventListener('online', syncQueuedLinks) }
   }, [])
   const [useAI, setUseAI] = useState(false)
   const [result, setResult] = useState<LinkResult | null>(null)
