@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feat/offline-flow-memory-studio
+      - fix/editor-layout-inline-pages
   pull_request:
     branches:
       - main
