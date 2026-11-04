@@ -303,9 +303,10 @@ function TimeMachine({ notes, onOpen, onBack }: TimeMachineProps) {
   return (
     <section className="time-machine" aria-label="Time Machine">
       <div className="time-machine-heading">
-        <div><button className="tm-back" onClick={onBack}>← Back to notes</button><div className="time-machine-eyebrow">YOUR NOTES, IN TIME</div><h1>Time Machine</h1><p>Go back to the moment a thought first showed up.</p></div>
+        <div><button className="tm-back" onClick={onBack}>← Back to notes</button><div className="time-machine-eyebrow">YOUR NOTES, IN TIME</div><h1>Time Machine</h1><p>Find a note by when you first captured the thought — not by when you last edited it.</p></div>
         <button className="tm-today" onClick={() => setSelectedDate(localDateKey(new Date()))}>Today</button>
       </div>
+      <section className="tm-guide" aria-label="How Time Machine works"><div className="tm-guide-title"><span>HOW TO USE IT</span><strong>Your personal timeline</strong><p>Time Machine answers “What was I thinking around that time?” It groups notes by their original capture date.</p></div><div className="tm-guide-steps"><div><b>01</b><strong>Choose a scale</strong><span>Day for a specific moment, week for a stretch of days, or month for the bigger picture.</span></div><div><b>02</b><strong>Move through time</strong><span>Use the arrows or jump straight to a date. The timeline updates to that period.</span></div><div><b>03</b><strong>Reopen a thought</strong><span>Read a preview, then open any note to continue writing where you left off.</span></div></div><div className="tm-guide-footer"><span>{notes.length} notes in your library</span><span>Time Machine = when you captured it · Time Travel = earlier versions of one note</span></div></section>
       <div className="tm-controls">
         <div className="tm-zoom" role="group" aria-label="Timeline scale">
           {(['day', 'week', 'month'] as const).map(value => <button key={value} className={granularity === value ? 'active' : ''} aria-pressed={granularity === value} onClick={() => setGranularity(value)}>{value[0].toUpperCase() + value.slice(1)}</button>)}
@@ -327,7 +328,7 @@ function TimeMachine({ notes, onOpen, onBack }: TimeMachineProps) {
           </section>
         ))}
       </div>
-      <div className="tm-footnote">{entries.length} {entries.length === 1 ? 'note' : 'notes'} from this {granularity} · Sorted by capture time</div>
+      <div className="tm-footnote">Showing {entries.length} {entries.length === 1 ? 'note' : 'notes'} from this {granularity} · Sorted by original capture time</div>
     </section>
   )
 }
@@ -754,7 +755,10 @@ export default function NotelyApp() {
           return next
         })
       }
-      if (completedAll) shouldRunAgain = (await getPendingOfflineNotes(ownerId)).length > 0
+      if (completedAll) {
+        shouldRunAgain = (await getPendingOfflineNotes(ownerId)).length > 0
+        window.dispatchEvent(new CustomEvent('notely:sync-requested'))
+      }
     } catch (error) {
       completedAll = false
       console.error('Offline note sync paused:', error)
@@ -1269,6 +1273,7 @@ export default function NotelyApp() {
             <a className="studio-nav-link" href="/memory">
               <span className="studio-nav-icon memory" aria-hidden="true">✧</span><span><strong>Memory Studio</strong><small>Connect ideas and find thoughts</small></span><span className="studio-nav-arrow">↗</span>
             </a>
+            <a className="studio-nav-link" href="/themes"><span className="studio-nav-icon" aria-hidden="true">◐</span><span><strong>Themes</strong><small>Choose your writing atmosphere</small></span><span className="studio-nav-arrow">↗</span></a>
           </div>
           <div className="search-wrap">
             <input
@@ -1318,6 +1323,7 @@ export default function NotelyApp() {
                 <a className="studio-nav-link" href="/memory">
                   <span className="studio-nav-icon memory" aria-hidden="true">✧</span><span><strong>Memory Studio</strong><small>Explore connected thoughts</small></span>
                 </a>
+                <a className="studio-nav-link" href="/themes"><span className="studio-nav-icon" aria-hidden="true">◐</span><span><strong>Themes</strong><small>Choose your theme</small></span></a>
               </div>
               <NotesList notes={filteredNotes} activeId={activeId} onOpen={handleOpen} onDelete={handleDelete} className="mobile-notes-panel" />
             </>
