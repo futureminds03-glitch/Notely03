@@ -44,6 +44,7 @@ function renderContent(element: HTMLDivElement, value: string) {
             const row = document.createElement('tr')
             rowLine.trim().replace(/^\||\|$/g, '').split('|').forEach(value => {
               const cell = document.createElement('td')
+              cell.contentEditable = 'true'
               cell.textContent = value.trim()
               row.append(cell)
             })
@@ -71,7 +72,16 @@ function renderContent(element: HTMLDivElement, value: string) {
         const page = document.createElement('div')
         page.className = 'note-inline-page'
         page.dataset.notelyPage = 'true'
-        page.textContent = line.slice(2)
+        page.dataset.pageId = crypto.randomUUID()
+        page.dataset.pageTitle = line.slice(2).trim() || 'Untitled page'
+        page.dataset.pageBody = ''
+        page.contentEditable = 'false'
+        const trigger = document.createElement('button')
+        trigger.type = 'button'
+        trigger.className = 'note-inline-page-trigger'
+        trigger.textContent = page.dataset.pageTitle
+        trigger.setAttribute('aria-label', 'Open page ' + page.dataset.pageTitle)
+        page.append(trigger)
         target.append(page)
       } else if (line) {
         target.append(document.createTextNode(line))
@@ -154,7 +164,7 @@ function serializeEditor(element: HTMLDivElement) {
   return Array.from(element.childNodes).map(serializeNode).join('').replace(/\n{3,}/g, '\n\n').replace(/\n$/, '')
 }
 
-const slashCommands = [{id:'todo',label:'To-do list',description:'Add task checkboxes',icon:'☐',insert:'☐ Task\n'},{id:'database',label:'Inline database',description:'Start a name and status database',icon:'▦',insert:'Name | Status\n--- | ---\nNew item | Not started\n'},{id:'table',label:'Table',description:'Insert a two-column table',icon:'▤',insert:'| Column 1 | Column 2 |\n| --- | --- |\n| | |\n'},{id:'page',label:'Inline page',description:'Create a page that opens in the side panel',icon:'▸',insert:'page'}]
+const slashCommands = [{id:'todo',label:'To-do list',description:'Add task checkboxes',icon:'☐',insert:'☐ Task\n'},{id:'database',label:'Inline database',description:'Start a name and status database',icon:'▦',insert:'| Name | Status |\n| --- | --- |\n| New item | Not started |\n'},{id:'table',label:'Table',description:'Insert a two-column table',icon:'▤',insert:'| Column 1 | Column 2 |\n| --- | --- |\n| | |\n'},{id:'page',label:'Inline page',description:'Create a page that opens in the side panel',icon:'▸',insert:'page'}]
 
 export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: Props) {
   const [openPage,setOpenPage]=useState<InlinePage|null>(null)
