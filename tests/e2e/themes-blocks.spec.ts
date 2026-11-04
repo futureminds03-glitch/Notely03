@@ -55,6 +55,7 @@ test('slash menu inserts working to-do, table, database and inline page blocks',
       await expect(firstCell).toHaveText('Edited row')
     } else {
       const pageButton = editor.getByRole('button', { name: 'Open page New page' })
+      await expect(editor.locator('.note-inline-page')).toHaveAttribute('data-parent-note-id', /.+/)
       await expect(pageButton).toBeVisible()
       await pageButton.click()
       const sidebar = page.getByRole('dialog', { name: 'Inline page' })
