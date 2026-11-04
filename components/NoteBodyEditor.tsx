@@ -277,6 +277,7 @@ export default function NoteBodyEditor({ value, noteId, onChange, editorRef }: P
         const row = document.createElement('tr')
         values.forEach(value => {
           const cell = document.createElement('td')
+          cell.contentEditable = 'true'
           cell.textContent = value
           row.append(cell)
         })
