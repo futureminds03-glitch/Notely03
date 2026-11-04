@@ -83,7 +83,7 @@ async function cleanupUnreferencedNoteImages(
 
   const referenced = new Set<string>()
   const collectReferences = (body: string) => {
-    for (const match of body.matchAll(/!\\[image\\]\\(notely-image:([^)]+)\\)/g)) {
+    for (const match of body.matchAll(/!\[image\]\(notely-image:([^)]+)\)/g)) {
       referenced.add(match[1])
     }
   }
