@@ -7,7 +7,7 @@ const DB='notely-local', STORE='workspace'
 function openDb():Promise<IDBDatabase>{
  return new Promise((resolve,reject)=>{
   if(typeof indexedDB==='undefined'){reject(new Error('IndexedDB is unavailable'));return}
-  const request=indexedDB.open(DB,3)
+  const request=indexedDB.open(DB,4)
   request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('notes')){const notes=db.createObjectStore('notes',{keyPath:'key'});notes.createIndex('ownerId','ownerId',{unique:false})}if(!db.objectStoreNames.contains(STORE)){const store=db.createObjectStore(STORE,{keyPath:'key'});store.createIndex('ownerId','ownerId',{unique:false})}if(!db.objectStoreNames.contains('tagUpdates')){const tags=db.createObjectStore('tagUpdates',{keyPath:'key'});tags.createIndex('ownerId','ownerId',{unique:false})}}
   request.onsuccess=()=>resolve(request.result)
   request.onerror=()=>reject(request.error??new Error('Could not open offline workspace'))
