@@ -102,6 +102,102 @@ const NotesList = memo(function NotesList({ notes, activeId, onOpen, onDelete, c
   )
 })
 
+async function shareNoteAsImage(title: string, body: string, startedAt: string | null) {
+  const canvas = document.createElement('canvas')
+  const width = 1080
+  const padding = 104
+  const contentWidth = width - padding * 2
+  const titleFont = '700 66px Georgia, serif'
+  const bodyFont = '42px Georgia, serif'
+  const lineHeight = 68
+  const context = canvas.getContext('2d')
+  if (!context) return
+
+  context.font = bodyFont
+  const source = body.replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1').replace(/[\x60*_>#]/g, '').replace(/\r\n/g, '\n')
+  const lines: string[] = []
+  for (const paragraph of source.split('\n')) {
+    if (!paragraph.trim()) { lines.push(''); continue }
+    let line = ''
+    for (const word of paragraph.split(/\s+/)) {
+      const candidate = line ? line + ' ' + word : word
+      if (line && context.measureText(candidate).width > contentWidth) { lines.push(line); line = word }
+      else line = candidate
+    }
+    if (line) lines.push(line)
+  }
+
+  const titleLines: string[] = []
+  context.font = titleFont
+  let titleLine = ''
+  for (const word of (title.trim() || 'Untitled').split(/\s+/)) {
+    const candidate = titleLine ? titleLine + ' ' + word : word
+    if (titleLine && context.measureText(candidate).width > contentWidth) { titleLines.push(titleLine); titleLine = word }
+    else titleLine = candidate
+  }
+  if (titleLine) titleLines.push(titleLine)
+
+  const titleHeight = titleLines.length * 82
+  const bodyHeight = Math.max(1, lines.length) * lineHeight
+  const headerHeight = 180
+  const footerHeight = 170
+  canvas.width = width
+  canvas.height = Math.min(9000, Math.max(900, padding + headerHeight + titleHeight + 58 + bodyHeight + footerHeight))
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = '#111111'
+  ctx.font = '700 32px Arial, sans-serif'
+  ctx.fillText('NOTELY.', padding, padding + 8)
+  ctx.fillStyle = '#777777'
+  ctx.font = '22px Arial, sans-serif'
+  const captured = startedAt ? new Date(startedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  ctx.fillText('CAPTURED  ·  ' + captured, padding, padding + 58)
+  ctx.fillStyle = '#111111'
+  ctx.font = titleFont
+  let y = padding + headerHeight
+  for (const line of titleLines) { ctx.fillText(line, padding, y); y += 82 }
+  y += 58
+  ctx.fillStyle = '#444444'
+  ctx.font = bodyFont
+  for (const line of lines) {
+    if (line) ctx.fillText(line, padding, y)
+    y += lineHeight
+    if (y > canvas.height - footerHeight) break
+  }
+  const footerY = canvas.height - 72
+  ctx.strokeStyle = '#e7e7e7'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(padding, footerY - 42)
+  ctx.lineTo(width - padding, footerY - 42)
+  ctx.stroke()
+  ctx.fillStyle = '#111111'
+  ctx.font = '700 26px Arial, sans-serif'
+  ctx.fillText('NOTELY.', padding, footerY)
+  ctx.fillStyle = '#888888'
+  ctx.font = '20px Arial, sans-serif'
+  ctx.textAlign = 'right'
+  ctx.fillText('Just write.', width - padding, footerY)
+  ctx.textAlign = 'left'
+
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
+  if (!blob) throw new Error('Could not create the note image')
+  const safeName = (title.trim() || 'note').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'note'
+  const file = new File([blob], safeName + '-notely.png', { type: 'image/png' })
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: title.trim() || 'A note from Notely' })
+    return
+  }
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = file.name
+  link.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 interface EditorProps {
   activeId: string | null
   title: string
@@ -175,6 +271,12 @@ function Editor({
             <path d="M2 10h9M3.5 12h6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
           </svg>
           <span>{isOnline ? 'Summarize' : 'AI offline'}</span>
+        </button>
+        <button className="tool-btn ai-btn share-note-btn" title="Create and share a branded note image" aria-label="Share note as image" onClick={() => { void shareNoteAsImage(title, displayBody, startedAt).catch(error => { console.error('Could not share note image:', error); window.alert('Could not create the note image. Please try again.') }) }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 16V3m0 0L7 8m5-5 5 5M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span>Share</span>
         </button>
         <button className="tool-btn ai-btn" title="Export as .txt" onClick={onExport}>
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
