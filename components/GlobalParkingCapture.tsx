@@ -48,6 +48,7 @@ export default function GlobalParkingCapture() {
 
         const syncTags = async () => {
           for (const update of await getPendingOfflineTagUpdates(ownerId).catch(() => [])) {
+            if (!active || !navigator.onLine) break
             try {
               const response = await fetch('/api/notes/' + encodeURIComponent(update.noteId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tags: update.tags }) })
               if (!response.ok) break
@@ -58,7 +59,7 @@ export default function GlobalParkingCapture() {
         await syncTags()
         // One account-scoped worker owns note, image, tag and parking queues on every route.
         for (const record of await getPendingOfflineNotes(ownerId).catch(() => [])) {
-            if (!navigator.onLine) break
+            if (!active || !navigator.onLine) break
             const note = record.note
             try {
               if (record.pendingDelete) {
@@ -83,6 +84,7 @@ export default function GlobalParkingCapture() {
               }
               const replacements = new Map<string, string>()
               for (const imageId of localIds) {
+                if (!active || !navigator.onLine) throw new Error('Sync cancelled')
                 const image = await getOfflineImage(imageId)
                 if (!image) throw new Error('Offline image is not available on this device')
                 const form = new FormData()
@@ -110,7 +112,7 @@ export default function GlobalParkingCapture() {
         // Retry tag updates after offline note creates have reached the server.
         await syncTags()
         for (const record of await getPendingParking(ownerId).catch(() => [])) {
-          if (!navigator.onLine) break
+          if (!active || !navigator.onLine) break
           if (record.pendingDelete) {
             try {
               if (!record.item.id.startsWith('local-')) {
