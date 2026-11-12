@@ -81,6 +81,13 @@ export default function GlobalParkingCapture() {
                 let response = await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
                 if (response.status === 409) response = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
                 if (!response.ok) break
+                const created = await response.json().catch(() => null) as { title?: string; body?: string; tags?: string[] } | null
+                // POST is idempotent on duplicate client IDs and may return the older server row.
+                // Reconcile it before acknowledging the local create as synced.
+                if (created && (created.title !== note.title || created.body !== createBody || JSON.stringify(created.tags ?? []) !== JSON.stringify(note.tags ?? []))) {
+                  const reconcile = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
+                  if (!reconcile.ok) break
+                }
               }
               const replacements = new Map<string, string>()
               for (const imageId of localIds) {
