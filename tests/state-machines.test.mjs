@@ -69,3 +69,20 @@ test('voice capture cannot receive results before the microphone starts', () => 
   assert.equal(transition('voice', 'listening', 'STOP'), 'stopping');
   assert.equal(transition('voice', 'stopping', 'ENDED'), 'idle');
 });
+
+test('tag, time-machine, search, archive and deployment lifecycles reject impossible edges', () => {
+  assert.equal(transition('tagSync', 'clean', 'CHANGE'), 'pending');
+  assert.equal(transition('tagSync', 'saving', 'FAILURE'), 'blocked');
+  assert.equal(transition('timeMachine', 'closed', 'OPEN'), 'choosingDate');
+  assert.equal(transition('timeMachine', 'loading', 'RESULTS'), 'results');
+  assert.equal(transition('searchFilter', 'filtering', 'EMPTY'), 'empty');
+  assert.equal(transition('memoryArchive', 'readyOffline', 'ONLINE'), 'refreshing');
+  assert.equal(transition('deploymentRefresh', 'available', 'RELOAD'), 'reloading');
+  assert.equal(canTransition('deploymentRefresh', 'current', 'RELOAD'), false);
+});
+
+test('every registered machine rejects unknown events', () => {
+  for (const [name, machine] of Object.entries(STATE_MACHINES)) {
+    assert.throws(() => transition(name, machine.initial, '__UNKNOWN_EVENT__'), /Illegal transition/);
+  }
+});
