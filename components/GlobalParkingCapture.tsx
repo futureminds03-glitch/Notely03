@@ -41,6 +41,8 @@ export default function GlobalParkingCapture() {
   useEffect(() => {
     if (!ownerId) return
     let active = true
+    const controller = new AbortController()
+    const syncFetch = (input: RequestInfo | URL, init: RequestInit = {}) => fetch(input, { ...init, signal: controller.signal })
     const sync = async () => {
       if (!navigator.onLine || !active) return
       await runOwnerSync(ownerId, async () => {
@@ -50,7 +52,7 @@ export default function GlobalParkingCapture() {
           for (const update of await getPendingOfflineTagUpdates(ownerId).catch(() => [])) {
             if (!active || !navigator.onLine) break
             try {
-              const response = await fetch('/api/notes/' + encodeURIComponent(update.noteId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tags: update.tags }) })
+              const response = await syncFetch('/api/notes/' + encodeURIComponent(update.noteId), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tags: update.tags }) })
               if (!response.ok) break
               await removeOfflineTagUpdate(ownerId, update.noteId)
             } catch { break }
@@ -63,7 +65,7 @@ export default function GlobalParkingCapture() {
             const note = record.note
             try {
               if (record.pendingDelete) {
-                const response = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'DELETE' })
+                const response = await syncFetch('/api/notes/' + encodeURIComponent(note.id), { method: 'DELETE' })
                 if (!response.ok && response.status !== 404) break
                 await removeOfflineNote(ownerId, note.id)
                 continue
@@ -78,14 +80,14 @@ export default function GlobalParkingCapture() {
               const payload = (body: string) => JSON.stringify({ id: note.id, title: note.title, body, started_at: note.started_at ?? null, tags: note.tags ?? [] })
               if (record.pendingCreate) {
                 const createBody = note.body.replace(/!\[image\]\(notely-local:[0-9a-f-]+\)/gi, '')
-                let response = await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
-                if (response.status === 409) response = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
+                let response = await syncFetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
+                if (response.status === 409) response = await syncFetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
                 if (!response.ok) break
                 const created = await response.json().catch(() => null) as { title?: string; body?: string; tags?: string[] } | null
                 // POST is idempotent on duplicate client IDs and may return the older server row.
                 // Reconcile it before acknowledging the local create as synced.
                 if (created && (created.title !== note.title || created.body !== createBody || JSON.stringify(created.tags ?? []) !== JSON.stringify(note.tags ?? []))) {
-                  const reconcile = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
+                  const reconcile = await syncFetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(createBody) })
                   if (!reconcile.ok) break
                 }
               }
@@ -97,7 +99,7 @@ export default function GlobalParkingCapture() {
                 const form = new FormData()
                 form.set('noteId', note.id)
                 form.set('file', image.blob, 'pasted-image')
-                const upload = await fetch('/api/note-images', { method: 'POST', body: form })
+                const upload = await syncFetch('/api/note-images', { method: 'POST', body: form })
                 if (!upload.ok) throw new Error('Offline image upload failed')
                 const result = await upload.json() as { path: string }
                 replacements.set(imageId, result.path)
@@ -105,7 +107,7 @@ export default function GlobalParkingCapture() {
               const resolvedBody = replaceImageMarkers(note.body, replacements)
               const updatedHistory = note.history?.map(version => ({ ...version, content: replaceImageMarkers(version.content, replacements) }))
               if (!record.pendingCreate || resolvedBody !== note.body) {
-                const response = await fetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(resolvedBody) })
+                const response = await syncFetch('/api/notes/' + encodeURIComponent(note.id), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: payload(resolvedBody) })
                 if (!response.ok) break
               }
               const latest = (await getOfflineNotes(ownerId)).find(item => item.id === note.id)
@@ -123,7 +125,7 @@ export default function GlobalParkingCapture() {
           if (record.pendingDelete) {
             try {
               if (!record.item.id.startsWith('local-')) {
-                const response = await fetch('/api/parking-lot?id=' + encodeURIComponent(record.item.id), { method: 'DELETE' })
+                const response = await syncFetch('/api/parking-lot?id=' + encodeURIComponent(record.item.id), { method: 'DELETE' })
                 if (!response.ok && response.status !== 404) break
               }
               await removeOfflineParking(ownerId, record.item.id)
@@ -131,7 +133,7 @@ export default function GlobalParkingCapture() {
             } catch { break }
           }
           try {
-            const response = await fetch('/api/parking-lot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: record.item.text, client_id: record.item.id }) })
+            const response = await syncFetch('/api/parking-lot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: record.item.text, client_id: record.item.id }) })
             if (!response.ok) break
             const saved = await response.json() as ParkingItem
             await remapOfflineParking(ownerId, record.item.id, saved)
@@ -143,7 +145,7 @@ export default function GlobalParkingCapture() {
     void sync()
     window.addEventListener('online', sync)
     window.addEventListener('notely:sync-requested', sync)
-    return () => { active = false; window.removeEventListener('online', sync); window.removeEventListener('notely:sync-requested', sync) }
+    return () => { active = false; controller.abort(); window.removeEventListener('online', sync); window.removeEventListener('notely:sync-requested', sync) }
   }, [ownerId])
 
   useEffect(() => {
