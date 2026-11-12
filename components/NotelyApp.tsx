@@ -401,7 +401,82 @@ export default function NotelyApp() {
 
   useEffect(() => {
     if (!user) return
-    const sync = () => { if (navigator.onLine) requestOfflineSync(); window.history.replaceState({}, '', '/') }
+    const sync = () => { if (navigator.onLine) requestOfflineSync() }
+    window.addEventListener('online', sync)
+    if (navigator.onLine) sync()
+    return () => window.removeEventListener('online', sync)
+  }, [user])
+
+  useEffect(() => {
+    const flushDraft = () => {
+      const id = activeIdRef.current
+      if (!id) return
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current)
+        saveTimer.current = null
+      }
+      if (userRef.current) {
+        const existing = notesRef.current.find(note => note.id === id)
+        if (!existing) return
+        const ownerId = userRef.current.id
+        const localNote = {
+          ...existing,
+          ...activeDraftRef.current,
+          updated_at: new Date().toISOString(),
+          synced: false,
+        }
+        void saveOfflineNote(ownerId, localNote, { pendingCreate: existing.pendingCreate })
+          .then(() => { if (navigator.onLine) requestOfflineSync() })
+          .catch(error => console.error('Could not flush local draft:', error))
+      } else {
+        flushGuestDraft(id)
+      }
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flushDraft()
+    }
+    window.addEventListener('pagehide', flushDraft)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('pagehide', flushDraft)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (deepLinkOpenedRef.current) return
+    const requestedNoteId = new URLSearchParams(window.location.search).get('note')
+    if (!requestedNoteId) return
+    const requestedNote = notes.find(note => note.id === requestedNoteId)
+    if (!requestedNote) return
+    deepLinkOpenedRef.current = true
+    openNote(requestedNote)
+  }, [notes])
+  useEffect(() => { activeDraftRef.current = { title, body } }, [title, body])
+
+  useEffect(() => {
+    const initialAuthGeneration = authGenerationRef.current
+    supabase.auth.getUser().then(({ data }) => {
+      // The auth event listener wins if auth changed while getUser was pending.
+      if (authGenerationRef.current !== initialAuthGeneration) return
+      userRef.current = data.user
+      setUser(data.user)
+      setAuthReady(true)
+    }).catch(() => setAuthReady(true))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      authGenerationRef.current += 1
+      userRef.current = session?.user ?? null
+      setUser(session?.user ?? null)
+      setAuthReady(true)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const noteId = new URLSearchParams(window.location.search).get('note')
+    if (!noteId) return
+    const target = notes.find(note => note.id === noteId)
+    if (target) { openNote(target); window.history.replaceState({}, '', '/') }
   }, [notes])
 
   useEffect(() => {
@@ -533,7 +608,41 @@ export default function NotelyApp() {
       setNotes(merged)
       notesRef.current = merged
       if (merged.length > 0 && !merged.some(note => note.id === activeIdRef.current)) openNote(merged[0])
-      if (navigator.onLine) requestOfflineSync(); historyTimer.current = null }
+      if (navigator.onLine) requestOfflineSync()
+      if (merged.length === 0) clearEditor()
+    } catch (error) {
+      console.error('Failed to load cloud notes:', error)
+    }
+  }
+
+  function requestOfflineSync() {
+    if (navigator.onLine) window.dispatchEvent(new Event('notely:sync-requested'))
+  }
+
+  function flushGuestDraft(id: string) {
+    const draft = activeDraftRef.current
+    saveSequenceRef.current[id] = (saveSequenceRef.current[id] ?? 0) + 1
+    const flushed = notesRef.current.map(existing => existing.id === id
+      ? { ...existing, ...draft, updated_at: new Date().toISOString(), synced: false }
+      : existing
+    )
+    notesRef.current = flushed
+    setNotes(flushed)
+    saveGuest(flushed)
+  }
+
+  function openNote(note: Note) {
+    const previousId = activeIdRef.current
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current)
+      saveTimer.current = null
+      if (previousId?.startsWith('temp-') && !userRef.current) {
+        flushGuestDraft(previousId)
+      } else if (previousId && !previousId.startsWith('temp-')) {
+        void doSave(previousId, activeDraftRef.current.title, activeDraftRef.current.body, startedAtRef.current)
+      }
+    }
+    if (historyTimer.current) { clearTimeout(historyTimer.current); historyTimer.current = null }
     dirtyFieldsRef.current = { title: false, body: false }
     activeIdRef.current = note.id
     startedAtRef.current = note.started_at || null
@@ -630,7 +739,230 @@ export default function NotelyApp() {
           notesRef.current = updated
           return updated
         })
-        if (navigator.onLine) requestOfflineSync() {
+        if (navigator.onLine) requestOfflineSync()
+      }
+      // Serialize writes per note so an older request can never finish after and overwrite a newer draft.
+      if (sequence !== saveSequenceRef.current[id]) return
+      setNotes(prev => {
+        const updated = prev.map(n =>
+          n.id === id
+            ? { ...n, title: t, body: b, started_at: sa ?? undefined, updated_at: now, synced: !userRef.current }
+            : n
+        )
+        notesRef.current = updated
+        if (!userRef.current) saveGuest(updated)
+        return updated
+      })
+      if (activeIdRef.current === id) {
+        setSaveStatus('saved')
+        if (activeDraftRef.current.title === t && activeDraftRef.current.body === b) {
+          dirtyFieldsRef.current = { title: false, body: false }
+        }
+      }
+    }
+
+    const previous = saveQueueRef.current[id] ?? Promise.resolve()
+    const queued = previous.catch(() => undefined).then(runSave)
+    saveQueueRef.current[id] = queued
+    try {
+      await queued
+    } finally {
+      if (saveQueueRef.current[id] === queued) delete saveQueueRef.current[id]
+    }
+  }, [])
+
+  function scheduleSave(t: string, b: string, sa: string | null) {
+    const id = activeIdRef.current
+    if (!id) return
+    setSaveStatus('saving')
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => { void doSave(id, t, b, sa) }, 300)
+  }
+
+  function addToHistory(b: string) {
+    const noteId = activeIdRef.current
+    if (!noteId) return
+    if (historyTimer.current) clearTimeout(historyTimer.current)
+    historyTimer.current = setTimeout(() => {
+      setHistory(prev => {
+        const last = prev[prev.length - 1]
+        if (last?.content === b) return prev
+        const next = [...prev, { content: b, timestamp: Date.now() }]
+        const updated = notesRef.current.map(note =>
+          note.id === noteId ? { ...note, history: next } : note
+        )
+        notesRef.current = updated
+        setNotes(updated)
+        if (!userRef.current) saveGuest(updated)
+        return next
+      })
+    }, 1000)
+  }
+
+  function onTitleChange(v: string) {
+    let sa = startedAtRef.current
+    if (!sa) {
+      sa = new Date().toISOString()
+      startedAtRef.current = sa
+      setStartedAt(sa)
+    }
+    setTitle(v)
+    dirtyFieldsRef.current.title = true
+    activeDraftRef.current.title = v
+    const draftId = activeIdRef.current
+    if (draftId) draftByIdRef.current[draftId] = { ...activeDraftRef.current }
+    scheduleSave(v, activeDraftRef.current.body, sa)
+  }
+
+  function onBodyChange(v: string) {
+    let sa = startedAtRef.current
+    if (!sa) {
+      sa = new Date().toISOString()
+      startedAtRef.current = sa
+      setStartedAt(sa)
+    }
+    setBody(v)
+    dirtyFieldsRef.current.body = true
+    activeDraftRef.current.body = v
+    const draftId = activeIdRef.current
+    if (draftId) draftByIdRef.current[draftId] = { ...activeDraftRef.current }
+    setWordCount(v.trim() ? v.trim().split(/\s+/).length : 0)
+    scheduleSave(activeDraftRef.current.title, v, sa)
+    addToHistory(v)
+    setTravelIndex(-1)
+  }
+
+  function onTravel(idx: number) {
+    if (history.length === 0) return
+    setTravelIndex(Math.max(0, Math.min(idx, history.length - 1)))
+  }
+
+  function onRestoreVersion() {
+    if (travelIndex < 0 || !history[travelIndex]) return
+    const restored = history[travelIndex].content
+    setBody(restored)
+    activeDraftRef.current.body = restored
+    dirtyFieldsRef.current.body = true
+    const draftId = activeIdRef.current
+    if (draftId) draftByIdRef.current[draftId] = { ...activeDraftRef.current }
+    setWordCount(restored.trim() ? restored.trim().split(/\s+/).length : 0)
+    setTravelIndex(-1)
+    scheduleSave(activeDraftRef.current.title, restored, startedAtRef.current)
+    addToHistory(restored)
+  }
+
+  const onTitleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) {
+        mobileBodyRef.current?.focus()
+      } else {
+        bodyRef.current?.focus()
+      }
+    }
+  }, [])
+
+  const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+
+    const wasActive = activeIdRef.current === id
+    if (wasActive) {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      saveTimer.current = null
+      if (historyTimer.current) clearTimeout(historyTimer.current)
+      historyTimer.current = null
+    }
+    const previousNotes = notesRef.current
+    const deletedNote = previousNotes.find(note => note.id === id)
+    if (!deletedNote) return
+
+    const updated = previousNotes.filter(note => note.id !== id)
+
+    // Optimistic UI: remove immediately and move the editor without waiting on the network.
+    notesRef.current = updated
+    setNotes(updated)
+    if (!userRef.current) saveGuest(updated)
+
+    if (wasActive) {
+      if (updated.length > 0) openNote(updated[0])
+      else {
+        clearEditor()
+        setMobileView('list')
+      }
+    }
+
+    if (!userRef.current || id.startsWith('temp-')) return
+
+    try {
+      await markOfflineNoteDeleted(userRef.current.id, id)
+      if (navigator.onLine) requestOfflineSync()
+    } catch (error) {
+      console.error('Could not queue note deletion:', error)
+      setSaveStatus('error')
+    }
+  }, [])
+
+  async function handleSummarize() {
+    if (!body.trim()) return
+    const approved = window.confirm('AI summary privacy notice: if AI is enabled, Notely sends this note title and text to Groq to generate the summary. Continue?')
+    if (!approved) return
+    const noteId = activeIdRef.current
+    const sourceTitle = title
+    const sourceBody = body
+    const sourceStartedAt = startedAtRef.current
+    if (!noteId) return
+    setAiStatus('✦ Summarizing…')
+    try {
+      const response = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: sourceTitle, body: sourceBody, aiConsent: true })
+      })
+      const data = await response.json().catch(() => ({}))
+      if (activeIdRef.current !== noteId) return
+      if (!response.ok) {
+        const message = response.status === 503
+          ? '✦ AI summaries are paused for now.'
+          : (typeof data.error === 'string' ? data.error : '✦ Could not generate summary. Try again.')
+        setAiStatus(message)
+        setTimeout(() => setAiStatus(''), 4000)
+        return
+      }
+      if (activeDraftRef.current.title !== sourceTitle || activeDraftRef.current.body !== sourceBody) {
+        setAiStatus('✦ Note changed while summarizing. Try again.')
+        setTimeout(() => setAiStatus(''), 4000)
+        return
+      }
+      const summary = data.summary || 'Could not generate summary.'
+      const newBody = sourceBody + '\n\n─── AI Summary ───\n' + summary
+      setBody(newBody)
+      activeDraftRef.current = { title: sourceTitle, body: newBody }
+      dirtyFieldsRef.current.body = true
+      draftByIdRef.current[noteId] = { title: sourceTitle, body: newBody }
+      setWordCount(newBody.trim().split(/\s+/).length)
+      scheduleSave(sourceTitle, newBody, sourceStartedAt)
+      addToHistory(newBody)
+      setAiStatus('✦ Summary added below your note')
+      setTimeout(() => setAiStatus(''), 3000)
+    } catch {
+      if (activeIdRef.current === noteId) {
+        setAiStatus('✦ Could not connect. Try again.')
+        setTimeout(() => setAiStatus(''), 3000)
+      }
+    }
+  }
+
+  function handleExport() { exportTxt(title, body, startedAt) }
+
+  async function handleAuth() {
+    setAuthError('')
+    if (authMode === 'signup' && !termsAccepted) {
+      setAuthError('Please accept the Terms of Service and acknowledge the Privacy Policy to create an account.')
+      return
+    }
+    setAuthLoading(true)
+    let error
+    if (authMode === 'signup') {
       ;({ error } = await supabase.auth.signUp({
         email,
         password,
