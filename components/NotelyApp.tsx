@@ -4,7 +4,7 @@ import DeploymentRefresh from '@/components/DeploymentRefresh'
 
 import { memo, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase-client'
-import { cacheSyncedOfflineNote, getOfflineNotes, markOfflineNoteDeleted, saveOfflineNote } from '@/lib/offline-notes'
+import { cacheSyncedOfflineNote, getOfflineNotes, getPendingOfflineNotes, markOfflineNoteDeleted, saveOfflineNote } from '@/lib/offline-notes'
 import type { User } from '@supabase/supabase-js'
 import NoteBodyEditor from '@/components/NoteBodyEditor'
 
