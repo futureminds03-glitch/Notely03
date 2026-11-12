@@ -3,8 +3,8 @@ import MemoryLoading from '@/components/MemoryLoading'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
-import { cacheOfflineParking, getOfflineParking, getPendingParking, markParkingDeleted, remapOfflineParking, removeOfflineParking, saveOfflineParking } from '@/lib/offline-workspace'
-import { getOfflineNotes, getPendingOfflineNotes, markOfflineNoteSynced, removeOfflineNote, cacheSyncedOfflineNote } from '@/lib/offline-notes'
+import { cacheOfflineParking, getOfflineParking, markParkingDeleted, remapOfflineParking, removeOfflineParking, saveOfflineParking } from '@/lib/offline-workspace'
+import { getOfflineNotes, cacheSyncedOfflineNote } from '@/lib/offline-notes'
 
 type Note={id:string;title:string;body:string;created_at:string;updated_at:string;started_at?:string;tags?:string[];synced?:boolean}
 type ParkingItem={id:string;text:string;createdAt:string;synced?:boolean}
