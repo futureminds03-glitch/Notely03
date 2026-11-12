@@ -19,6 +19,19 @@ test('every transition target is a registered state', () => {
   }
 });
 
+test('every declared legal edge executes and every undeclared edge is rejected', () => {
+  for (const [name, machine] of Object.entries(STATE_MACHINES)) {
+    for (const [state, events] of Object.entries(machine.transitions)) {
+      for (const [event, target] of Object.entries(events)) {
+        assert.equal(transition(name, state, event), target, name + '.' + state + ' --' + event);
+        assert.equal(canTransition(name, state, event), true, name + '.' + state + ' --' + event);
+      }
+      assert.equal(canTransition(name, state, '__NOT_DECLARED__'), false, name + '.' + state);
+      assert.throws(() => transition(name, state, '__NOT_DECLARED__'), /Illegal transition/);
+    }
+  }
+});
+
 test('note sync lifecycle supports create, update, delete and conflict recovery', () => {
   assert.equal(transition('noteSync', 'clean', 'CREATE'), 'pendingCreate');
   assert.equal(transition('noteSync', 'pendingCreate', 'START'), 'creating');
