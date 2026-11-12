@@ -4,7 +4,7 @@ import MemoryLoading from '@/components/MemoryLoading'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
-import { cacheSyncedOfflineNote, getOfflineNotes, getPendingOfflineNotes, markOfflineNoteSynced, removeOfflineNote, saveOfflineNote, updateCachedOfflineNote } from '@/lib/offline-notes'
+import { cacheSyncedOfflineNote, getOfflineNotes, saveOfflineNote, updateCachedOfflineNote } from '@/lib/offline-notes'
 import { removeOfflineTagUpdate, saveOfflineTagUpdate } from '@/lib/offline-workspace'
 
 type Note = { id:string; title:string; body:string; created_at:string; updated_at:string; started_at?:string; tags?:string[]; synced?:boolean }
