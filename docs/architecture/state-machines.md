@@ -40,7 +40,7 @@ Notation: `A --event--> B`. Any edge not listed in the executable registry is il
 3. A stale save completion must not clear dirty flags or mark a newer draft saved.
 4. A stale AI result must not mutate a note after its note ID or source content changes.
 5. A realtime event must not overwrite locally pending or dirty fields.
-6. A note create conflict (same client ID already exists) must resolve to an update/reconciliation path, not an endless create retry.
+6. A note create conflict (same client ID already exists) must reconcile the server row against the latest local payload before the outbox entry is acknowledged; it must not silently accept stale server content or loop on create.
 7. A failed sync item must remain pending/blocked and observable; it must not be silently discarded or marked synced.
 8. Local image markers may be replaced with remote paths only if the source note/version has not changed during upload.
 9. A version restore is not complete until the restored content has been persisted.
@@ -63,6 +63,7 @@ Notation: `A --event--> B`. Any edge not listed in the executable registry is il
 ### Phase 2 — Shared sync coordinator — implemented
 
 - Added `lib/offline-sync-coordinator.js`: owner-scoped serialized execution, independent owner lanes, and a follow-up pass when a trigger arrives during an active run.
+- Hardened idempotent create reconciliation: if a retried create returns an existing server row with stale content, the shared worker patches it before marking the local item synced.
 - Promoted the root-layout `GlobalParkingCapture` service to the single durable queue worker for notes, image uploads, tag updates and Thought Inbox records on every route.
 - Removed independent note-sync loops from NotelyApp, NotelyFlow and MemoryStudio. Those surfaces now request a sync pass; they no longer own separate queue workers.
 - Kept the existing durable IndexedDB stores and domain-specific adapters. This avoids changing the storage schema or risking offline data during the scheduler consolidation.
