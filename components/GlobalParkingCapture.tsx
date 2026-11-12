@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { runOwnerSync } from '@/lib/offline-sync-coordinator.js'
 import { createClient } from '@/lib/supabase-client'
 import { getPendingOfflineTagUpdates, getPendingParking, remapOfflineParking, removeOfflineParking, removeOfflineTagUpdate, saveOfflineParking } from '@/lib/offline-workspace'
 import { getOfflineNotes, getPendingOfflineNotes, markOfflineNoteSynced, removeOfflineNote, updateCachedOfflineNote } from '@/lib/offline-notes'
@@ -21,7 +21,6 @@ function readLocalParking(): ParkingItem[] {
 }
 
 export default function GlobalParkingCapture() {
-  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -41,11 +40,12 @@ export default function GlobalParkingCapture() {
 
   useEffect(() => {
     if (!ownerId) return
-    let syncing = false
+    let active = true
     const sync = async () => {
-      if (!navigator.onLine || syncing) return
-      syncing = true
-      try {
+      if (!navigator.onLine || !active) return
+      await runOwnerSync(ownerId, async () => {
+        if (!navigator.onLine || !active) return
+
         const syncTags = async () => {
           for (const update of await getPendingOfflineTagUpdates(ownerId).catch(() => [])) {
             try {
@@ -56,10 +56,8 @@ export default function GlobalParkingCapture() {
           }
         }
         await syncTags()
-        // The home editor owns its richer sync flow while mounted. Elsewhere this global
-        // manager flushes queued notes, images and deletions without requiring a route change.
-        if (pathname !== '/') {
-          for (const record of await getPendingOfflineNotes(ownerId).catch(() => [])) {
+        // One account-scoped worker owns note, image, tag and parking queues on every route.
+        for (const record of await getPendingOfflineNotes(ownerId).catch(() => [])) {
             if (!navigator.onLine) break
             const note = record.note
             try {
@@ -108,7 +106,6 @@ export default function GlobalParkingCapture() {
               await markOfflineNoteSynced(ownerId, { ...syncedVersion, synced: true, pendingCreate: false })
               await Promise.all(localIds.map(removeOfflineImage))
             } catch { break }
-          }
         }
         // Retry tag updates after offline note creates have reached the server.
         await syncTags()
@@ -132,15 +129,13 @@ export default function GlobalParkingCapture() {
             window.dispatchEvent(new CustomEvent('notely:parking-updated', { detail: saved }))
           } catch { break }
         }
-      } finally {
-        syncing = false
-      }
+      })
     }
     void sync()
     window.addEventListener('online', sync)
     window.addEventListener('notely:sync-requested', sync)
-    return () => { window.removeEventListener('online', sync); window.removeEventListener('notely:sync-requested', sync) }
-  }, [ownerId, pathname])
+    return () => { active = false; window.removeEventListener('online', sync); window.removeEventListener('notely:sync-requested', sync) }
+  }, [ownerId])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
