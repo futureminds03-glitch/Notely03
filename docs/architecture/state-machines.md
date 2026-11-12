@@ -12,6 +12,7 @@ Notation: `A --event--> B`. Any edge not listed in the executable registry is il
 | Workspace hydration | loading → hydrating/cloudLoading; hydrating → cloudLoading/readyOffline/ready/error; cloudLoading → ready/readyOffline/cancelled; ready ↔ readyOffline; ready → syncing → ready/readyOffline | Page-level effects in all three screens |
 | Note lifecycle | new → draft/active; active → dirty/saving/deleting/closed; dirty → saving/closing/deleting; saving → active/dirty/saveError/deleting; deleting → deleted/active | NotelyApp editor |
 | Autosave queue | idle → queued → running; running → idle/failed/queued; failed → queued/idle | NotelyApp debounce, per-note promise queue, save sequence refs |
+| Async AI request | idle → running → succeeded/failed/cancelled/stale; failed → retry; terminal → reset | AI summaries, Brain Dump organisation and Smart Recall request generations |
 | Note sync | clean → pendingCreate/pendingUpdate/pendingDelete; pending* → creating/updating/deleting; in-flight → clean/blocked/pendingDelete; blocked → retry/discard | offline-notes.ts + NotelyApp + NotelyFlow + MemoryStudio |
 | Parking sync | clean → pendingCreate/pendingDelete; pending → creating/deleting; in-flight → clean/blocked/pendingDelete; blocked → retry/discard | offline-workspace.ts + NotelyFlow + GlobalParkingCapture |
 | Image sync | local → uploading → remote → complete; uploading → blocked/local; blocked → uploading/discarded | NotelyApp image resolver + offline-images.ts |
