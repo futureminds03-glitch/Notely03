@@ -13,9 +13,9 @@ Notation: `A --event--> B`. Any edge not listed in the executable registry is il
 | Note lifecycle | new → draft/active; active → dirty/saving/deleting/closed; dirty → saving/closing/deleting; saving → active/dirty/saveError/deleting; deleting → deleted/active | NotelyApp editor |
 | Autosave queue | idle → queued → running; running → idle/failed/queued; failed → queued/idle | NotelyApp debounce, per-note promise queue, save sequence refs |
 | Async AI request | idle → running → succeeded/failed/cancelled/stale; failed → retry; terminal → reset | AI summaries, Brain Dump organisation and Smart Recall request generations |
-| Note sync | clean → pendingCreate/pendingUpdate/pendingDelete; pending* → creating/updating/deleting; in-flight → clean/blocked/pendingDelete; blocked → retry/discard | offline-notes.ts + NotelyApp + NotelyFlow + MemoryStudio |
-| Parking sync | clean → pendingCreate/pendingDelete; pending → creating/deleting; in-flight → clean/blocked/pendingDelete; blocked → retry/discard | offline-workspace.ts + NotelyFlow + GlobalParkingCapture |
-| Image sync | local → uploading → remote → complete; uploading → blocked/local; blocked → uploading/discarded | NotelyApp image resolver + offline-images.ts |
+| Note sync | clean → pendingCreate/pendingUpdate/pendingDelete; pending* → creating/updating/deleting; in-flight → clean/blocked/pendingDelete; blocked → retry/discard | Single owner-scoped worker in GlobalParkingCapture; durable records in offline-notes.ts |
+| Parking sync | clean → pendingCreate/pendingDelete; pending → creating/deleting; in-flight → clean/blocked/pendingDelete; blocked → retry/discard | Single owner-scoped worker in GlobalParkingCapture; durable records in offline-workspace.ts |
+| Image sync | local → uploading → remote → complete; uploading → blocked/local; blocked → uploading/discarded | GlobalParkingCapture queue worker + offline-images.ts; online editor uploads remain in NoteBodyEditor |
 | Realtime reconciliation | disconnected → subscribing → connected; connected → reconciling → connected; disconnect from connected/reconciling | Supabase channel in NotelyApp |
 | Version history | followingLatest → browsing → restoring → followingLatest; browsing → followingLatest | NotelyApp history timer, travel index, restore |
 | Voice capture | idle → starting → listening → stopping → idle; error → starting/idle | NotelyFlow SpeechRecognition |
@@ -25,7 +25,7 @@ Notation: `A --event--> B`. Any edge not listed in the executable registry is il
 | Smart Recall | idle → searching → ranked/empty/failed → opened; retry/search from result states | MemoryStudio API and local ranking |
 | Memory indexing | idle → indexing → progress/complete/failed/cancelled; retry/reindex | memory-engine and note API routes |
 | Thought connections | unselected → selected → matching → results/empty/failed | MemoryStudio related-source state |
-| Tag update | clean → locally changed → pending → sending → synced/blocked | offline-workspace tagUpdates store + MemoryStudio |
+| Tag update | clean → locally changed → pending → sending → synced/blocked | GlobalParkingCapture queue worker + offline-workspace tagUpdates store; UI surfaces enqueue changes |
 | Mobile navigation | list → editor → list | NotelyApp mobileView |
 | Time Machine | closed → open → date selection → results → note opened/closed | NotelyApp time machine state |
 | Link capture | empty → fetching → extracted → analysing → preview → saving → complete; retry/reset on failure | Flow links route |
@@ -56,10 +56,10 @@ Notation: `A --event--> B`. Any edge not listed in the executable registry is il
 ### Phase 1 — Contract and regression baseline — implemented
 
 - Define explicit transition tables and forbidden edges.
-- Test every transition target and key create/update/delete, conflict, retry, cancellation and stale-response paths.
+- Test every declared legal edge, reject every undeclared edge, and cover key create/update/delete, conflict, retry, cancellation and stale-response paths.
 - Keep this registry framework-independent so tests run with Node's built-in test runner.
 - Added executable transition contracts and Node built-in regression tests for legal edges, illegal edges, async cancellation, stale AI results, tombstones, retries and workspace recovery.
-- Added a GitHub Actions quality workflow for `npm test` and `npm run typecheck`.
+- Added a GitHub Actions quality workflow for `pnpm test` and `pnpm typecheck`.
 
 ### Phase 2 — Shared sync coordinator — implemented
 
@@ -76,6 +76,8 @@ Notation: `A --event--> B`. Any edge not listed in the executable registry is il
 - UI state remains local; a unified visible sync snapshot is a follow-up enhancement, not required for worker exclusivity.
 
 ### Phase 4 — Runtime verification — in progress
+
+- The regression suite exhaustively executes all 319 declared legal edges and checks that undeclared edges are rejected.
 - Exercise guest/authenticated, online/offline, reload, account-switch, create/update/delete races, duplicate create, image upload failure, tag update, and parking promotion.
 - Run unit tests, typecheck, production build and browser E2E before merge or deployment.
 
