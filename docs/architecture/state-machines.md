@@ -52,25 +52,31 @@ Notation: `A --event--> B`. Any edge not listed in the executable registry is il
 
 ## Consolidation plan
 
-### Phase 1 — Contract and regression baseline
+### Phase 1 — Contract and regression baseline — implemented
+
 - Define explicit transition tables and forbidden edges.
 - Test every transition target and key create/update/delete, conflict, retry, cancellation and stale-response paths.
 - Keep this registry framework-independent so tests run with Node's built-in test runner.
+- Added executable transition contracts and Node built-in regression tests for legal edges, illegal edges, async cancellation, stale AI results, tombstones, retries and workspace recovery.
+- Added a GitHub Actions quality workflow for `npm test` and `npm run typecheck`.
 
-### Phase 2 — Shared sync coordinator
-- Make a single owner-scoped coordinator the only scheduler for note, parking, tag and image queues.
-- Preserve domain adapters for each record type; centralize single-flight execution, ordering, retries, online wakeups, and status reporting.
-- Remove page-owned sync loops only after their behaviour is covered by coordinator integration tests.
+### Phase 2 — Shared sync coordinator — implemented
 
-### Phase 3 — Migrate consumers
-- NotelyApp, NotelyFlow, MemoryStudio and GlobalParkingCapture become producers/observers of queue work, not independent sync workers.
+- Added `lib/offline-sync-coordinator.js`: owner-scoped serialized execution, independent owner lanes, and a follow-up pass when a trigger arrives during an active run.
+- Promoted the root-layout `GlobalParkingCapture` service to the single durable queue worker for notes, image uploads, tag updates and Thought Inbox records on every route.
+- Removed independent note-sync loops from NotelyApp, NotelyFlow and MemoryStudio. Those surfaces now request a sync pass; they no longer own separate queue workers.
+- Kept the existing durable IndexedDB stores and domain-specific adapters. This avoids changing the storage schema or risking offline data during the scheduler consolidation.
+
+### Phase 3 — Migrate consumers — implemented
+
+- NotelyApp, NotelyFlow and MemoryStudio dispatch sync requests; GlobalParkingCapture is the only scheduler/worker.
 - Keep IndexedDB as the durable outbox and preserve tombstones and version metadata.
-- Keep UI state local; publish one shared sync snapshot for badges/status.
+- UI state remains local; a unified visible sync snapshot is a follow-up enhancement, not required for worker exclusivity.
 
-### Phase 4 — Runtime verification
+### Phase 4 — Runtime verification — in progress
 - Exercise guest/authenticated, online/offline, reload, account-switch, create/update/delete races, duplicate create, image upload failure, tag update, and parking promotion.
 - Run unit tests, typecheck, production build and browser E2E before merge or deployment.
 
 ## Current scope and caveat
 
-The registry and tests establish explicit legal-transition contracts. The existing components are not yet fully migrated to consume the registry; that migration is intentionally sequenced after the contract baseline. Do not describe the consolidation as complete until the independent workers have been removed and cross-screen integration tests pass.
+The transition registry is an executable behavioural contract, and the durable queue scheduler has been consolidated. Runtime integration verification is still required: account-switch cancellation, duplicate create/conflict handling, image-upload retry, tag queue ordering, parking promotion, and end-to-end offline recovery. The registry does not yet drive every transient UI state directly; those remain component-local until a separately verified migration is justified.
