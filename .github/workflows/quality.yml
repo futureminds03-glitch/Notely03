@@ -20,6 +20,48 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test
-      - run: pnpm typecheck
+      - id: install
+        name: Install dependencies
+        run: |
+          set +e
+          pnpm install --frozen-lockfile > install.log 2>&1
+          code=$?
+          cat install.log
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - id: tests
+        name: State-machine regression tests
+        if: steps.install.outputs.exit_code == '0'
+        run: |
+          set +e
+          pnpm test > state-machine-tests.log 2>&1
+          code=$?
+          cat state-machine-tests.log
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - id: typecheck
+        name: TypeScript check
+        if: steps.install.outputs.exit_code == '0'
+        run: |
+          set +e
+          pnpm typecheck > typecheck.log 2>&1
+          code=$?
+          cat typecheck.log
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: state-machine-quality-diagnostics
+          path: |
+            install.log
+            state-machine-tests.log
+            typecheck.log
+          if-no-files-found: ignore
+      - name: Enforce checks
+        if: always()
+        run: |
+          test "${{ steps.install.outputs.exit_code }}" = "0"
+          test "${{ steps.tests.outputs.exit_code }}" = "0"
+          test "${{ steps.typecheck.outputs.exit_code }}" = "0"
