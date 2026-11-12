@@ -581,7 +581,7 @@ export default function NotelyApp() {
     notesRef.current = updated
     setNotes(updated)
     if (!userRef.current) saveGuest(updated)
-    else void saveOfflineNote(userRef.current.id, tempNote, { pendingCreate: true }).then(() => syncPendingNotes(userRef.current!.id)).catch(error => console.error('Could not queue new note:', error))
+    else void saveOfflineNote(userRef.current.id, tempNote, { pendingCreate: true }).then(() => requestOfflineSync()).catch(error => console.error('Could not queue new note:', error))
     openNote(tempNote)
     setTimeout(() => {
       // The editor may already be focused by the time this deferred focus runs.
