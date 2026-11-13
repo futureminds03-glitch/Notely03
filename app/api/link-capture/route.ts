@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { readJsonBody } from '@/lib/request-body'
 import { safeFetchHtml } from '@/lib/safe-url-fetch'
 import { buildExtractiveAnalysis, extractLinkPage, type ExtractedLinkPage } from '@/lib/link-extractor'
 
@@ -51,8 +52,11 @@ async function analyze(page: ExtractedLinkPage, allowAI: boolean) {
 }
 
 export async function POST(request: Request) {
-  let payload: unknown
-  try { payload = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON request body.' }, { status: 400 }) }
+  const bodyResult = await readJsonBody(request)
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status })
+  }
+  const payload = bodyResult.value
   const input = typeof payload === 'object' && payload !== null ? (payload as { url?: unknown }).url : null
   const useAI = typeof payload === 'object' && payload !== null && (payload as { useAI?: unknown }).useAI === true
   if (typeof input !== 'string' || !input.trim()) return NextResponse.json({ error: 'Paste a webpage URL to capture it.' }, { status: 400 })
