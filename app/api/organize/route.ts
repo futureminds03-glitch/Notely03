@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server'
+import { readJsonBody } from '@/lib/request-body'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
   try {
-    let payload: unknown
-    try { payload = await request.json() } catch {
-      return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
+    const bodyResult = await readJsonBody(request)
+    if (!bodyResult.ok) {
+      return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status })
     }
+    const payload = bodyResult.value
     const text = typeof payload === 'object' && payload !== null ? (payload as { text?: unknown }).text : null
     const aiConsent = typeof payload === 'object' && payload !== null ? (payload as { aiConsent?: unknown }).aiConsent : false
     if (typeof text !== 'string' || !text.trim()) {
