@@ -81,7 +81,8 @@ body { height: 100%; font-family: Georgia, serif; color: var(--ink); background:
 .ai-btn { color: var(--ink-light); padding: 5px 10px; }
 .ai-btn:hover:not(:disabled) { background: var(--accent-faint); color: var(--accent); }
 
-.word-count { font-size: 10.5px; color: var(--ink-faint); }
+.word-count, .character-count { font-size: 10.5px; color: var(--ink-faint); white-space: nowrap; }
+.character-count { margin-left: 2px; }
 .save-status { font-size: 10px; color: var(--ink-faint); transition: color 0.3s; white-space: nowrap; }
 .save-status.saved { color: #526b3a; }
 
