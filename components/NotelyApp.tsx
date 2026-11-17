@@ -185,6 +185,7 @@ function Editor({
         </button>
         <div className="tool-sep" />
         <span className="word-count" style={{ marginLeft: 'auto' }}>{wordCount}w</span>
+        <span className="character-count" aria-label={`${displayBody.length} characters`}>{displayBody.length} chars</span>
         <span className={`save-status ${saveStatus}`} aria-live="polite">
           {saveStatus === 'saved' ? '● saved' : saveStatus === 'error' ? '● save failed' : '○ saving…'}
         </span>
